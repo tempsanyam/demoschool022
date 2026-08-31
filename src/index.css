@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-main: #F8FAF8;
+  --card-bg: #FFFFFF;
+  --text-primary: #17211C;
+  --border-color: #D9E2DD;
+  --primary: #0B6B4B;
+  --secondary: #FF7A00;
+}
+
+.dark {
+  --bg-main: #0F1714;
+  --card-bg: #16211D;
+  --text-primary: #F4F7F5;
+  --text-muted: #B8C4BE;
+  --border-color: #2B3A34;
+  --primary: #19A974;
+  --secondary: #FF8A1F;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif;
+  }
+}
+
+.unicode-safe,
+.print-report-container,
+.print-report-container * {
+  font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 10mm 12mm 10mm;
+  }
+
+  body.print-landscape {
+    @page {
+      size: A4 landscape;
+      margin: 10mm 10mm 12mm 10mm;
+    }
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide screen elements */
+  .no-print,
+  nav,
+  aside,
+  header,
+  footer:not(.print-footer),
+  button:not(.print-include),
+  .modal-backdrop,
+  .toast,
+  #header-global-nav {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Table structure preservation */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  th, td {
+    padding: 4px 6px !important;
+    font-size: 9pt !important;
+    border: 1px solid #d1d5db !important;
+    word-break: break-word !important;
+  }
+
+  th {
+    background-color: #f3f4f6 !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Page break rules */
+  .page-break, .page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .avoid-break, .print-card, .profile-section {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Fix shadows & borders in print */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+

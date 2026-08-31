@@ -1,0 +1,6 @@
+{
+  "name": "जन शिक्षा केंद्र मलगुवां - संकुल प्रबंधन प्रणाली",
+  "description": "जन शिक्षा केंद्र मलगुवां संकुल शैक्षिक एवं प्रशासनिक प्रबंधन प्रणाली (Sankul Malguwa CAC & School Management System)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
