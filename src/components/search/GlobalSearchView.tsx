@@ -8,9 +8,15 @@ import {
   AlertTriangle,
   ArrowRight,
   X,
-  FileText
+  FileText,
+  BookOpen,
+  UserCheck,
+  FolderLock,
+  Utensils,
+  HeartHandshake
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface GlobalSearchViewProps {
   initialQuery?: string;
@@ -22,7 +28,7 @@ interface GlobalSearchViewProps {
   onClose?: () => void;
 }
 
-type FilterCategory = 'ALL' | 'SCHOOLS' | 'STUDENTS' | 'TEACHERS' | 'WORK' | 'COMPLAINTS';
+type FilterCategory = 'ALL' | 'SCHOOLS' | 'STUDENTS' | 'TEACHERS' | 'RASOIYA' | 'SHG' | 'WORK' | 'COMPLAINTS' | 'DOCUMENTS' | 'LITERACY';
 
 export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
   initialQuery = '',
@@ -33,7 +39,22 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
   onNavigateToTeacher,
   onClose
 }) => {
-  const { schools = [], students = [], staff = [], governmentWork = [], complaints = [], setSelectedSchoolUdise } = useData();
+  const { currentUser } = useAuth();
+  const {
+    scopedSchools = [],
+    scopedStudents = [],
+    scopedStaff = [],
+    scopedRasoiya = [],
+    scopedSHGs = [],
+    scopedWork = [],
+    scopedComplaints = [],
+    scopedDocuments = [],
+    scopedIlliteratePersons = [],
+    scopedAksharSathis = [],
+    setSelectedSchoolUdise
+  } = useData();
+
+  const isSchoolRestricted = currentUser?.role === 'SCHOOL';
 
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterCategory>('ALL');
@@ -45,33 +66,41 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
         schools: [],
         students: [],
         teachers: [],
+        rasoiya: [],
+        shgs: [],
         work: [],
         complaints: [],
+        documents: [],
+        learners: [],
+        volunteers: [],
         total: 0,
       };
     }
 
-    const matchedSchools = (schools || []).filter(
+    const matchedSchools = (scopedSchools || []).filter(
       (s) =>
-        (s?.name || '').toLowerCase().includes(q) ||
-        (s?.hindiName || '').toLowerCase().includes(q) ||
-        (s?.udise || '').includes(q) ||
-        (s?.village || '').toLowerCase().includes(q) ||
-        (s?.gramPanchayat || '').toLowerCase().includes(q)
+        !s?.isDeleted &&
+        s?.status === 'ACTIVE' &&
+        ((s?.name || '').toLowerCase().includes(q) ||
+          (s?.hindiName || '').toLowerCase().includes(q) ||
+          (s?.udise || '').includes(q) ||
+          (s?.village || '').toLowerCase().includes(q) ||
+          (s?.gramPanchayat || '').toLowerCase().includes(q))
     );
 
-    const matchedStudents = (students || []).filter(
+    const matchedStudents = (scopedStudents || []).filter(
       (st) =>
         (st?.name || '').toLowerCase().includes(q) ||
         (st?.samagraId || '').includes(q) ||
+        (st?.id || '').toLowerCase().includes(q) ||
         (st?.fatherName || '').toLowerCase().includes(q) ||
         (st?.schoolUdise || '').includes(q) ||
         (st?.class || '').toLowerCase().includes(q)
     );
 
-    const matchedStaff = (staff || []).filter(
+    const matchedStaff = (scopedStaff || []).filter(
       (stf) => {
-        const staffSchool = (schools || []).find((s) => s.udise === stf?.assignedSchoolUdise);
+        const staffSchool = (scopedSchools || []).find((s) => s.udise === stf?.assignedSchoolUdise);
         const empCode = stf?.employeeId || stf?.employeeCode || '';
         return (
           (stf?.name || '').toLowerCase().includes(q) ||
@@ -80,6 +109,11 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
           (stf?.designation || '').toLowerCase().includes(q) ||
           (stf?.subject || '').toLowerCase().includes(q) ||
           (stf?.assignedSchoolUdise || '').includes(q) ||
+          (stf?.aadhaarNumber || '').includes(q) ||
+          (stf?.voterId || '').toLowerCase().includes(q) ||
+          (stf?.caste || '').toLowerCase().includes(q) ||
+          (stf?.teacherType || '').toLowerCase().includes(q) ||
+          (stf?.currentPostingSchoolName || '').toLowerCase().includes(q) ||
           (staffSchool?.hindiName || '').toLowerCase().includes(q) ||
           (staffSchool?.name || '').toLowerCase().includes(q) ||
           (staffSchool?.village || '').toLowerCase().includes(q) ||
@@ -88,38 +122,119 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
       }
     );
 
-    const matchedWork = (governmentWork || []).filter(
+    const matchedRasoiya = (scopedRasoiya || []).filter(
+      (r) =>
+        (r?.name || '').toLowerCase().includes(q) ||
+        (r?.mobile || '').includes(q) ||
+        (r?.aadhaarNumber || '').includes(q) ||
+        (r?.caste || '').toLowerCase().includes(q) ||
+        (r?.shgName || '').toLowerCase().includes(q) ||
+        (r?.schoolUdise || '').includes(q) ||
+        (r?.id || '').toLowerCase().includes(q)
+    );
+
+    const matchedSHGs = (scopedSHGs || []).filter(
+      (s) =>
+        (s?.name || '').toLowerCase().includes(q) ||
+        (s?.presidentName || '').toLowerCase().includes(q) ||
+        (s?.presidentMobile || '').includes(q) ||
+        (s?.secretaryName || '').toLowerCase().includes(q) ||
+        (s?.secretaryMobile || '').includes(q) ||
+        (s?.registrationNumber || '').toLowerCase().includes(q) ||
+        (s?.accountNumber || '').includes(q) ||
+        (s?.schoolUdise || '').includes(q)
+    );
+
+    const matchedWork = (scopedWork || []).filter(
       (w) =>
         (w?.workName || '').toLowerCase().includes(q) ||
         (w?.orderNumber || '').toLowerCase().includes(q) ||
         (w?.department || '').toLowerCase().includes(q)
     );
 
-    const matchedComplaints = (complaints || []).filter(
+    const matchedComplaints = (scopedComplaints || []).filter(
       (c) =>
         (c?.complaintId || '').toLowerCase().includes(q) ||
         (c?.subject || '').toLowerCase().includes(q) ||
         (c?.complainantName || '').toLowerCase().includes(q)
     );
 
+    const matchedDocs = (scopedDocuments || []).filter(
+      (d) =>
+        (d?.title || '').toLowerCase().includes(q) ||
+        (d?.category || '').toLowerCase().includes(q) ||
+        (d?.schoolUdise || '').includes(q)
+    );
+
+    const matchedLearners = (scopedIlliteratePersons || []).filter(
+      (p) =>
+        (p?.name || '').toLowerCase().includes(q) ||
+        (p?.fatherOrHusbandName || '').toLowerCase().includes(q) ||
+        (p?.samagraId || '').includes(q) ||
+        (p?.schoolUdise || '').includes(q)
+    );
+
+    const matchedVolunteers = (scopedAksharSathis || []).filter(
+      (v) =>
+        (v?.name || '').toLowerCase().includes(q) ||
+        (v?.mobile || '').includes(q) ||
+        (v?.village || '').toLowerCase().includes(q) ||
+        (v?.schoolUdise || '').includes(q)
+    );
+
     const total =
       (matchedSchools?.length || 0) +
       (matchedStudents?.length || 0) +
       (matchedStaff?.length || 0) +
+      (matchedRasoiya?.length || 0) +
+      (matchedSHGs?.length || 0) +
       (matchedWork?.length || 0) +
-      (matchedComplaints?.length || 0);
+      (matchedComplaints?.length || 0) +
+      (matchedDocs?.length || 0) +
+      (matchedLearners?.length || 0) +
+      (matchedVolunteers?.length || 0);
 
     return {
       schools: matchedSchools || [],
       students: matchedStudents || [],
       teachers: matchedStaff || [],
+      rasoiya: matchedRasoiya || [],
+      shgs: matchedSHGs || [],
       work: matchedWork || [],
       complaints: matchedComplaints || [],
+      documents: matchedDocs || [],
+      learners: matchedLearners || [],
+      volunteers: matchedVolunteers || [],
       total,
     };
-  }, [query, schools, students, staff, governmentWork, complaints]);
+  }, [
+    query,
+    scopedSchools,
+    scopedStudents,
+    scopedStaff,
+    scopedRasoiya,
+    scopedSHGs,
+    scopedWork,
+    scopedComplaints,
+    scopedDocuments,
+    scopedIlliteratePersons,
+    scopedAksharSathis
+  ]);
 
   const handleSelectSchool = (udise: string) => {
+    if (isSchoolRestricted) {
+      if (currentUser?.assignedSchoolUdise) {
+        setSelectedSchoolUdise(currentUser.assignedSchoolUdise);
+        if (onSelectSchool) {
+          onSelectSchool(currentUser.assignedSchoolUdise);
+        } else if (onNavigateToSchool) {
+          onNavigateToSchool(currentUser.assignedSchoolUdise);
+        } else if (onNavigate) {
+          onNavigate('school-profile');
+        }
+      }
+      return;
+    }
     setSelectedSchoolUdise(udise);
     if (onSelectSchool) {
       onSelectSchool(udise);
@@ -193,11 +308,15 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
         <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs">
           {[
             { id: 'ALL' as FilterCategory, label: `सभी (${filteredResults.total})` },
-            { id: 'SCHOOLS' as FilterCategory, label: `विद्यालय (${filteredResults.schools.length})` },
+            ...(!isSchoolRestricted ? [{ id: 'SCHOOLS' as FilterCategory, label: `विद्यालय (${filteredResults.schools.length})` }] : []),
             { id: 'STUDENTS' as FilterCategory, label: `विद्यार्थी (${filteredResults.students.length})` },
             { id: 'TEACHERS' as FilterCategory, label: `शिक्षक/स्टाफ (${filteredResults.teachers.length})` },
+            { id: 'RASOIYA' as FilterCategory, label: `रसोइया (${filteredResults.rasoiya.length})` },
+            { id: 'SHG' as FilterCategory, label: `स्व-सहायता समूह (${filteredResults.shgs.length})` },
             { id: 'WORK' as FilterCategory, label: `शासकीय कार्य (${filteredResults.work.length})` },
             { id: 'COMPLAINTS' as FilterCategory, label: `शिकायतें (${filteredResults.complaints.length})` },
+            { id: 'DOCUMENTS' as FilterCategory, label: `दस्तावेज (${filteredResults.documents.length})` },
+            { id: 'LITERACY' as FilterCategory, label: `साक्षरता (${filteredResults.learners.length + filteredResults.volunteers.length})` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -229,8 +348,8 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Schools list */}
-              {(activeTab === 'ALL' || activeTab === 'SCHOOLS') && filteredResults.schools.length > 0 && (
+              {/* Schools list - only for CAC/Admin */}
+              {!isSchoolRestricted && (activeTab === 'ALL' || activeTab === 'SCHOOLS') && filteredResults.schools.length > 0 && (
                 <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
                   <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <SchoolIcon className="w-4 h-4 text-[#0B6B4B]" />
@@ -276,8 +395,13 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
                         className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-blue-500 cursor-pointer transition-all flex items-center justify-between"
                       >
                         <div>
-                          <div className="font-bold text-sm text-gray-900 dark:text-white">
-                            {st.name} ({st.gender}) - कक्षा {st.class}
+                          <div className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
+                            <span>{st.name} ({st.gender}) - कक्षा {st.class}</span>
+                            {st.status === 'PROMOTED' && (
+                              <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">
+                                कक्षोन्नत (PROMOTED)
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             समग्र आईडी: <span className="font-mono font-semibold text-blue-600">{st.samagraId}</span> | पिता: {st.fatherName}
@@ -325,7 +449,85 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
                 </div>
               )}
 
-              {/* Work & Complaints */}
+              {/* Rasoiya list */}
+              {(activeTab === 'ALL' || activeTab === 'RASOIYA') && filteredResults.rasoiya.length > 0 && (
+                <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
+                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <Utensils className="w-4 h-4 text-emerald-600" />
+                    <span>रसोइया परिणाम ({filteredResults.rasoiya.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredResults.rasoiya.map((r) => (
+                      <div
+                        key={r.id}
+                        onClick={() => {
+                          if (onNavigate) {
+                            onNavigate('rasoiya');
+                          }
+                        }}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-emerald-500 cursor-pointer transition-all flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                            <span>{r.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-medium">
+                              {r.workingRole || 'रसोइया'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            मोबाइल: <span className="font-mono">{r.mobile || '-'}</span> | आधार: {r.aadhaarNumber ? `•••• •••• ${r.aadhaarNumber.slice(-4)}` : '-'}
+                          </div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            समूह: {r.shgName || '-'} | यूडाइस: {r.schoolUdise}
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SHG list */}
+              {(activeTab === 'ALL' || activeTab === 'SHG') && filteredResults.shgs.length > 0 && (
+                <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
+                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <HeartHandshake className="w-4 h-4 text-teal-600" />
+                    <span>स्व-सहायता समूह (SHG) परिणाम ({filteredResults.shgs.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredResults.shgs.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          if (onNavigate) {
+                            onNavigate('shg');
+                          }
+                        }}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-teal-500 cursor-pointer transition-all flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                            <span>{s.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 font-medium">
+                              पंजीकरण: {s.registrationNumber || 'पंजीकृत'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            अध्यक्ष: {s.presidentName} ({s.presidentMobile || '-'})
+                          </div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            सचिव: {s.secretaryName || '-'} | यूडाइस: {s.schoolUdise}
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Work */}
               {(activeTab === 'ALL' || activeTab === 'WORK') && filteredResults.work.length > 0 && (
                 <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
                   <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5">
@@ -334,12 +536,106 @@ export const GlobalSearchView: React.FC<GlobalSearchViewProps> = ({
                   </h3>
                   <div className="space-y-2">
                     {filteredResults.work.map((w) => (
-                      <div key={w.id} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] flex items-center justify-between text-xs">
+                      <div
+                        key={w.id}
+                        onClick={() => onNavigate && onNavigate('work')}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-amber-500 cursor-pointer flex items-center justify-between text-xs"
+                      >
                         <div>
                           <div className="font-bold text-gray-900 dark:text-white">{w.workName}</div>
                           <div className="text-gray-500 dark:text-gray-400">आदेश: {w.orderNumber} | अंतिम तिथि: {w.deadline}</div>
                         </div>
                         <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">{w.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Complaints */}
+              {(activeTab === 'ALL' || activeTab === 'COMPLAINTS') && filteredResults.complaints.length > 0 && (
+                <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span>शिकायत निवारण ({filteredResults.complaints.length})</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredResults.complaints.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => onNavigate && onNavigate('complaints')}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-red-500 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">{c.subject}</div>
+                          <div className="text-gray-500 dark:text-gray-400">आईडी: {c.complaintId} | शिकायतकर्ता: {c.complainantName}</div>
+                        </div>
+                        <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">{c.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents */}
+              {(activeTab === 'ALL' || activeTab === 'DOCUMENTS') && filteredResults.documents.length > 0 && (
+                <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5">
+                    <FolderLock className="w-4 h-4 text-teal-600" />
+                    <span>दस्तावेज एवं प्रपत्र ({filteredResults.documents.length})</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredResults.documents.map((d) => (
+                      <div
+                        key={d.id}
+                        onClick={() => onNavigate && onNavigate('documents')}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-teal-500 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">{d.title}</div>
+                          <div className="text-gray-500 dark:text-gray-400">श्रेणी: {d.category} | तिथि: {d.date}</div>
+                        </div>
+                        <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded font-bold">{d.fileType}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Literacy Learners & Volunteers */}
+              {(activeTab === 'ALL' || activeTab === 'LITERACY') && (filteredResults.learners.length > 0 || filteredResults.volunteers.length > 0) && (
+                <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933]">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                    <span>नवभारत साक्षरता कार्यक्रम परिणाम ({filteredResults.learners.length + filteredResults.volunteers.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredResults.learners.map((lrn) => (
+                      <div
+                        key={lrn.id}
+                        onClick={() => onNavigate && onNavigate('literacy-learners')}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-emerald-500 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">असाक्षर: {lrn.name} ({lrn.gender})</div>
+                          <div className="text-gray-500 dark:text-gray-400">पिता/पति: {lrn.fatherOrHusbandName} | समग्र: {lrn.samagraId || '-'}</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">स्थिति: {lrn.registrationStatus}</div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ))}
+                    {filteredResults.volunteers.map((vol) => (
+                      <div
+                        key={vol.id}
+                        onClick={() => onNavigate && onNavigate('literacy-volunteers')}
+                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F1713] hover:border-emerald-500 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">अक्षर साथी: {vol.name}</div>
+                          <div className="text-gray-500 dark:text-gray-400">मोबाइल: {vol.mobile} | ग्राम: {vol.village}</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">संलग्न असाक्षर: {vol.assignedLearnersCount || 0}</div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
                       </div>
                     ))}
                   </div>

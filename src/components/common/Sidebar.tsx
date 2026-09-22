@@ -6,6 +6,7 @@ import {
   GraduationCap,
   Users,
   CalendarCheck,
+  ClipboardCheck,
   Building2,
   Utensils,
   ClipboardList,
@@ -21,10 +22,17 @@ import {
   Sun,
   Moon,
   LogOut,
-  X
+  X,
+  BookOpen,
+  BookMarked,
+  UserPlus,
+  HeartHandshake,
+  Award,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useData } from '../../context/DataContext';
 import { institutionConfig } from '../../config/institutionConfig';
 
 interface SidebarProps {
@@ -42,56 +50,97 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenLogout,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, users } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { selectedSessionId, activeSchools } = useData();
+
+  const userRole = currentUser?.role || 'TEACHER';
+  const isSchoolUser = userRole === 'SCHOOL' || userRole === 'PRINCIPAL' || userRole === 'TEACHER';
 
   const menuSections = [
     {
       title: '01. मुख्य डैशबोर्ड व खोज',
       items: [
-        { id: 'dashboard', num: '01', label: 'डैशबोर्ड', sub: 'Dashboard', icon: LayoutDashboard, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'search', num: '02', label: 'वैश्विक खोज', sub: 'Global Search', icon: Search, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
+        { id: 'dashboard', label: 'डैशबोर्ड', sub: 'Dashboard', icon: LayoutDashboard, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'search', label: 'वैश्विक खोज', sub: 'Global Search', icon: Search, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {
       title: '02. मास्टर डेटा',
       items: [
-        { id: 'schools', num: '03', label: 'विद्यालय डेटा', sub: 'School Data', icon: School, badge: '37', roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'students', num: '04', label: 'विद्यार्थी', sub: 'Students', icon: GraduationCap, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'teachers', num: '05', label: 'शिक्षक एवं स्टाफ', sub: 'Teachers & Staff', icon: Users, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
+        { 
+          id: 'schools', 
+          label: isSchoolUser ? 'विद्यालय डेटा' : 'संकुल विद्यालय सूची', 
+          sub: isSchoolUser ? 'School Data' : 'Schools Directory', 
+          icon: School, 
+          badge: isSchoolUser ? 'सक्रिय' : String(activeSchools.length), 
+          roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] 
+        },
+        { id: 'students', label: 'विद्यार्थी', sub: 'Students', icon: GraduationCap, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'teachers', label: 'शिक्षक एवं स्टाफ', sub: 'Teachers & Staff', icon: Users, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'rasoiya', label: 'रसोइया (Cook)', sub: 'Rasoiya (Cook)', icon: Utensils, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'shg', label: 'स्व-सहायता समूह (SHG)', sub: 'Self Help Group', icon: HeartHandshake, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {
-      title: '03. मॉनिटरिंग व प्रबंधन',
+      title: '03. दैनिक मॉनिटरिंग',
       items: [
-        { id: 'attendance', num: '06', label: 'दैनिक उपस्थिति', sub: 'Attendance', icon: CalendarCheck, badge: 'दैनिक', roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'facilities', num: '07', label: 'भौतिक सुविधाएं', sub: 'Physical Facilities', icon: Building2, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'mdm', num: '08', label: 'मध्याह्न भोजन', sub: 'MDM Tracking', icon: Utensils, badge: 'लाइव', roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'work', num: '09', label: 'शासकीय कार्य', sub: 'Government Work', icon: ClipboardList, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
+        { id: 'attendance', label: 'दैनिक उपस्थिति', sub: 'Attendance', icon: CalendarCheck, badge: 'दैनिक', roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'cac-attendance-monitoring', label: 'दैनिक उपस्थिति मॉनिटरिंग', sub: 'CAC Monitoring', icon: ClipboardCheck, badge: 'लाइव', roles: ['CAC', 'ADMIN'] },
+        { id: 'facilities', label: 'भौतिक सुविधाएं', sub: 'Physical Facilities', icon: Building2, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'mdm', label: 'मध्याह्न भोजन', sub: 'MDM Tracking', icon: Utensils, badge: 'लाइव', roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'work', label: 'शासकीय कार्य', sub: 'Government Work', icon: ClipboardList, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {
-      title: '04. सूचना व शिकायत',
+      title: '📚 नवभारत साक्षरता कार्यक्रम',
       items: [
-        { id: 'notifications', num: '10', label: 'सूचनाएं / आदेश', sub: 'Notifications', icon: BellRing, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'complaints', num: '11', label: 'शिकायत निवारण', sub: 'Complaints', icon: AlertTriangle, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'documents', num: '12', label: 'दस्तावेज व प्रपत्र', sub: 'Documents Hub', icon: FolderLock, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
+        { id: 'literacy-dashboard', label: 'साक्षरता डैशबोर्ड', sub: 'Literacy Dashboard', icon: BookOpen, badge: 'ULLAS', roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-register', label: 'साक्षरता पंजी', sub: 'Literacy Register', icon: BookMarked, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-learners', label: 'असाक्षर व्यक्ति', sub: 'Learners Master', icon: Users, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-volunteers', label: 'अक्षर साथी', sub: 'Akshar Sathi', icon: UserPlus, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-exams', label: 'साक्षरता परीक्षा परिणाम', sub: 'Exam Results', icon: Award, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-partners', label: 'सहयोगी विभाग / संस्थाएँ', sub: 'Partner Entities', icon: HeartHandshake, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'literacy-reports', label: 'साक्षरता रिपोर्ट', sub: 'Literacy Reports', icon: FileText, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {
-      title: '05. प्रिंट, डेटा व रिपोर्ट',
+      title: '04. संवाद, शिकायत व आदेश',
       items: [
-        { id: 'export', num: '13', label: 'प्रिंट एवं निर्यात', sub: 'Print & Export', icon: Printer, badge: 'PDF/XLS', roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'upload', num: '14', label: 'डेटा अपलोड', sub: 'Data Upload', icon: UploadCloud, badge: null, roles: ['CAC', 'PRINCIPAL', 'OPERATOR', 'ADMIN'] },
-        { id: 'history', num: '15', label: 'गतिविधि इतिहास', sub: 'History & Audit', icon: History, badge: null, roles: ['CAC', 'ADMIN'] },
-        { id: 'reports', num: '16', label: 'रिपोर्ट्स केंद्र', sub: 'Reports Center', icon: FileBarChart, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
+        { id: 'complaints', label: 'शिकायत निवारण', sub: 'Complaints', icon: AlertTriangle, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'notifications', label: 'सूचनाएं / आदेश', sub: 'Notifications', icon: BellRing, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'documents', label: 'दस्तावेज व प्रपत्र', sub: 'Documents Hub', icon: FolderLock, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {
-      title: '06. प्रोफ़ाइल व सिस्टम',
+      title: '05. प्रिंट, रिपोर्ट व डेटा',
       items: [
-        { id: 'profile', num: '17', label: 'उपयोगकर्ता प्रोफ़ाइल', sub: 'Profile', icon: UserCheck, badge: null, roles: ['CAC', 'PRINCIPAL', 'TEACHER', 'OPERATOR', 'ADMIN'] },
-        { id: 'settings', num: '18', label: 'सिस्टम सेटिंग्स', sub: 'Settings', icon: Settings, badge: null, roles: ['CAC', 'ADMIN'] },
+        { 
+          id: 'export', 
+          label: isSchoolUser ? 'प्रिंट एवं डाउनलोड' : 'एकीकृत प्रिंट केंद्र', 
+          sub: isSchoolUser ? 'Print & Download' : 'Unified Print Center (General + ULLAS)', 
+          icon: Printer, 
+          badge: isSchoolUser ? null : 'Unified', 
+          roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] 
+        },
+        { id: 'reports', label: 'शासकीय रिपोर्ट केंद्र', sub: 'Reports & Analytics', icon: FileBarChart, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'upload', label: 'डेटा प्रविष्टि एवं अपलोड', sub: 'Data Entry & Upload', icon: UploadCloud, badge: null, roles: ['ADMIN'] },
+        { id: 'history', label: 'गतिविधि इतिहास', sub: 'History / Audit', icon: History, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+      ],
+    },
+    {
+      title: isSchoolUser ? '06. प्रोफ़ाइल' : '06. प्रोफ़ाइल व उपयोगकर्ता',
+      items: [
+        { id: 'profile', label: 'उपयोगकर्ता प्रोफ़ाइल', sub: 'Profile', icon: UserCheck, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        ...(!isSchoolUser ? [{
+          id: 'user-directory',
+          label: 'संकुल उपयोगकर्ता डायरेक्टरी',
+          sub: 'Cluster User Directory',
+          icon: Users,
+          badge: String(users.length),
+          roles: ['CAC', 'ADMIN']
+        }] : []),
+        { id: 'settings', label: 'सिस्टम सेटिंग्स', sub: 'Settings', icon: Settings, badge: null, roles: ['CAC', 'ADMIN'] },
       ],
     },
   ];
@@ -101,7 +150,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCloseMobile();
   };
 
-  const userRole = currentUser?.role || 'TEACHER';
+  // Compute flattened dynamic sequential numbers for visible menu items
+  let itemCounter = 0;
 
   return (
     <>
@@ -135,9 +185,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
                 <span className="bg-[#087F5B]/80 text-emerald-100 px-1 py-0.2 rounded text-[8.5px] font-bold">
-                  CAC Panel
+                  {currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
                 </span>
-                <span>सत्र {institutionConfig.academicSession}</span>
+                <span>सत्र {selectedSessionId || institutionConfig.academicSession}</span>
               </div>
             </div>
           </div>
@@ -198,11 +248,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <div className="space-y-0.5">
                   {filteredItems.map((item) => {
+                    itemCounter += 1;
+                    const itemNum = String(itemCounter).padStart(2, '0');
                     const Icon = item.icon;
-                    const isActive = currentView === item.id || (item.id === 'search' && currentView === 'global-search') || (item.id === 'export' && currentView === 'export-center');
+                    const isActive = currentView === item.id || 
+                      (item.id === 'search' && currentView === 'global-search') || 
+                      (item.id === 'export' && currentView === 'export-center') ||
+                      (item.id === 'teachers' && (currentView === 'teachers' || currentView === 'staff')) ||
+                      (item.id === 'rasoiya' && (currentView === 'rasoiya' || currentView === 'cook' || currentView === 'rasoiya-management')) ||
+                      (item.id === 'shg' && (currentView === 'shg' || currentView === 'shgs' || currentView === 'shg-management' || currentView === 'self-help-group')) ||
+                      (item.id === 'literacy-dashboard' && currentView === 'literacy');
                     return (
                       <button
                         key={item.id}
+                        id={`nav-${item.id}`}
+                        data-testid={`nav-${item.id}`}
                         onClick={() => handleItemClick(item.id)}
                         className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition-all group text-left cursor-pointer min-h-[40px] ${
                           isActive
@@ -218,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 : 'text-gray-500 group-hover:text-emerald-300'
                             }`}
                           >
-                            {item.num}
+                            {itemNum}
                           </span>
                           <Icon
                             className={`w-4 h-4 shrink-0 ${
@@ -252,15 +312,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Sticky System Controls (20 Theme & 21 Logout) */}
+        {/* Sticky System Controls (Theme & Logout) */}
         <div className="p-2 border-t border-[#1B382D] bg-[#071711] space-y-1">
-          {/* 20. Light / Dark Mode Toggle */}
+          {/* Light / Dark Mode Toggle */}
           <button
             onClick={toggleTheme}
             className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-gray-300 hover:bg-white/10 hover:text-white transition-colors text-xs font-medium cursor-pointer min-h-[38px]"
           >
             <div className="flex items-center gap-2">
-              <span className="text-[9.5px] font-mono font-bold text-gray-500">20</span>
+              <span className="text-[9.5px] font-mono font-bold text-gray-500">⚙️</span>
               {theme === 'light' ? (
                 <Moon className="w-4 h-4 text-emerald-400" />
               ) : (
@@ -273,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </button>
 
-          {/* 21. Logout Button */}
+          {/* 18 (or 19 for CAC) Logout Button */}
           <button
             onClick={() => {
               onCloseMobile();
@@ -281,7 +341,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-red-400 hover:bg-red-950/40 hover:text-red-300 transition-colors text-xs font-bold cursor-pointer min-h-[38px]"
           >
-            <span className="text-[9.5px] font-mono font-bold text-red-500/70">21</span>
+            <span className="text-[9.5px] font-mono font-bold text-red-500/70">
+              {String(itemCounter + 1).padStart(2, '0')}
+            </span>
             <LogOut className="w-4 h-4" />
             <span>लॉगआउट (Logout)</span>
           </button>

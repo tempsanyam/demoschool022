@@ -1,5 +1,6 @@
 import React from 'react';
 import { institutionConfig } from '../../config/institutionConfig';
+import { useData } from '../../context/DataContext';
 
 interface SchoolBannerProps {
   schoolName: string;
@@ -26,8 +27,10 @@ export const SchoolBanner: React.FC<SchoolBannerProps> = ({
   schoolType,
   principalName,
   principalMobile,
-  academicSession = institutionConfig.academicSession
+  academicSession
 }) => {
+  const { selectedSessionId } = useData();
+  const effectiveSession = academicSession || selectedSessionId || institutionConfig.academicSession;
   return (
     <div className="bg-[#0B6B4B] dark:bg-[#0E231B] text-white rounded-xl p-3 sm:p-4 md:p-5 shadow-sm border border-emerald-700/60 dark:border-emerald-800/80 mb-5 relative overflow-hidden transition-colors w-full min-w-0">
       <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-emerald-700/30 rounded-full blur-2xl pointer-events-none" />
@@ -44,7 +47,7 @@ export const SchoolBanner: React.FC<SchoolBannerProps> = ({
               </span>
             )}
             <span className="bg-emerald-950/80 text-emerald-200 text-[11px] sm:text-xs px-2 py-0.5 rounded border border-emerald-800/50">
-              सत्र {academicSession}
+              सत्र {effectiveSession}
             </span>
           </div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight break-words">

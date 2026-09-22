@@ -1,0 +1,279 @@
+{
+  "entities": {
+    "School": {
+      "title": "School",
+      "description": "Canonical Cluster Schools of JSK Malguwa",
+      "type": "object",
+      "properties": {
+        "udise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "name": { "type": "string", "maxLength": 200 },
+        "hindiName": { "type": "string", "maxLength": 200 },
+        "schoolType": { "type": "string", "maxLength": 64 },
+        "village": { "type": "string", "maxLength": 100 },
+        "block": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "ARCHIVED"] },
+        "isDeleted": { "type": "boolean" },
+        "deletedAt": { "type": ["string", "null"] },
+        "deletedBy": { "type": ["string", "null"] },
+        "archiveReason": { "type": ["string", "null"] }
+      },
+      "required": ["udise", "name", "hindiName", "status"]
+    },
+    "StudentMaster": {
+      "title": "StudentMaster",
+      "description": "Permanent Master Record for Student Identity across academic sessions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "samagraId": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 150 },
+        "fatherName": { "type": "string", "maxLength": 150 },
+        "motherName": { "type": "string", "maxLength": 150 },
+        "gender": { "type": "string", "maxLength": 32 },
+        "category": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name"]
+    },
+    "StudentAcademicRecord": {
+      "title": "StudentAcademicRecord",
+      "description": "Session-specific academic enrollment per school",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "class": { "type": "string", "maxLength": 32 },
+        "enrollmentStatus": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "studentId", "sessionId", "schoolUdise", "class"]
+    },
+    "StaffMaster": {
+      "title": "StaffMaster",
+      "description": "Permanent Master Record for Teacher & Staff Identity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "mobile": { "type": "string", "maxLength": 32 },
+        "gender": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name"]
+    },
+    "StaffPosting": {
+      "title": "StaffPosting",
+      "description": "Session-specific staff school assignment and designation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "staffId": { "type": "string", "maxLength": 128 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "designation": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "staffId", "sessionId", "schoolUdise", "designation"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance for student or staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 32 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "type": { "type": "string", "maxLength": 32 },
+        "presentCount": { "type": "number" },
+        "totalCount": { "type": "number" }
+      },
+      "required": ["id", "date", "schoolUdise", "sessionId", "type"]
+    },
+    "MDMRecord": {
+      "title": "MDMRecord",
+      "description": "Daily Mid-Day Meal distribution entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 32 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "mealsServed": { "type": "number" }
+      },
+      "required": ["id", "date", "schoolUdise", "sessionId"]
+    },
+    "GovernmentWork": {
+      "title": "GovernmentWork",
+      "description": "Cluster government order, task or compliance record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workName": { "type": "string", "maxLength": 250 },
+        "schoolUdise": { "type": "string", "maxLength": 32 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "workName", "status"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Grievance, grievance redressal and inspection issue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "subject": { "type": "string", "maxLength": 250 },
+        "schoolUdise": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "subject", "status"]
+    },
+    "DocumentMetadata": {
+      "title": "DocumentMetadata",
+      "description": "Official order, circular and letter metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 250 },
+        "category": { "type": "string", "maxLength": 64 },
+        "schoolUdise": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "title"]
+    },
+    "Rasoiya": {
+      "title": "Rasoiya",
+      "description": "Cook-cum-helper dedicated master for MDM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name", "schoolUdise"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Central system mutation audit trail record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "role": { "type": "string" },
+        "action": { "type": "string" },
+        "module": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "userId", "action", "module", "details"]
+    },
+    "PreAuthSecurityEvent": {
+      "title": "PreAuthSecurityEvent",
+      "description": "Pre-authentication audit and security event trail with abuse protection",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "maxLength": 64 },
+        "eventType": { "type": "string", "enum": ["FAILED_LOGIN", "AUTH_ATTEMPT", "AUTH_ERROR", "LOGIN_LOCKOUT", "UNKNOWN_USER", "SESSION_EXPIRED", "SESSION_TAMPERED"] },
+        "timestamp": { "type": "string", "maxLength": 40 },
+        "sanitizedIdentifier": { "type": "string", "maxLength": 100 },
+        "identifierHash": { "type": "string", "maxLength": 128 },
+        "success": { "type": "boolean" },
+        "reasonCode": { "type": "string", "maxLength": 100 },
+        "source": { "type": "string", "maxLength": 50 },
+        "details": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["eventId", "eventType", "timestamp", "sanitizedIdentifier", "success", "reasonCode", "source"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user account and login credentials metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["ADMIN", "CAC", "SCHOOL"] },
+        "employeeId": { "type": "string", "maxLength": 64 },
+        "mobile": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 150 },
+        "designation": { "type": "string", "maxLength": 100 },
+        "assignedSchoolUdise": { "type": "string", "maxLength": 32 },
+        "schoolUdise": { "type": "string", "maxLength": 32 },
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["ACTIVE", "PENDING", "SUSPENDED", "INACTIVE"] },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "lastLogin": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "username", "name", "role", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "entity": "User",
+      "description": "Authorized cluster login accounts and user profiles"
+    },
+    "/schools/{schoolId}": {
+      "entity": "School",
+      "description": "All cluster schools accessible by administrators, CAC, and assigned school staff"
+    },
+    "/studentMasters/{studentId}": {
+      "entity": "StudentMaster",
+      "description": "Permanent student identities across academic sessions"
+    },
+    "/studentAcademicRecords/{recordId}": {
+      "entity": "StudentAcademicRecord",
+      "description": "Session-specific class enrollments"
+    },
+    "/staffMasters/{staffId}": {
+      "entity": "StaffMaster",
+      "description": "Permanent teachers & staff identity records"
+    },
+    "/staffPostings/{postingId}": {
+      "entity": "StaffPosting",
+      "description": "Session-specific staff school postings"
+    },
+    "/attendance/{attendanceId}": {
+      "entity": "AttendanceRecord",
+      "description": "Daily student and teacher attendance records"
+    },
+    "/mdmRecords/{mdmId}": {
+      "entity": "MDMRecord",
+      "description": "Daily mid-day meal serving logs"
+    },
+    "/governmentWork/{workId}": {
+      "entity": "GovernmentWork",
+      "description": "Government orders, tasks, and official communications"
+    },
+    "/complaints/{complaintId}": {
+      "entity": "Complaint",
+      "description": "School and cluster grievance lifecycle"
+    },
+    "/documents/{documentId}": {
+      "entity": "DocumentMetadata",
+      "description": "Official cluster documents and government letters metadata"
+    },
+    "/rasoiya/{rasoiyaId}": {
+      "entity": "Rasoiya",
+      "description": "MDM cook-cum-helper dedicated master records"
+    },
+    "/facilities/{facilityId}": {
+      "entity": "School",
+      "description": "Physical infrastructure checklist and audit records"
+    },
+    "/academicSessions/{sessionId}": {
+      "entity": "School",
+      "description": "Academic sessions definition"
+    },
+    "/auditLogs/{logId}": {
+      "entity": "AuditLog",
+      "description": "Central authenticated system mutation audit trail record"
+    },
+    "/preAuthSecurityEvents/{eventId}": {
+      "entity": "PreAuthSecurityEvent",
+      "description": "Pre-authentication audit and security event collection with strict schema and abuse protection"
+    }
+  }
+}

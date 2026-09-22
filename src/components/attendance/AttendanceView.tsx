@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   CalendarCheck,
   Calendar,
@@ -7,62 +7,98 @@ import {
   Plus,
   CheckCircle2,
   Users,
-  Clock,
-  TrendingUp,
-  School as SchoolIcon
+  Utensils,
+  GraduationCap,
+  History,
+  ClipboardCheck,
+  School as SchoolIcon,
+  Filter
 } from 'lucide-react';
-import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { exportToExcel, exportToCSV, triggerSystemPrint } from '../../utils/exportUtils';
+import { useData } from '../../context/DataContext';
+import { useSchoolScope } from '../../hooks/useSchoolScope';
+import { triggerPrint } from '../../utils/printUtils';
+import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
+import { SmartExportModal } from '../export/SmartExportModal';
+import { StudentAttendanceTab } from './StudentAttendanceTab';
+import { StaffAttendanceTab } from './StaffAttendanceTab';
+import { RasoiyaAttendanceTab } from './RasoiyaAttendanceTab';
+import { AttendanceHistoryTab } from './AttendanceHistoryTab';
+import { CacAttendanceMonitoringView } from './CacAttendanceMonitoringView';
+
+type ActiveCategory = 'STUDENT' | 'STAFF' | 'RASOIYA';
+type ViewMode = 'DAILY' | 'HISTORY' | 'MONITORING';
 
 export const AttendanceView: React.FC = () => {
   const { currentUser } = useAuth();
   const {
-    scopedAttendance,
-    scopedStudents,
-    scopedStaff,
+    attendance: scopedAttendance,
+    students: scopedStudents,
+    staff: scopedStaff,
+    rasoiya: scopedRasoiya,
     schools,
-    selectedSchool,
+    currentSchool,
+    currentSchoolUdise,
+    isSchoolUser: isSchoolRestricted,
     markAttendance
-  } = useData();
+  } = useSchoolScope();
+  const { selectedSessionId, isCurrentSessionSelected } = useData();
+
+  const defaultSchoolUdise = currentSchoolUdise || (schools[0]?.udise || '');
 
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
-  const [selectedType, setSelectedType] = useState<'ALL' | 'STUDENT' | 'STAFF'>('ALL');
-  const [selectedSchoolUdise, setSelectedSchoolUdise] = useState<string>(selectedSchool?.udise || '');
+  const [activeCategory, setActiveCategory] = useState<ActiveCategory>('STUDENT');
+  const [viewMode, setViewMode] = useState<ViewMode>('DAILY');
+  const [selectedSchoolUdise, setSelectedSchoolUdise] = useState<string>(
+    isSchoolRestricted ? defaultSchoolUdise : 'ALL'
+  );
 
-  // Mark Modal
+  // Auto-align date to session on session change
+  useEffect(() => {
+    if (isCurrentSessionSelected) {
+      setSelectedDate(today);
+    } else {
+      const datesInSession = scopedAttendance
+        .filter((a) => !a.sessionId || a.sessionId === selectedSessionId)
+        .map((a) => a.date)
+        .sort()
+        .reverse();
+
+      if (datesInSession.length > 0) {
+        setSelectedDate(datesInSession[0]);
+      } else {
+        setSelectedDate(today);
+      }
+    }
+  }, [selectedSessionId, isCurrentSessionSelected, scopedAttendance, today]);
+
+  // Keep selected school in sync if user is school restricted
+  useEffect(() => {
+    if (isSchoolRestricted && currentSchoolUdise) {
+      setSelectedSchoolUdise(currentSchoolUdise);
+    }
+  }, [isSchoolRestricted, currentSchoolUdise]);
+
+  // Quick summary manual modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formSchoolUdise, setFormSchoolUdise] = useState(selectedSchool?.udise || schools[0]?.udise || '');
-  const [formType, setFormType] = useState<'STUDENT' | 'STAFF'>('STUDENT');
+  const [isSmartExportOpen, setIsSmartExportOpen] = useState(false);
+  const [formSchoolUdise, setFormSchoolUdise] = useState(defaultSchoolUdise);
+  const [formType, setFormType] = useState<'STUDENT' | 'STAFF' | 'RASOIYA'>('STUDENT');
   const [formClass, setFormClass] = useState('5');
   const [formTotal, setFormTotal] = useState(30);
   const [formPresent, setFormPresent] = useState(27);
   const [formRemarks, setFormRemarks] = useState('सामान्य उपस्थिति');
 
-  // Filtered Attendance Records
-  const filteredAttendance = useMemo(() => {
-    return scopedAttendance.filter((a) => {
-      const matchDate = !selectedDate || a.date === selectedDate;
-      const matchType = selectedType === 'ALL' || a.type === selectedType;
-      const matchSchool = !selectedSchoolUdise || a.schoolUdise === selectedSchoolUdise;
-      return matchDate && matchType && matchSchool;
-    });
-  }, [scopedAttendance, selectedDate, selectedType, selectedSchoolUdise]);
+  // Invalidate and safely close modal if academic session changes
+  useEffect(() => {
+    if (isModalOpen) {
+      setIsModalOpen(false);
+    }
+  }, [selectedSessionId]);
 
-  // Overall attendance statistics for selected date
-  const overallStats = useMemo(() => {
-    let totalMarked = 0;
-    let totalPresent = 0;
-    filteredAttendance.forEach((rec) => {
-      totalMarked += rec.totalCount;
-      totalPresent += rec.presentCount;
-    });
-    const pct = totalMarked > 0 ? Math.round((totalPresent / totalMarked) * 100) : 0;
-    return { totalMarked, totalPresent, totalAbsent: totalMarked - totalPresent, pct };
-  }, [filteredAttendance]);
-
-  const handleSaveAttendance = (e: React.FormEvent) => {
+  // Handle Quick Modal Save
+  const handleSaveQuickAttendance = (e: React.FormEvent) => {
     e.preventDefault();
     if (formPresent > formTotal) {
       alert('उपस्थित संख्या कुल संख्या से अधिक नहीं हो सकती।');
@@ -85,13 +121,14 @@ export const AttendanceView: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleExport = (type: 'EXCEL' | 'CSV') => {
+  // Export & Print Payload
+  const getAttendanceExportPayload = () => {
     const headers = [
       'क्रमांक',
       'दिनांक',
       'यूडाइस कोड',
-      'प्रकार (छात्र/स्टाफ)',
-      'कक्षा',
+      'प्रकार',
+      'कक्षा / पद',
       'कुल संख्या',
       'उपस्थित संख्या',
       'अनुपस्थित संख्या',
@@ -100,205 +137,299 @@ export const AttendanceView: React.FC = () => {
       'दर्ज समय'
     ];
 
-    const rows = filteredAttendance.map((rec, idx) => [
+    const recordsForExport = scopedAttendance.filter((a) => {
+      const matchDate = !selectedDate || a.date === selectedDate;
+      const matchSchool =
+        !selectedSchoolUdise || selectedSchoolUdise === 'ALL' || a.schoolUdise === selectedSchoolUdise;
+      return matchDate && matchSchool;
+    });
+
+    const rows = recordsForExport.map((rec, idx) => [
       idx + 1,
       rec.date,
       rec.schoolUdise,
-      rec.type === 'STUDENT' ? 'विद्यार्थी' : 'स्टाफ/शिक्षक',
-      rec.class ? `कक्षा ${rec.class}` : '-',
+      rec.type === 'STUDENT'
+        ? 'विद्यार्थी'
+        : rec.type === 'RASOIYA'
+        ? 'रसोइया'
+        : 'शिक्षक/स्टाफ',
+      rec.class ? `कक्षा ${rec.class}` : 'समस्त',
       rec.totalCount,
       rec.presentCount,
       rec.absentCount,
-      `${rec.percentage}%`,
-      rec.recordedBy,
+      rec.isHoliday ? 'N/A (अवकाश)' : `${rec.percentage ?? Math.round((rec.presentCount / (rec.totalCount || 1)) * 100)}%`,
+      rec.recordedBy || rec.markedBy || 'उपयोगकर्ता',
       rec.markedAt || '-'
     ]);
 
-    const payload = {
+    return {
       title: 'जन शिक्षा केंद्र मलगुवां - दैनिक उपस्थिति रिपोर्ट',
-      subtitle: `दिनांक: ${selectedDate} | सत्र 2026-27`,
+      subtitle: `दिनांक: ${selectedDate} | सत्र: ${selectedSessionId}`,
+      schoolName: currentSchool?.name || currentSchool?.hindiName,
+      udise: isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise),
+      session: selectedSessionId,
       headers,
       rows,
-      fileName: `Malguwa_Attendance_${selectedDate}`,
+      fileName: `Attendance_${selectedSessionId}_${selectedDate}`,
     };
-
-    if (type === 'EXCEL') exportToExcel(payload);
-    else exportToCSV(payload);
   };
+
+  // Counts for badge counters
+  const studentCount = scopedStudents.filter(s => !selectedSchoolUdise || selectedSchoolUdise === 'ALL' || s.schoolUdise === selectedSchoolUdise).length;
+  const staffCount = scopedStaff.filter(s => !selectedSchoolUdise || selectedSchoolUdise === 'ALL' || s.assignedSchoolUdise === selectedSchoolUdise).length;
+  const rasoiyaCount = scopedRasoiya.filter(r => !selectedSchoolUdise || selectedSchoolUdise === 'ALL' || r.schoolUdise === selectedSchoolUdise).length;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
       {/* Top Banner */}
       <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               दैनिक उपस्थिति मॉनिटरिंग (Daily Attendance Tracking)
             </h2>
-            <span className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
+            <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
               दिनांक: {selectedDate}
             </span>
+            <span className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
+              सत्र {selectedSessionId}
+            </span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            संकुल मलगुवां अंतर्गत छात्र एवं शिक्षक दैनिक उपस्थिति का लाइव डिजिटल संकलन
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            संकुल मलगुवां अंतर्गत विद्यार्थी, शिक्षक/स्टाफ एवं मध्याह्न भोजन रसोइया दैनिक उपस्थिति का डिजिटल संकलन
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => handleExport('EXCEL')}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल (Excel)</span>
-          </button>
-          <button
-            onClick={() => triggerSystemPrint()}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center gap-1.5"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>प्रिंट (Print)</span>
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>उपस्थिति दर्ज करें</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Date & Filter Toolbar */}
-      <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-gray-700 dark:text-gray-300">दिनांक चुनें:</span>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-1.5 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-medium"
+          <UnifiedPrintButton
+            id="attendance-unified-print"
+            currentSession={selectedSessionId}
+            currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+            currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise)}
+            onPrintCurrentView={() => triggerPrint()}
+            onPrintReport={() => setIsSmartExportOpen(true)}
+            currentViewLabel="Print Current View"
+            currentViewSubtext="वर्तमान दैनिक उपस्थिति तालिका का त्वरित प्रिंट"
+            reportLabel="Print Report"
+            reportSubtext="दैनिक व मासिक उपस्थिति / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+            exportPayload={getAttendanceExportPayload}
           />
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value as any)}
-            className="px-2.5 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg font-medium"
+      {/* Primary Category Navigation Bar: [ विद्यार्थी ] [ शिक्षक एवं स्टाफ ] [ रसोइया ] */}
+      <div className="bg-white dark:bg-[#17211C] p-2.5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Navigation Category Tabs */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 px-2 flex items-center gap-1.5">
+            <CalendarCheck className="w-4 h-4 text-emerald-600" />
+            <span>उपस्थिति भरें:</span>
+          </span>
+
+          {/* Student Tab */}
+          <button
+            id="tab-attendance-student"
+            type="button"
+            onClick={() => {
+              setActiveCategory('STUDENT');
+              setViewMode('DAILY');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'DAILY' && activeCategory === 'STUDENT'
+                ? 'bg-[#0B6B4B] text-white shadow-sm'
+                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+            }`}
           >
-            <option value="ALL">सभी (छात्र + स्टाफ)</option>
-            <option value="STUDENT">केवल विद्यार्थी</option>
-            <option value="STAFF">केवल शिक्षक/स्टाफ</option>
-          </select>
+            <GraduationCap className="w-4 h-4" />
+            <span>विद्यार्थी</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+              {studentCount}
+            </span>
+          </button>
+
+          {/* Teacher & Staff Tab */}
+          <button
+            id="tab-attendance-staff"
+            type="button"
+            onClick={() => {
+              setActiveCategory('STAFF');
+              setViewMode('DAILY');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'DAILY' && activeCategory === 'STAFF'
+                ? 'bg-[#0B6B4B] text-white shadow-sm'
+                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>शिक्षक एवं स्टाफ</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+              {staffCount}
+            </span>
+          </button>
+
+          {/* Rasoiya Tab */}
+          <button
+            id="tab-attendance-rasoiya"
+            type="button"
+            onClick={() => {
+              setActiveCategory('RASOIYA');
+              setViewMode('DAILY');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'DAILY' && activeCategory === 'RASOIYA'
+                ? 'bg-[#0B6B4B] text-white shadow-sm'
+                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+            }`}
+          >
+            <Utensils className="w-4 h-4" />
+            <span>रसोइया</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+              {rasoiyaCount}
+            </span>
+          </button>
+        </div>
+
+        {/* View Mode Toggle: Daily Entry vs CAC Monitoring vs History & Monthly */}
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-[#0F1713] p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('DAILY')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              viewMode === 'DAILY'
+                ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            <CalendarCheck className="w-3.5 h-3.5" />
+            <span>दैनिक प्रविष्टि</span>
+          </button>
+
+          {(currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN') && (
+            <button
+              type="button"
+              onClick={() => setViewMode('MONITORING')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                viewMode === 'MONITORING'
+                  ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              <span>संकुल मॉनिटरिंग</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setViewMode('HISTORY')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              viewMode === 'HISTORY'
+                ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>इतिहास व रिपोर्ट</span>
+          </button>
         </div>
       </div>
 
-      {/* Summary Stat Tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs">
-          <span className="text-xs text-gray-500 block">कुल दर्ज उपस्थिति</span>
-          <span className="text-2xl font-black text-gray-900 dark:text-white">{overallStats.totalMarked}</span>
-        </div>
-        <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs">
-          <span className="text-xs text-emerald-600 font-semibold block">कुल उपस्थित</span>
-          <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{overallStats.totalPresent}</span>
-        </div>
-        <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs">
-          <span className="text-xs text-red-600 font-semibold block">कुल अनुपस्थित</span>
-          <span className="text-2xl font-black text-red-600">{overallStats.totalAbsent}</span>
-        </div>
-        <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs">
-          <span className="text-xs text-blue-600 font-semibold block">औसत उपस्थिति दर</span>
-          <span className="text-2xl font-black text-blue-600">{overallStats.pct}%</span>
-        </div>
-      </div>
+      {/* Main Content Body */}
+      {viewMode === 'MONITORING' ? (
+        <CacAttendanceMonitoringView />
+      ) : (
+        <>
+          {/* Date & School Selection Toolbar */}
+          <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Date Selector */}
+            <div className="flex items-center gap-2.5">
+              <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-bold text-gray-700 dark:text-gray-300">उपस्थिति दिनांक:</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-bold"
+              />
+            </div>
 
-      {/* Attendance Records Table */}
-      <div className="bg-white dark:bg-[#17211C] rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-[#0F1713] text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
-                <th className="p-3 font-bold">क्र.</th>
-                <th className="p-3 font-bold">विद्यालय (यूडाइस)</th>
-                <th className="p-3 font-bold">प्रकार</th>
-                <th className="p-3 font-bold">कक्षा</th>
-                <th className="p-3 font-bold text-right">नामांकन</th>
-                <th className="p-3 font-bold text-right text-emerald-600">उपस्थित</th>
-                <th className="p-3 font-bold text-right text-red-600">अनुपस्थित</th>
-                <th className="p-3 font-bold text-right">प्रतिशत</th>
-                <th className="p-3 font-bold">दर्जकर्ता व समय</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredAttendance.map((rec, idx) => {
-                const sObj = schools.find((s) => s.udise === rec.schoolUdise);
-                return (
-                  <tr key={rec.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
-                    <td className="p-3 text-gray-400">{idx + 1}</td>
-                    <td className="p-3 font-bold text-gray-900 dark:text-white">
-                      <div>{sObj?.name || sObj?.hindiName || rec.schoolUdise}</div>
-                      <div className="text-[10px] font-mono text-gray-400">{rec.schoolUdise}</div>
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          rec.type === 'STUDENT'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                            : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                        }`}
-                      >
-                        {rec.type === 'STUDENT' ? 'विद्यार्थी' : 'स्टाफ'}
-                      </span>
-                    </td>
-                    <td className="p-3 font-semibold">{rec.class ? `कक्षा ${rec.class}` : 'समस्त स्टाफ'}</td>
-                    <td className="p-3 text-right font-bold">{rec.totalCount}</td>
-                    <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                      {rec.presentCount}
-                    </td>
-                    <td className="p-3 text-right font-bold text-red-600">
-                      {rec.absentCount}
-                    </td>
-                    <td className="p-3 text-right font-black text-gray-900 dark:text-white">
-                      {rec.percentage}%
-                    </td>
-                    <td className="p-3 text-gray-500">
-                      <div>👤 {rec.recordedBy}</div>
-                      <div className="text-[10px] text-gray-400">⏰ {rec.markedAt || '10:30 AM'}</div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mark Attendance Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs no-print">
-          <div className="bg-white dark:bg-[#17211C] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DDE7E2] dark:border-[#2B3933]">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">
-              दैनिक उपस्थिति दर्ज करें
-            </h3>
-
-            <form onSubmit={handleSaveAttendance} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  विद्यालय का चयन *
-                </label>
+            {/* School Selector (or Locked Badge for School User) */}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-gray-700 dark:text-gray-300">विद्यालय:</span>
+              {isSchoolRestricted ? (
+                <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[#0B6B4B] dark:text-emerald-200 font-bold truncate max-w-[280px]">
+                  {currentSchool?.name || currentSchool?.hindiName || 'मेरा विद्यालय'} ({currentSchoolUdise})
+                </div>
+              ) : (
                 <select
-                  value={formSchoolUdise}
-                  onChange={(e) => setFormSchoolUdise(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
+                  value={selectedSchoolUdise}
+                  onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+                  className="px-3 py-1.5 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-medium max-w-[320px]"
                 >
+                  <option value="ALL">समस्त संकुल शालाएं ({schools.length})</option>
                   {schools.map((s) => (
                     <option key={s.udise} value={s.udise}>
                       {s.name || s.hindiName} ({s.udise})
                     </option>
                   ))}
                 </select>
+              )}
+            </div>
+          </div>
+
+          {viewMode === 'HISTORY' ? (
+            <AttendanceHistoryTab selectedSchoolUdise={selectedSchoolUdise} />
+          ) : activeCategory === 'STAFF' ? (
+            <StaffAttendanceTab
+              selectedDate={selectedDate}
+              selectedSchoolUdise={selectedSchoolUdise}
+            />
+          ) : activeCategory === 'RASOIYA' ? (
+            <RasoiyaAttendanceTab
+              selectedDate={selectedDate}
+              selectedSchoolUdise={selectedSchoolUdise}
+            />
+          ) : (
+            <StudentAttendanceTab
+              selectedDate={selectedDate}
+              selectedSchoolUdise={selectedSchoolUdise}
+              onOpenQuickModal={() => setIsModalOpen(true)}
+            />
+          )}
+        </>
+      )}
+
+      {/* Quick Summary Numeric Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs no-print">
+          <div className="bg-white dark:bg-[#17211C] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DDE7E2] dark:border-[#2B3933]">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">
+              त्वरित सारांश उपस्थिति दर्ज करें
+            </h3>
+
+            <form onSubmit={handleSaveQuickAttendance} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  विद्यालय का चयन *
+                </label>
+                {isSchoolRestricted ? (
+                  <div className="w-full px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[#0B6B4B] dark:text-emerald-200 font-bold truncate">
+                    {schools.find(s => s.udise === formSchoolUdise)?.name || schools.find(s => s.udise === formSchoolUdise)?.hindiName || 'मेरा विद्यालय'} ({formSchoolUdise})
+                  </div>
+                ) : (
+                  <select
+                    value={formSchoolUdise}
+                    onChange={(e) => setFormSchoolUdise(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
+                  >
+                    {schools.map((s) => (
+                      <option key={s.udise} value={s.udise}>
+                        {s.name || s.hindiName} ({s.udise})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -313,6 +444,7 @@ export const AttendanceView: React.FC = () => {
                   >
                     <option value="STUDENT">विद्यार्थी उपस्थिति</option>
                     <option value="STAFF">शिक्षक/स्टाफ उपस्थिति</option>
+                    <option value="RASOIYA">रसोइया उपस्थिति</option>
                   </select>
                 </div>
 
@@ -391,13 +523,21 @@ export const AttendanceView: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 text-sm font-bold text-white bg-[#0B6B4B] hover:bg-emerald-800 rounded-lg shadow-sm"
                 >
-                  उपस्थिति सुरक्षित करें
+                  सुरक्षित करें
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Smart Export Modal for Attendance */}
+      <SmartExportModal
+        isOpen={isSmartExportOpen}
+        onClose={() => setIsSmartExportOpen(false)}
+        initialType="ATTENDANCE"
+        initialUdise={selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise}
+      />
     </div>
   );
 };

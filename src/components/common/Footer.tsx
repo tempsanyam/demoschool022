@@ -12,9 +12,9 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = () => {
   const { currentUser } = useAuth();
-  const { settings, schools } = useData();
+  const { settings, schools, selectedSessionId, isCurrentSessionSelected } = useData();
 
-  const activeSession = settings?.academicSession || institutionConfig.academicSession;
+  const currentSessionLabel = selectedSessionId || settings?.academicSession || institutionConfig.academicSession;
 
   return (
     <footer className="w-full bg-[#FFFFFF] dark:bg-[#101815] text-[#17211C] dark:text-[#FFFFFF] border-t border-[#DDE7E2] dark:border-[#1E2D27] text-xs no-print transition-colors mt-auto shadow-inner overflow-hidden">
@@ -46,10 +46,18 @@ export const Footer: React.FC<FooterProps> = () => {
               </span>
             </p>
             <p className="pt-1">
-              डाइज कोड: <strong className="font-mono text-gray-900 dark:text-white">{institutionConfig.diseCode}</strong>
+              संकुल केंद्र (JSK) डाइज कोड: <strong className="font-mono text-gray-900 dark:text-white">{institutionConfig.diseCode}</strong>
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 block font-sans">
+                (शा. हाई स्कूल मलगुवां • संकुल केंद्र)
+              </span>
             </p>
+            {currentUser?.assignedSchoolUdise && (
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                लॉगिन संस्था डाइज कोड (School UDISE): <strong className="font-mono font-bold">{currentUser.assignedSchoolUdise}</strong>
+              </p>
+            )}
             <p>
-              कुल संकुल विद्यालय: <strong className="text-[#0B6B4B] dark:text-emerald-400">{schools.length || institutionConfig.totalSchoolsCount} शालाएं</strong>
+              कुल संकुल विद्यालय: <strong className="text-[#0B6B4B] dark:text-emerald-400">{schools.length} शालाएं</strong>
             </p>
           </div>
         </div>
@@ -121,7 +129,7 @@ export const Footer: React.FC<FooterProps> = () => {
           </div>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3 font-medium shrink-0">
             <span className="text-[#0B6B4B] dark:text-emerald-400 whitespace-nowrap">
-              Academic Session: <strong>{activeSession}</strong>
+              Academic Session: <strong>{currentSessionLabel}</strong> {!isCurrentSessionSelected && '(ReadOnly)'}
             </span>
             <span className="hidden sm:inline">•</span>
             <span className="whitespace-nowrap">

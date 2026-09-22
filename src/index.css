@@ -39,36 +39,306 @@
 .print-report-container,
 .print-report-container * {
   font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   CANONICAL DOCUMENT STYLE LAYOUTS (SCREEN PREVIEW & EXPORT)
+   1. 'government'    : मानक शासकीय (Official Green border, zebra table, balanced)
+   2. 'ink-saver'     : मितव्ययी / हल्का (0% fill, transparent zebra, thin borders)
+   3. 'high-contrast' : उच्च कंट्रास्ट / बोल्ड (Thick black borders, 800 bold, clear grid)
+   ========================================================================== */
+
+/* 1. मानक शासकीय (Government Official) */
+.document-style-government,
+.print-style-professional,
+body.document-style-government,
+body.print-style-professional {
+  --doc-border: #0B6B4B;
+  --doc-heading-weight: 700;
+  --doc-row-spacing: 6px;
+  --doc-primary: #0B6B4B;
+  --doc-primary-dark: #08553B;
+  --doc-primary-light: #EAF6F0;
+}
+.document-style-government.smart-export-document,
+.document-style-government.print-document,
+.document-style-government #printable-report-container,
+.document-style-government #printable-school-dossier,
+.document-style-government.print-report-container {
+  border: 2px solid #0B6B4B !important;
+}
+.document-style-government table,
+body.document-style-government table,
+.print-style-professional table {
+  border: 1px solid #08553B !important;
+  border-collapse: collapse !important;
+}
+.document-style-government th,
+body.document-style-government th,
+.print-style-professional th {
+  background-color: #0B6B4B !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid #08553B !important;
+  padding: 6px 8px !important;
+}
+.document-style-government td,
+body.document-style-government td,
+.print-style-professional td {
+  border: 1px solid #D1D5DB !important;
+  font-weight: 400 !important;
+  padding: 6px 8px !important;
+  color: #1F2937 !important;
+}
+.document-style-government tr:nth-child(even),
+.document-style-government tbody tr:nth-child(even),
+body.document-style-government tr:nth-child(even),
+body.document-style-government tbody tr:nth-child(even),
+.print-style-professional tr:nth-child(even),
+.print-style-professional tbody tr:nth-child(even) {
+  background-color: #F9FAFB !important;
+}
+.document-style-government tr:nth-child(odd),
+.document-style-government tbody tr:nth-child(odd),
+body.document-style-government tr:nth-child(odd),
+body.document-style-government tbody tr:nth-child(odd) {
+  background-color: #ffffff !important;
+}
+
+/* 2. मितव्ययी / हल्का (Minimalist Ink-Saver) */
+.document-style-ink-saver,
+.print-style-minimalist,
+body.document-style-ink-saver,
+body.print-style-minimalist {
+  --doc-border: #4B5563;
+  --doc-heading-weight: 600;
+  --doc-row-spacing: 3px;
+  --doc-primary: #1F2937;
+  --doc-primary-dark: #111827;
+  --doc-primary-light: transparent;
+  background-color: #ffffff !important;
+}
+.document-style-ink-saver.smart-export-document,
+.document-style-ink-saver.print-document,
+.document-style-ink-saver #printable-report-container,
+.document-style-ink-saver #printable-school-dossier,
+.document-style-ink-saver.print-report-container {
+  border: 1px solid #6B7280 !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+}
+.document-style-ink-saver table,
+body.document-style-ink-saver table,
+.print-style-minimalist table {
+  border: 1px solid #9CA3AF !important;
+  border-collapse: collapse !important;
+  background-color: transparent !important;
+}
+.document-style-ink-saver th,
+body.document-style-ink-saver th,
+.print-style-minimalist th {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  font-weight: 600 !important;
+  border: 1px solid #D1D5DB !important;
+  border-bottom: 2px solid #4B5563 !important;
+  padding: 3px 5px !important;
+}
+.document-style-ink-saver td,
+body.document-style-ink-saver td,
+.print-style-minimalist td {
+  border: 1px solid #E5E7EB !important;
+  font-weight: 400 !important;
+  padding: 3px 5px !important;
+  color: #111827 !important;
+  background-color: transparent !important;
+}
+.document-style-ink-saver tr:nth-child(even),
+.document-style-ink-saver tbody tr:nth-child(even),
+.document-style-ink-saver tr:nth-child(odd),
+.document-style-ink-saver tbody tr:nth-child(odd),
+body.document-style-ink-saver tr:nth-child(even),
+body.document-style-ink-saver tbody tr:nth-child(even),
+body.document-style-ink-saver tr:nth-child(odd),
+body.document-style-ink-saver tbody tr:nth-child(odd),
+.print-style-minimalist tr:nth-child(even),
+.print-style-minimalist tbody tr:nth-child(even) {
+  background-color: transparent !important;
+}
+
+/* 3. उच्च कंट्रास्ट / बोल्ड (High-Contrast Bold) */
+.document-style-high-contrast,
+.print-style-high-contrast,
+body.document-style-high-contrast,
+body.print-style-high-contrast {
+  --doc-border: #000000;
+  --doc-heading-weight: 800;
+  --doc-row-spacing: 5px;
+  --doc-primary: #000000;
+  --doc-primary-dark: #000000;
+  --doc-primary-light: #FFFFFF;
+}
+.document-style-high-contrast.smart-export-document,
+.document-style-high-contrast.print-document,
+.document-style-high-contrast #printable-report-container,
+.document-style-high-contrast #printable-school-dossier,
+.document-style-high-contrast.print-report-container {
+  border: 3px solid #000000 !important;
+  background-color: #ffffff !important;
+}
+.document-style-high-contrast table,
+body.document-style-high-contrast table,
+.print-style-high-contrast table {
+  border: 2px solid #000000 !important;
+  border-collapse: collapse !important;
+}
+.document-style-high-contrast th,
+body.document-style-high-contrast th,
+.print-style-high-contrast th {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border: 2px solid #000000 !important;
+  letter-spacing: 0.02em !important;
+  padding: 5px 7px !important;
+}
+.document-style-high-contrast td,
+body.document-style-high-contrast td,
+.print-style-high-contrast td {
+  border: 1.5px solid #000000 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  padding: 5px 7px !important;
+}
+.document-style-high-contrast tr:nth-child(even),
+.document-style-high-contrast tbody tr:nth-child(even),
+.document-style-high-contrast tr:nth-child(odd),
+.document-style-high-contrast tbody tr:nth-child(odd),
+body.document-style-high-contrast tr:nth-child(even),
+body.document-style-high-contrast tbody tr:nth-child(even),
+body.document-style-high-contrast tr:nth-child(odd),
+body.document-style-high-contrast tbody tr:nth-child(odd),
+.print-style-high-contrast tr:nth-child(even),
+.print-style-high-contrast tbody tr:nth-child(even) {
+  background-color: transparent !important;
+}
+
+/* ==========================================================================
+   PRINT STYLESHEET (TRUE AUTOMATIC MULTI-PAGE ENGINE)
+   ========================================================================== */
+/* Screen hidden state for isolated print container */
+#print-area {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm 8mm 10mm 8mm;
 }
 
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 10mm 10mm 12mm 10mm;
+  /* Dedicated print isolation mode: when active, hide all screen DOM except #print-area */
+  body.print-active-isolated > *:not(#print-area) {
+    display: none !important;
   }
 
-  body.print-landscape {
-    @page {
-      size: A4 landscape;
-      margin: 10mm 10mm 12mm 10mm;
-    }
+  body.print-active-isolated #print-area {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    overflow: visible !important;
   }
 
-  html, body {
+  body:not(.print-active-isolated) #print-area {
+    display: none !important;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
     background-color: #ffffff !important;
     color: #111827 !important;
-    font-size: 11pt !important;
-    line-height: 1.4 !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
     font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Hide screen elements */
+  #root,
+  main,
+  .print-document,
+  .print-container,
+  .smart-export-document,
+  #printable-school-dossier,
+  #printable-report-area,
+  #printable-report-container,
+  #printable-smart-export-preview,
+  .print-report-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Reset outer preview background cards and container wrappers */
+  .bg-gray-200,
+  .bg-gray-100,
+  .dark\:bg-black\/50,
+  .overflow-x-auto {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Unconstrain modals in print mode so content flows into multiple pages */
+  .modal-print-wrapper,
+  .print-modal-container,
+  div[role="dialog"],
+  .fixed.inset-0 {
+    position: static !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    width: 100% !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Hide screen chrome and UI controls */
   .no-print,
   nav,
   aside,
-  header,
+  header:not(.print-header),
   footer:not(.print-footer),
   button:not(.print-include),
   .modal-backdrop,
@@ -81,11 +351,15 @@
     display: block !important;
   }
 
-  /* Table structure preservation */
+  /* ========================================================================
+     AUTOMATIC MULTI-PAGE TABLE RULES
+     ======================================================================== */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
     page-break-inside: auto !important;
+    break-inside: auto !important;
+    margin-bottom: 12px !important;
   }
 
   thead {
@@ -101,9 +375,10 @@
     page-break-inside: avoid !important;
   }
 
-  th, td {
+  th,
+  td {
     padding: 4px 6px !important;
-    font-size: 9pt !important;
+    font-size: 8.5pt !important;
     border: 1px solid #d1d5db !important;
     word-break: break-word !important;
   }
@@ -114,8 +389,143 @@
     font-weight: 700 !important;
   }
 
-  /* Page break rules */
-  .page-break, .page-break-after {
+  /* Specific Print Overrides for Canonical Document Styles */
+  body.document-style-government #print-area,
+  body.document-style-government .print-document,
+  body.document-style-government .smart-export-document,
+  .document-style-government {
+    border: 2px solid #0B6B4B !important;
+  }
+  body.document-style-government table,
+  .document-style-government table {
+    border: 1px solid #08553B !important;
+  }
+  body.document-style-government th,
+  .document-style-government th {
+    background-color: #0B6B4B !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border: 1px solid #08553B !important;
+    padding: 6px 8px !important;
+  }
+  body.document-style-government td,
+  .document-style-government td {
+    border: 1px solid #D1D5DB !important;
+    padding: 6px 8px !important;
+    font-weight: 400 !important;
+    color: #1F2937 !important;
+  }
+  body.document-style-government tr:nth-child(even),
+  body.document-style-government tbody tr:nth-child(even),
+  .document-style-government tr:nth-child(even),
+  .document-style-government tbody tr:nth-child(even) {
+    background-color: #F9FAFB !important;
+  }
+
+  /* 2. Ink Saver in Print: 0% Fill, Thin borders, transparent zebra */
+  body.document-style-ink-saver #print-area,
+  body.document-style-ink-saver .print-document,
+  body.document-style-ink-saver .smart-export-document,
+  .document-style-ink-saver {
+    border: 1px solid #6B7280 !important;
+    background-color: #ffffff !important;
+  }
+  body.document-style-ink-saver table,
+  .document-style-ink-saver table {
+    border: 1px solid #9CA3AF !important;
+    background-color: transparent !important;
+  }
+  body.document-style-ink-saver th,
+  .document-style-ink-saver th {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    font-weight: 600 !important;
+    border: 1px solid #D1D5DB !important;
+    border-bottom: 2px solid #4B5563 !important;
+    padding: 3px 5px !important;
+  }
+  body.document-style-ink-saver td,
+  .document-style-ink-saver td {
+    border: 1px solid #E5E7EB !important;
+    padding: 3px 5px !important;
+    font-weight: 400 !important;
+    color: #111827 !important;
+    background-color: transparent !important;
+  }
+  body.document-style-ink-saver tr:nth-child(even),
+  body.document-style-ink-saver tbody tr:nth-child(even),
+  body.document-style-ink-saver tr:nth-child(odd),
+  body.document-style-ink-saver tbody tr:nth-child(odd),
+  .document-style-ink-saver tr:nth-child(even),
+  .document-style-ink-saver tbody tr:nth-child(even),
+  .document-style-ink-saver tr:nth-child(odd),
+  .document-style-ink-saver tbody tr:nth-child(odd) {
+    background-color: transparent !important;
+  }
+
+  /* 3. High Contrast in Print: Thick black borders, 800 bold headers, clear grid */
+  body.document-style-high-contrast #print-area,
+  body.document-style-high-contrast .print-document,
+  body.document-style-high-contrast .smart-export-document,
+  .document-style-high-contrast {
+    border: 3px solid #000000 !important;
+  }
+  body.document-style-high-contrast table,
+  .document-style-high-contrast table {
+    border: 2px solid #000000 !important;
+  }
+  body.document-style-high-contrast th,
+  .document-style-high-contrast th {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    border: 2px solid #000000 !important;
+    letter-spacing: 0.02em !important;
+    padding: 5px 7px !important;
+  }
+  body.document-style-high-contrast td,
+  .document-style-high-contrast td {
+    border: 1.5px solid #000000 !important;
+    padding: 5px 7px !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+  }
+  body.document-style-high-contrast tr:nth-child(even),
+  body.document-style-high-contrast tbody tr:nth-child(even),
+  body.document-style-high-contrast tr:nth-child(odd),
+  body.document-style-high-contrast tbody tr:nth-child(odd),
+  .document-style-high-contrast tr:nth-child(even),
+  .document-style-high-contrast tbody tr:nth-child(even),
+  .document-style-high-contrast tr:nth-child(odd),
+  .document-style-high-contrast tbody tr:nth-child(odd) {
+    background-color: transparent !important;
+  }
+
+  /* ========================================================================
+     SECTION & BREAK LOGIC
+     ======================================================================== */
+  .section-block,
+  .dossier-section {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .section-header,
+  .dossier-section-header {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .avoid-break,
+  .avoid-break-card,
+  .print-header-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .page-break,
+  .page-break-after {
     break-after: page !important;
     page-break-after: always !important;
   }
@@ -125,15 +535,24 @@
     page-break-before: always !important;
   }
 
-  .avoid-break, .print-card, .profile-section {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+  /* Headings orphan protection */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
-  /* Fix shadows & borders in print */
+  /* Clear all drop shadows and extraneous screen effects */
   * {
     box-shadow: none !important;
     text-shadow: none !important;
+  }
+
+  /* Dark mode print overrides: always print clean dark text on white paper */
+  html.dark,
+  body.dark,
+  .dark {
+    background-color: #ffffff !important;
+    color: #111827 !important;
   }
 }
 

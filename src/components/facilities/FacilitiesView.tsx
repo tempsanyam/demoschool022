@@ -12,41 +12,49 @@ import {
   Filter,
   School as SchoolIcon
 } from 'lucide-react';
-import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { PhysicalFacility, FacilityStatus } from '../../types';
 import { facilityMasterList } from '../../data/seedData';
-import { exportToExcel, exportToCSV, triggerSystemPrint } from '../../utils/exportUtils';
+import { exportToExcel } from '../../utils/exportUtils';
+import { triggerPrint } from '../../utils/printUtils';
+import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
+import { SmartExportModal } from '../export/SmartExportModal';
 
 export const FacilitiesView: React.FC = () => {
   const { currentUser } = useAuth();
   const {
-    scopedFacilities,
+    facilities: scopedFacilities,
     schools,
-    selectedSchool,
-    updateFacility
-  } = useData();
+    currentSchool,
+    currentSchoolUdise,
+    isSchoolUser: isSchoolRestricted,
+    updateFacility,
+    fetchFacilities
+  } = useSchoolScope();
 
   const [selectedSchoolUdise, setSelectedSchoolUdise] = useState<string>(
-    selectedSchool?.udise || schools[0]?.udise || ''
+    currentSchoolUdise || (schools[0]?.udise || '')
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Edit Modal State
   const [editingFacility, setEditingFacility] = useState<PhysicalFacility | null>(null);
+  const [isSmartExportOpen, setIsSmartExportOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<FacilityStatus>('YES');
   const [modalRemarks, setModalRemarks] = useState('');
 
-  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN';
+  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'SCHOOL';
 
   const activeSchool = schools.find((s) => s.udise === selectedSchoolUdise);
   const activeSchoolFacilities = scopedFacilities.filter((f) => f.schoolUdise === selectedSchoolUdise);
 
   // Filtered facility list
   const filteredFacilities = useMemo(() => {
+    const term = (searchTerm || '').trim().toLowerCase();
     return activeSchoolFacilities.filter((f) => {
-      const matchSearch = f.facilityName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = !term || (f.facilityName || '').toLowerCase().includes(term);
       const matchStatus = statusFilter === 'ALL' || f.available === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -82,7 +90,7 @@ export const FacilitiesView: React.FC = () => {
     setEditingFacility(null);
   };
 
-  const handleExport = (type: 'EXCEL' | 'CSV') => {
+  const getFacilitiesExportPayload = () => {
     const headers = [
       'क्रमांक',
       'भौतिक सुविधा का नाम',
@@ -99,7 +107,7 @@ export const FacilitiesView: React.FC = () => {
       f.lastInspectionDate || '-'
     ]);
 
-    const payload = {
+    return {
       title: `जन शिक्षा केंद्र मलगुवां - भौतिक अधोसंरचना चेकलिस्ट`,
       subtitle: `विद्यालय: ${activeSchool?.hindiName} (यूडाइस: ${selectedSchoolUdise})`,
       schoolName: activeSchool?.hindiName,
@@ -108,9 +116,6 @@ export const FacilitiesView: React.FC = () => {
       rows,
       fileName: `Facilities_${selectedSchoolUdise}`,
     };
-
-    if (type === 'EXCEL') exportToExcel(payload);
-    else exportToCSV(payload);
   };
 
   return (
@@ -132,38 +137,44 @@ export const FacilitiesView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => handleExport('EXCEL')}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल (Excel)</span>
-          </button>
-          <button
-            onClick={() => triggerSystemPrint()}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center gap-1.5"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>प्रिंट चेकलिस्ट</span>
-          </button>
+          <UnifiedPrintButton
+            id="facilities-unified-print"
+            currentSchoolName={activeSchool?.hindiName}
+            currentUdise={selectedSchoolUdise}
+            onPrintCurrentView={() => triggerPrint()}
+            onPrintReport={() => setIsSmartExportOpen(true)}
+            currentViewLabel="Print Current View"
+            currentViewSubtext="16-सूत्रीय भौतिक अधोसंरचना चेकलिस्ट का त्वरित प्रिंट"
+            reportLabel="Print Report"
+            reportSubtext="शाला अधोसंरचना सत्यापन पंजी / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+            exportPayload={getFacilitiesExportPayload}
+          />
         </div>
       </div>
 
       {/* School Selector & Stats Summary */}
       <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <span className="font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">विद्यालय चुनें:</span>
-          <select
-            value={selectedSchoolUdise}
-            onChange={(e) => setSelectedSchoolUdise(e.target.value)}
-            className="w-full md:w-96 px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-bold"
-          >
-            {schools.map((s) => (
-              <option key={s.udise} value={s.udise}>
-                {s.name || s.hindiName} ({s.udise})
-              </option>
-            ))}
-          </select>
+          <span className="font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            {isSchoolRestricted ? 'अधिकृत विद्यालय:' : 'विद्यालय चुनें:'}
+          </span>
+          {isSchoolRestricted ? (
+            <div className="w-full md:w-96 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[#0B6B4B] dark:text-emerald-200 font-bold truncate">
+              {activeSchool?.name || activeSchool?.hindiName || 'मेरा विद्यालय'} ({activeSchool?.udise})
+            </div>
+          ) : (
+            <select
+              value={selectedSchoolUdise}
+              onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+              className="w-full md:w-96 px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-bold"
+            >
+              {schools.map((s) => (
+                <option key={s.udise} value={s.udise}>
+                  {s.name || s.hindiName} ({s.udise})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
@@ -319,6 +330,13 @@ export const FacilitiesView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Smart Export Modal for Facilities */}
+      <SmartExportModal
+        isOpen={isSmartExportOpen}
+        onClose={() => setIsSmartExportOpen(false)}
+        initialType="FACILITIES"
+        initialUdise={selectedSchoolUdise}
+      />
     </div>
   );
 };

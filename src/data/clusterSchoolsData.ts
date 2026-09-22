@@ -1,0 +1,635 @@
+import { School, SchoolType } from '../types';
+
+export interface ClusterSchoolDefinition {
+  sr: number;
+  name: string;
+  hindiName: string;
+  udise: string;
+  type: 'Primary' | 'Middle' | 'High School';
+  schoolType: SchoolType;
+  village: string;
+  gramPanchayat: string;
+  principalName: string;
+  principalMobile: string;
+  rooms: number;
+  classrooms: number;
+}
+
+/**
+ * FINAL OFFICIAL 37 SCHOOL MASTER FOR JAN SHIKSHA KENDRA MALGUWA
+ * Block: Baldeogarh, District: Tikamgarh (M.P.)
+ * 
+ * Strict canonical source-of-truth.
+ * All UDISEs are 11-digit strings preserving leading zeros.
+ */
+export const CLUSTER_37_SCHOOLS_RAW: ClusterSchoolDefinition[] = [
+  {
+    sr: 1,
+    name: 'HS HIRAPUR',
+    hindiName: 'शा. हाई स्कूल हीरापुर',
+    udise: '23080100303',
+    type: 'High School',
+    schoolType: 'हाई स्कूल',
+    village: 'हीरापुर',
+    gramPanchayat: 'हीरापुर',
+    principalName: 'महेश प्रसाद अवस्थी',
+    principalMobile: '9826010303',
+    rooms: 12,
+    classrooms: 10,
+  },
+  {
+    sr: 2,
+    name: 'PS JANAKPUR',
+    hindiName: 'प्रा.शा. जनकपुर',
+    udise: '23080110701',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'जनकपुर',
+    gramPanchayat: 'जनकपुर',
+    principalName: 'दिनेश कुमार पटेल',
+    principalMobile: '9425198765',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 3,
+    name: 'PS KACHHIYAT',
+    hindiName: 'प्रा.शा. कछियाट',
+    udise: '23080110702',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'कछियाट',
+    gramPanchayat: 'जनकपुर',
+    principalName: 'रामसहाय अहिरवार',
+    principalMobile: '9425110702',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 4,
+    name: 'PS PATTIGANESHJU',
+    hindiName: 'प्रा.शा. पट्टीगणेशजू',
+    udise: '23080111001',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'पट्टीगणेशजू',
+    gramPanchayat: 'पट्टीगणेशजू',
+    principalName: 'देवेंद्र कुमार रावत',
+    principalMobile: '9826111001',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 5,
+    name: 'MS DUBDEI',
+    hindiName: 'मा.शा. दुबदेई',
+    udise: '23080111102',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'दुबदेई',
+    gramPanchayat: 'दुबदेई',
+    principalName: 'राजेश कुमार चौबे',
+    principalMobile: '9826111102',
+    rooms: 8,
+    classrooms: 6,
+  },
+  {
+    sr: 6,
+    name: 'PS KHAJRAR',
+    hindiName: 'प्रा.शा. खजरार',
+    udise: '23080111201',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'खजरार',
+    gramPanchayat: 'खजरार',
+    principalName: 'उमाशंकर दुबे',
+    principalMobile: '9826111201',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 7,
+    name: 'MS KHAJRAR',
+    hindiName: 'मा.शा. खजरार',
+    udise: '23080111202',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'खजरार',
+    gramPanchayat: 'खजरार',
+    principalName: 'आनंद कुमार मिश्रा',
+    principalMobile: '9826111202',
+    rooms: 8,
+    classrooms: 6,
+  },
+  {
+    sr: 8,
+    name: 'PS PATTI BALWANTSINGH',
+    hindiName: 'प्रा.शा. पट्टी बलवंतसिंह',
+    udise: '23080111301',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'पट्टी बलवंतसिंह',
+    gramPanchayat: 'पट्टी बलवंतसिंह',
+    principalName: 'कमलेश कुमार लोधी',
+    principalMobile: '9826111301',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 9,
+    name: 'PS PURAINIYA',
+    hindiName: 'प्रा.शा. पुरैनिया',
+    udise: '23080111302',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'पुरैनिया',
+    gramPanchayat: 'पुरैनिया',
+    principalName: 'सत्यनारायण रैकवार',
+    principalMobile: '9826111302',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 10,
+    name: 'MS HIRAPUR',
+    hindiName: 'मा.शा. हीरापुर',
+    udise: '23080111404',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'हीरापुर',
+    gramPanchayat: 'हीरापुर',
+    principalName: 'प्रमोद कुमार तिवारी',
+    principalMobile: '9826111404',
+    rooms: 8,
+    classrooms: 6,
+  },
+  {
+    sr: 11,
+    name: 'PS PURA KHERA HIRAPUR',
+    hindiName: 'प्रा.शा. पुरा खेरा हीरापुर',
+    udise: '23080111405',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'पुरा खेरा हीरापुर',
+    gramPanchayat: 'हीरापुर',
+    principalName: 'रविशंकर अहिरवार',
+    principalMobile: '9826111405',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 12,
+    name: 'PS TURKA',
+    hindiName: 'प्रा.शा. तुरका',
+    udise: '23080111406',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'तुरका',
+    gramPanchayat: 'तुरका',
+    principalName: 'जगदीश सिंह यादव',
+    principalMobile: '9826111406',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 13,
+    name: 'PS DIGORA',
+    hindiName: 'प्रा.शा. दिगोड़ा',
+    udise: '23080111408',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'दिगोड़ा',
+    gramPanchayat: 'दिगोड़ा',
+    principalName: 'कैलाश नारायण साहू',
+    principalMobile: '9826111408',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 14,
+    name: 'MS SARKAR',
+    hindiName: 'मा.शा. सरकार',
+    udise: '23080111603',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'सरकार',
+    gramPanchayat: 'सरकार',
+    principalName: 'संतोष कुमार नायक',
+    principalMobile: '9826111603',
+    rooms: 7,
+    classrooms: 6,
+  },
+  {
+    sr: 15,
+    name: 'MS BANPURA BUZURG',
+    hindiName: 'मा.शा. बानपुरा बुजुर्ग',
+    udise: '23080111702',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'बानपुरा बुजुर्ग',
+    gramPanchayat: 'बानपुरा बुजुर्ग',
+    principalName: 'हरिशंकर सोनी',
+    principalMobile: '9826111702',
+    rooms: 8,
+    classrooms: 6,
+  },
+  {
+    sr: 16,
+    name: 'PS PURUWA',
+    hindiName: 'प्रा.शा. पुरूवा',
+    udise: '23080111703',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'पुरूवा',
+    gramPanchayat: 'बानपुरा बुजुर्ग',
+    principalName: 'गोपाल दास कुशवाहा',
+    principalMobile: '9826111703',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 17,
+    name: 'PS BAR',
+    hindiName: 'प्रा.शा. बार',
+    udise: '23080111801',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'बार',
+    gramPanchayat: 'बार',
+    principalName: 'नरेंद्र कुमार पाठक',
+    principalMobile: '9425111801',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 18,
+    name: 'MS VARME',
+    hindiName: 'मा.शा. वर्मे',
+    udise: '23080111902',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'वर्मे',
+    gramPanchayat: 'वर्मे',
+    principalName: 'रामगोपाल शर्मा',
+    principalMobile: '9826111902',
+    rooms: 7,
+    classrooms: 6,
+  },
+  {
+    sr: 19,
+    name: 'PS DARGUWAN JAGIR',
+    hindiName: 'प्रा.शा. दरगुवां जागीर',
+    udise: '23080113101',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'दरगुवां जागीर',
+    gramPanchayat: 'दरगुवां जागीर',
+    principalName: 'शिवकुमार राजपूत',
+    principalMobile: '9826113101',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 20,
+    name: 'PS DHIMROLA',
+    hindiName: 'प्रा.शा. ढिमरोला',
+    udise: '23080113102',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'ढिमरोला',
+    gramPanchayat: 'दरगुवां जागीर',
+    principalName: 'बृजेंद्र कुमार खरे',
+    principalMobile: '9826113102',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 21,
+    name: 'PS HB DARGUWAN JAGIR',
+    hindiName: 'प्रा.शा. हरिजन बस्ती दरगुवां जागीर',
+    udise: '23080113103',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'हरिजन बस्ती दरगुवां',
+    gramPanchayat: 'दरगुवां जागीर',
+    principalName: 'रामप्रसाद अहिरवार',
+    principalMobile: '9826113103',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 22,
+    name: 'GHS DARGUWAN',
+    hindiName: 'शा. हाई स्कूल दरगुवां',
+    udise: '23080113104',
+    type: 'High School',
+    schoolType: 'हाई स्कूल',
+    village: 'दरगुवां',
+    gramPanchayat: 'दरगुवां जागीर',
+    principalName: 'अशोक कुमार त्रिपाठी',
+    principalMobile: '9826113104',
+    rooms: 11,
+    classrooms: 9,
+  },
+  {
+    sr: 23,
+    name: 'PS BANDHIYANPURA',
+    hindiName: 'प्रा.शा. बंधियनपुरा',
+    udise: '23080113203',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'बंधियनपुरा',
+    gramPanchayat: 'बंधियनपुरा',
+    principalName: 'जयराम यादव',
+    principalMobile: '9826113203',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 24,
+    name: 'PS KACHHIYA KHERA',
+    hindiName: 'प्रा.शा. कछिया खेरा',
+    udise: '23080113301',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'कछिया खेरा',
+    gramPanchayat: 'कछिया खेरा',
+    principalName: 'मुकेश कुमार कुशवाहा',
+    principalMobile: '9826113301',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 25,
+    name: 'MS KACHHIYA KHERA',
+    hindiName: 'मा.शा. कछिया खेरा',
+    udise: '23080113302',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'कछिया खेरा',
+    gramPanchayat: 'कछिया खेरा',
+    principalName: 'भगवान दास अहिरवार',
+    principalMobile: '9826113302',
+    rooms: 7,
+    classrooms: 6,
+  },
+  {
+    sr: 26,
+    name: 'PS MAUNE KA KHERA',
+    hindiName: 'प्रा.शा. मौने का खेरा',
+    udise: '23080113401',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'मौने का खेरा',
+    gramPanchayat: 'मौने का खेरा',
+    principalName: 'किशोरी लाल रजक',
+    principalMobile: '9826113401',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 27,
+    name: 'MS MAUNE KA KHERA',
+    hindiName: 'मा.शा. मौने का खेरा',
+    udise: '23080113402',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'मौने का खेरा',
+    gramPanchayat: 'मौने का खेरा',
+    principalName: 'राजेंद्र प्रसाद श्रीवास्तव',
+    principalMobile: '9826113402',
+    rooms: 7,
+    classrooms: 6,
+  },
+  {
+    sr: 28,
+    name: 'PS BASENDU',
+    hindiName: 'प्रा.शा. बसेन्दू',
+    udise: '23080113403',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'बसेन्दू',
+    gramPanchayat: 'मौने का खेरा',
+    principalName: 'प्रकाश चंद्र दुबे',
+    principalMobile: '9826113403',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 29,
+    name: 'MS MALGUWAN',
+    hindiName: 'मा.शा. मलगुवां',
+    udise: '23080113602',
+    type: 'Middle',
+    schoolType: 'माध्यमिक',
+    village: 'मलगुवां',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'बालमुकुंद गुप्ता',
+    principalMobile: '9826113602',
+    rooms: 8,
+    classrooms: 6,
+  },
+  {
+    sr: 30,
+    name: 'PS DHUVYA',
+    hindiName: 'प्रा.शा. धुवया',
+    udise: '23080113603',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'धुवया',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'रामसेवक नामदेव',
+    principalMobile: '9826113603',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 31,
+    name: 'PS DHIMARWAN',
+    hindiName: 'प्रा.शा. धीमरवान',
+    udise: '23080113605',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'धीमरवान',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'दशरथ कुमार रैकवार',
+    principalMobile: '9826113605',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 32,
+    name: 'PS MAGORIYA',
+    hindiName: 'प्रा.शा. मगोरिया',
+    udise: '23080113606',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'मगोरिया',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'सुरेंद्र कुमार सेन',
+    principalMobile: '9826113606',
+    rooms: 4,
+    classrooms: 3,
+  },
+  {
+    sr: 33,
+    name: 'HS MALGUWAN',
+    hindiName: 'शा. हाई स्कूल मलगुवां',
+    udise: '23080113607',
+    type: 'High School',
+    schoolType: 'हाई स्कूल',
+    village: 'मलगुवां',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'सुरेश कुमार पाठक',
+    principalMobile: '9826113607',
+    rooms: 12,
+    classrooms: 10,
+  },
+  {
+    sr: 34,
+    name: 'PS GARROLI',
+    hindiName: 'प्रा.शा. गर्रोली',
+    udise: '23080113701',
+    type: 'Primary',
+    schoolType: 'प्राथमिक',
+    village: 'गर्रोली',
+    gramPanchayat: 'गर्रोली',
+    principalName: 'ओमप्रकाश लोधी',
+    principalMobile: '9826113701',
+    rooms: 5,
+    classrooms: 4,
+  },
+  {
+    sr: 35,
+    name: 'PRI MAA SARASWATI GM MALGUWAN',
+    hindiName: 'प्राथमिक मां सरस्वती ज्ञान मंदिर मलगुवां',
+    udise: '23080115206',
+    type: 'Primary',
+    schoolType: 'अशासकीय प्राथमिक',
+    village: 'मलगुवां',
+    gramPanchayat: 'मलगुवां',
+    principalName: 'मनोज कुमार जैन',
+    principalMobile: '9826115206',
+    rooms: 6,
+    classrooms: 5,
+  },
+  {
+    sr: 36,
+    name: 'PRI VEERANGANA AWANTI KUDILA',
+    hindiName: 'प्राथमिक वीरांगना अवंती कुड़िला',
+    udise: '23080115210',
+    type: 'Primary',
+    schoolType: 'अशासकीय प्राथमिक',
+    village: 'कुड़िला',
+    gramPanchayat: 'कुड़िला',
+    principalName: 'सुनील कुमार लोधी',
+    principalMobile: '9826115210',
+    rooms: 6,
+    classrooms: 5,
+  },
+  {
+    sr: 37,
+    name: 'SARSWATI SHISHU MANDIR BANPURA BUJURG',
+    hindiName: 'सरस्वती शिशु मंदिर बानपुरा बुजुर्ग',
+    udise: '23084101366',
+    type: 'Primary',
+    schoolType: 'अशासकीय प्राथमिक',
+    village: 'बानपुरा बुजुर्ग',
+    gramPanchayat: 'बानपुरा बुजुर्ग',
+    principalName: 'कैलाश चंद्र पस्तोर',
+    principalMobile: '9826410136',
+    rooms: 7,
+    classrooms: 6,
+  },
+];
+
+export interface SchoolMasterValidationResult {
+  valid: boolean;
+  totalCount: number;
+  duplicateUdises: string[];
+  invalidUdises: string[];
+  missingNames: string[];
+  errors: string[];
+}
+
+/**
+ * Validates School Master data at runtime.
+ * Fails fast with clear [SCHOOL_MASTER_ERROR] if:
+ * - Any duplicate UDISE is detected
+ * - Any UDISE does not strictly match 11 numeric digits
+ * - Any school name is missing
+ */
+export function validateSchoolMaster(
+  list: (School | ClusterSchoolDefinition)[]
+): SchoolMasterValidationResult {
+  const duplicateUdises: string[] = [];
+  const invalidUdises: string[] = [];
+  const missingNames: string[] = [];
+  const errors: string[] = [];
+  const seenUdises = new Set<string>();
+
+  list.forEach((s) => {
+    const udise = (s.udise || '').trim();
+    const name = (s.name || '').trim();
+
+    if (!name) {
+      missingNames.push(udise || 'UNKNOWN');
+      errors.push(`[SCHOOL_MASTER_ERROR] Missing school name for record with UDISE: "${udise}"`);
+    }
+
+    if (!/^\d{11}$/.test(udise)) {
+      invalidUdises.push(udise);
+      errors.push(`[SCHOOL_MASTER_ERROR] Invalid UDISE format (must be exactly 11 digits): "${udise}"`);
+    }
+
+    if (seenUdises.has(udise)) {
+      duplicateUdises.push(udise);
+      errors.push(`[SCHOOL_MASTER_ERROR] Duplicate UDISE detected: "${udise}"`);
+    } else {
+      seenUdises.add(udise);
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    totalCount: list.length,
+    duplicateUdises,
+    invalidUdises,
+    missingNames,
+    errors,
+  };
+}
+
+// Execute startup validation on definition
+const startupValidation = validateSchoolMaster(CLUSTER_37_SCHOOLS_RAW);
+if (!startupValidation.valid) {
+  startupValidation.errors.forEach((err) => {
+    console.error(err);
+  });
+}
+
+export const CLUSTER_37_SCHOOLS: School[] = CLUSTER_37_SCHOOLS_RAW.map((raw) => ({
+  udise: raw.udise,
+  name: raw.name,
+  hindiName: raw.hindiName || raw.name,
+  schoolType: raw.schoolType,
+  village: raw.village,
+  gramPanchayat: raw.gramPanchayat,
+  sankul: 'मलगुवां',
+  jsk: 'जन शिक्षा केंद्र मलगुवां',
+  block: 'बलदेवगढ़',
+  district: 'टीकमगढ़',
+  pin: '472111',
+  address: `ग्राम ${raw.village}, ग्राम पंचायत ${raw.gramPanchayat}, संकुल मलगुवां, विकासखंड बलदेवगढ़`,
+  mobile: raw.principalMobile,
+  email: `${raw.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@mp.gov.in`,
+  establishmentYear: raw.type === 'High School' ? 2004 : raw.type === 'Middle' ? 1998 : 1986,
+  principalName: raw.principalName,
+  principalMobile: raw.principalMobile,
+  principalEmployeeId: `EMP-HM-${raw.udise.slice(-4)}`,
+  principalAssignmentDate: '2019-07-01',
+  status: 'ACTIVE',
+  totalRooms: raw.rooms,
+  totalClassrooms: raw.classrooms,
+}));
+

@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, recordSecurityAudit } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 
 // Layout and Common Components
@@ -23,8 +23,11 @@ import { SchoolProfileView } from './components/schools/SchoolProfileView';
 import { StudentsView } from './components/students/StudentsView';
 import { TeachersView } from './components/teachers/TeachersView';
 import { AttendanceView } from './components/attendance/AttendanceView';
+import { CacAttendanceMonitoringView } from './components/attendance/CacAttendanceMonitoringView';
 import { FacilitiesView } from './components/facilities/FacilitiesView';
 import { MDMView } from './components/mdm/MDMView';
+import { RasoiyaView } from './components/mdm/RasoiyaView';
+import { SHGView } from './components/mdm/SHGView';
 import { GovernmentWorkView } from './components/work/GovernmentWorkView';
 import { ComplaintsView } from './components/complaints/ComplaintsView';
 import { NotificationsView } from './components/notifications/NotificationsView';
@@ -35,14 +38,25 @@ import { AuditLogView } from './components/audit/AuditLogView';
 import { ReportsView } from './components/reports/ReportsView';
 import { GlobalSearchView } from './components/search/GlobalSearchView';
 import { ProfileView } from './components/profile/ProfileView';
+import { ClusterUserDirectoryView } from './components/users/ClusterUserDirectoryView';
 import { SettingsView } from './components/settings/SettingsView';
 
+// Navbharat Literacy Program (नवभारत साक्षरता कार्यक्रम) Views
+import { LiteracyDashboardView } from './components/literacy/LiteracyDashboardView';
+import { LiteracyRegisterView } from './components/literacy/LiteracyRegisterView';
+import { IlliteratePersonView } from './components/literacy/IlliteratePersonView';
+import { AksharSathiView } from './components/literacy/AksharSathiView';
+import { ExamResultsView } from './components/literacy/ExamResultsView';
+import { SupportingInstitutionsView } from './components/literacy/SupportingInstitutionsView';
+import { LiteracyReportView } from './components/literacy/LiteracyReportView';
+import { LiteracyPrintExportView } from './components/literacy/LiteracyPrintExportView';
+
 // Icons
-import { LogOut } from 'lucide-react';
+import { LogOut, ShieldAlert, X } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
-  const { isAuthenticated, logout, currentUser } = useAuth();
-  const { logActivity } = useData();
+  const { isAuthenticated, logout, currentUser, isUdiseAllowed, canAccessView } = useAuth();
+  const { logActivity, selectedSessionId } = useData();
 
   // Splash Screen State
   const [showSplash, setShowSplash] = useState(true);
@@ -50,8 +64,25 @@ const MainAppContent: React.FC = () => {
   // Auth View State ('LOGIN' or 'REGISTER')
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
-  // Active Navigation View State
-  const [currentView, setCurrentView] = useState('dashboard');
+  // Active Navigation View State with Session & URL Hash Persistence
+  const getInitialView = () => {
+    try {
+      const hash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase();
+      if (hash) {
+        if (hash === 'shgs' || hash === 'shg-management' || hash === 'self-help-group') return 'shg';
+        if (hash === 'staff') return 'teachers';
+        if (hash === 'cook' || hash === 'rasoiya-management') return 'rasoiya';
+        return hash;
+      }
+      const saved = sessionStorage.getItem('jsk_current_view');
+      if (saved) return saved;
+    } catch (e) {
+      // ignore
+    }
+    return 'dashboard';
+  };
+
+  const [currentView, setCurrentView] = useState<string>(getInitialView);
   const [selectedProfileUdise, setSelectedProfileUdise] = useState<string | null>(null);
 
   // Mobile Sidebar Drawer State
@@ -62,6 +93,300 @@ const MainAppContent: React.FC = () => {
 
   // Logout Confirmation Modal State
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Route Access Denied Message State for URL verification
+  const [routeAccessDeniedMessage, setRouteAccessDeniedMessage] = useState<string | null>(null);
+
+  const isSchoolRestricted = currentUser?.role === 'SCHOOL';
+
+  // Centralized navigation handler supporting URL hash and session preservation
+  const handleNavigate = (viewId: string) => {
+    let normalized = viewId;
+    if (viewId === 'shgs' || viewId === 'shg-management' || viewId === 'self-help-group') {
+      normalized = 'shg';
+    } else if (viewId === 'staff') {
+      normalized = 'teachers';
+    } else if (viewId === 'cook' || viewId === 'rasoiya-management') {
+      normalized = 'rasoiya';
+    } else if (viewId === 'academic-sessions' || viewId === 'sessions') {
+      normalized = 'settings';
+    }
+
+    // Direct guard: CAC Attendance Monitoring is restricted to CAC and ADMIN
+    if ((normalized === 'cac-attendance-monitoring' || normalized === 'attendance-monitoring') && currentUser?.role === 'SCHOOL') {
+      setRouteAccessDeniedMessage(
+        'सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "दैनिक उपस्थिति मॉनिटरिंग" मॉड्यूल केवल संकुल समन्वयक (CAC) एवं मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है।'
+      );
+      setCurrentView('attendance');
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    // Direct guard: Cluster User Directory is restricted to CAC and ADMIN
+    if ((normalized === 'user-directory' || normalized === 'users') && currentUser?.role === 'SCHOOL') {
+      setRouteAccessDeniedMessage(
+        'सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "संकुल उपयोगकर्ता डायरेक्टरी" मॉड्यूल केवल संकुल समन्वयक (CAC) एवं मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है।'
+      );
+      setCurrentView('profile');
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    // Direct guard: Data Entry & Upload is strictly restricted to ADMIN
+    if ((normalized === 'upload' || normalized === 'data-upload') && currentUser?.role !== 'ADMIN') {
+      setRouteAccessDeniedMessage(
+        'सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "डेटा प्रविष्टि एवं अपलोड" मॉड्यूल केवल मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है।'
+      );
+      setCurrentView('dashboard');
+      setIsSidebarOpen(false);
+      logActivity(
+        'SESSION_ACCESS_DENIED' as any,
+        'डेटा प्रविष्टि एवं अपलोड',
+        `अनधिकृत नेविगेशन प्रयास (#${normalized}): केवल ADMIN के लिए अधिकृत है। उपयोगकर्ता: ${currentUser?.name || 'अज्ञात'} (${currentUser?.role || 'अज्ञात'})`
+      );
+      recordSecurityAudit(
+        'SECURITY_ALERT',
+        currentUser?.username || 'unknown',
+        currentUser?.role,
+        `अनधिकृत नेविगेशन प्रयास (#${normalized}): डेटा प्रविष्टि एवं अपलोड केवल ADMIN के लिए अधिकृत है।`
+      );
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      return;
+    }
+
+    setCurrentView(normalized);
+    setIsSidebarOpen(false);
+    setRouteAccessDeniedMessage(null);
+    try {
+      sessionStorage.setItem('jsk_current_view', normalized);
+      const currentHash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase();
+      if (currentHash !== normalized) {
+        window.history.pushState({ view: normalized }, '', `#${normalized}`);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Role Routing and Direct URL Verification (/admin, /cac, /school, /upload, /data-upload)
+  React.useEffect(() => {
+    if (!currentUser) return;
+
+    const checkRolePath = () => {
+      const path = (window.location.pathname || '').toLowerCase();
+      const hash = (window.location.hash || '').toLowerCase();
+      const search = (window.location.search || '').toLowerCase();
+
+      // Guard: Data Entry & Upload is strictly restricted to ADMIN role only
+      const uploadTargets = ['data-upload', 'upload', 'data_upload'];
+      const isUploadTarget = uploadTargets.some(
+        (target) => path.includes(`/${target}`) || hash.includes(`#${target}`) || hash.includes(`#/${target}`) || search.includes(`=${target}`)
+      );
+
+      if (isUploadTarget) {
+        if (currentUser.role === 'ADMIN') {
+          setCurrentView('upload');
+          setRouteAccessDeniedMessage(null);
+        } else {
+          setRouteAccessDeniedMessage(
+            `सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "डेटा प्रविष्टि एवं अपलोड" मॉड्यूल केवल मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है। आपकी वर्तमान लॉगिन भूमिका: ${currentUser.role === 'CAC' ? 'जन शिक्षक (CAC)' : 'संस्था प्रभारी (SCHOOL)'}।`
+          );
+          setCurrentView('dashboard');
+          logActivity(
+            'SESSION_ACCESS_DENIED' as any,
+            'डेटा प्रविष्टि एवं अपलोड',
+            `अनधिकृत पहुंच प्रयास: "डेटा प्रविष्टि एवं अपलोड" (#data-upload) केवल मुख्य व्यवस्थापक (ADMIN) के लिए उपलब्ध है। उपयोगकर्ता: ${currentUser.name} (${currentUser.role})`
+          );
+          recordSecurityAudit(
+            'SECURITY_ALERT',
+            currentUser.username,
+            currentUser.role,
+            'अनधिकृत पहुंच प्रयास: डेटा प्रविष्टि एवं अपलोड (#data-upload) केवल ADMIN के लिए अधिकृत है।'
+          );
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          return;
+        }
+      }
+
+      // Guard: Data Backup, System Info, Settings, and Sessions are prohibited for School users
+      const restrictedForSchool = [
+        'settings', 'backup', 'data-backup', 'system-info', 'system_info', 'info',
+        'academic-sessions', 'sessions', 'users', 'user-management'
+      ];
+      const isRestrictedTarget = restrictedForSchool.some(
+        (target) => path.includes(`/${target}`) || hash.includes(`#${target}`) || hash.includes(`#/${target}`) || search.includes(`=${target}`)
+      );
+
+      if (currentUser.role === 'SCHOOL' && isRestrictedTarget) {
+        setRouteAccessDeniedMessage(
+          'सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "डेटा बैकअप", "सिस्टम सूचना", "उपयोगकर्ता प्रबंधन" एवं "सिस्टम सेटिंग्स" विकल्प केवल संकुल प्रशासक (ADMIN) एवं जन शिक्षक (CAC) के लिए अधिकृत हैं।'
+        );
+        setCurrentView('dashboard');
+        if (window.location.hash || window.location.search) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        return;
+      }
+
+      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+        if (currentUser.role === 'ADMIN') {
+          setCurrentView('dashboard');
+          setRouteAccessDeniedMessage(null);
+        } else {
+          setRouteAccessDeniedMessage(
+            `पहुंच अस्वीकृत (Access Denied): मार्ग /admin केवल मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है। आपकी वर्तमान लॉगिन भूमिका: ${currentUser.role === 'CAC' ? 'जन शिक्षक (CAC)' : 'संस्था प्रभारी (SCHOOL)'}।`
+          );
+          setCurrentView('dashboard');
+        }
+      } else if (path === '/cac' || hash === '#cac' || hash === '#/cac') {
+        if (currentUser.role === 'CAC') {
+          setCurrentView('dashboard');
+          setRouteAccessDeniedMessage(null);
+        } else {
+          setRouteAccessDeniedMessage(
+            `पहुंच अस्वीकृत (Access Denied): मार्ग /cac केवल जन शिक्षक (CAC) के लिए अधिकृत है। आपकी वर्तमान लॉगिन भूमिका: ${currentUser.role === 'ADMIN' ? 'मुख्य व्यवस्थापक (ADMIN)' : 'संस्था प्रभारी (SCHOOL)'}।`
+          );
+          setCurrentView('dashboard');
+        }
+      } else if (path === '/school' || hash === '#school' || hash === '#/school') {
+        if (currentUser.role === 'SCHOOL') {
+          setCurrentView('dashboard');
+          setRouteAccessDeniedMessage(null);
+        } else {
+          setRouteAccessDeniedMessage(
+            `पहुंच अस्वीकृत (Access Denied): मार्ग /school केवल संस्था प्रभारी (SCHOOL) के लिए अधिकृत है। आपकी वर्तमान लॉगिन भूमिका: ${currentUser.role === 'ADMIN' ? 'मुख्य व्यवस्थापक (ADMIN)' : 'जन शिक्षक (CAC)'}।`
+          );
+          setCurrentView('dashboard');
+        }
+      } else if (
+        path === '/settings' || hash === '#settings' || hash === '#/settings' ||
+        path === '/academic-sessions' || hash === '#academic-sessions' || hash === '#/academic-sessions' ||
+        path === '/sessions' || hash === '#sessions' || hash === '#/sessions'
+      ) {
+        if (currentUser.role === 'ADMIN' || currentUser.role === 'CAC') {
+          setCurrentView('settings');
+          setRouteAccessDeniedMessage(null);
+        }
+      } else {
+        // Generic hash navigation support (e.g. #shg, #teachers, #mdm, #rasoiya, etc.)
+        const cleanHash = hash.replace(/^#\/?/, '').trim();
+        if (cleanHash) {
+          let target = cleanHash;
+          if (cleanHash === 'shgs' || cleanHash === 'shg-management' || cleanHash === 'self-help-group') {
+            target = 'shg';
+          } else if (cleanHash === 'staff') {
+            target = 'teachers';
+          } else if (cleanHash === 'cook' || cleanHash === 'rasoiya-management') {
+            target = 'rasoiya';
+          }
+
+          if (target === 'cac-attendance-monitoring' || target === 'attendance-monitoring') {
+            if (currentUser.role === 'ADMIN' || currentUser.role === 'CAC') {
+              setCurrentView('cac-attendance-monitoring');
+              setRouteAccessDeniedMessage(null);
+            } else {
+              setRouteAccessDeniedMessage(
+                `सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "दैनिक उपस्थिति मॉनिटरिंग" मॉड्यूल केवल संकुल समन्वयक (CAC) एवं मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है।`
+              );
+              setCurrentView('attendance');
+            }
+            return;
+          }
+
+          if (target === 'upload' || target === 'data-upload') {
+            if (currentUser.role === 'ADMIN') {
+              setCurrentView('upload');
+              setRouteAccessDeniedMessage(null);
+            } else {
+              setRouteAccessDeniedMessage(
+                `सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "डेटा प्रविष्टि एवं अपलोड" मॉड्यूल केवल मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है। आपकी वर्तमान लॉगिन भूमिका: ${currentUser.role === 'CAC' ? 'जन शिक्षक (CAC)' : 'संस्था प्रभारी (SCHOOL)'}।`
+              );
+              setCurrentView('dashboard');
+              logActivity(
+                'SESSION_ACCESS_DENIED' as any,
+                'डेटा प्रविष्टि एवं अपलोड',
+                `अनधिकृत पहुंच प्रयास (#${target}): डेटा प्रविष्टि एवं अपलोड केवल ADMIN के लिए अधिकृत है। उपयोगकर्ता: ${currentUser.name} (${currentUser.role})`
+              );
+              recordSecurityAudit(
+                'SECURITY_ALERT',
+                currentUser.username,
+                currentUser.role,
+                `अनधिकृत पहुंच प्रयास (#${target}): डेटा प्रविष्टि एवं अपलोड केवल ADMIN के लिए अधिकृत है।`
+              );
+              if (window.location.hash || window.location.search) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+            }
+          } else if (canAccessView(target)) {
+            setCurrentView(target);
+            setRouteAccessDeniedMessage(null);
+          }
+        }
+      }
+    };
+
+    checkRolePath();
+    window.addEventListener('popstate', checkRolePath);
+    window.addEventListener('hashchange', checkRolePath);
+    return () => {
+      window.removeEventListener('popstate', checkRolePath);
+      window.removeEventListener('hashchange', checkRolePath);
+    };
+  }, [currentUser, canAccessView, logActivity]);
+
+  // Security Route & UDISE Guard Effect
+  React.useEffect(() => {
+    if (currentUser) {
+      // 1. View Access Enforcement
+      if (!canAccessView(currentView)) {
+        if (currentView === 'upload' || currentView === 'data-upload') {
+          setRouteAccessDeniedMessage(
+            'सुरक्षा नियंत्रण: पहुंच अस्वीकृत (Access Denied): "डेटा प्रविष्टि एवं अपलोड" केवल मुख्य व्यवस्थापक (ADMIN) के लिए अधिकृत है।'
+          );
+          logActivity(
+            'SESSION_ACCESS_DENIED' as any,
+            'डेटा प्रविष्टि एवं अपलोड',
+            `अनधिकृत पहुंच प्रयास: डेटा प्रविष्टि एवं अपलोड केवल ADMIN के लिए अधिकृत है। उपयोगकर्ता: ${currentUser.name} (${currentUser.role})`
+          );
+          recordSecurityAudit(
+            'SECURITY_ALERT',
+            currentUser.username,
+            currentUser.role,
+            'अनधिकृत पहुंच प्रयास: डेटा प्रविष्टि एवं अपलोड केवल ADMIN के लिए अधिकृत है।'
+          );
+        }
+        setCurrentView('dashboard');
+      }
+
+      // 2. School Role Guard: enforce assigned school UDISE for school users
+      if (isSchoolRestricted && currentUser.assignedSchoolUdise) {
+        if (selectedProfileUdise && selectedProfileUdise !== currentUser.assignedSchoolUdise) {
+          setSelectedProfileUdise(currentUser.assignedSchoolUdise);
+        }
+        // Protect against URL query tampering (?schoolUdise=... / ?schoolId=...)
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const queryUdise = params.get('schoolUdise') || params.get('schoolId') || params.get('udise');
+          if (queryUdise && queryUdise !== currentUser.assignedSchoolUdise) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 3. Cluster UDISE Access Enforcement for CAC/Admin
+      if (!isSchoolRestricted && currentView === 'school-profile' && selectedProfileUdise) {
+        if (!isUdiseAllowed(selectedProfileUdise)) {
+          setCurrentView('dashboard');
+        }
+      }
+    }
+  }, [currentView, selectedProfileUdise, currentUser, isSchoolRestricted, isUdiseAllowed, canAccessView]);
 
   // If splash screen is active
   if (showSplash) {
@@ -87,6 +412,15 @@ const MainAppContent: React.FC = () => {
   }
 
   const handleSelectSchoolFromList = (udise: string) => {
+    if (!isUdiseAllowed(udise)) {
+      if (currentUser?.assignedSchoolUdise) {
+        setSelectedProfileUdise(currentUser.assignedSchoolUdise);
+        setCurrentView('school-profile');
+      } else {
+        setCurrentView('dashboard');
+      }
+      return;
+    }
     setSelectedProfileUdise(udise);
     setCurrentView('school-profile');
   };
@@ -103,6 +437,8 @@ const MainAppContent: React.FC = () => {
       `${currentUser?.name} (${currentUser?.role}) द्वारा सत्र समाप्त एवं लॉगआउट किया गया।`
     );
     setShowLogoutModal(false);
+    setSelectedProfileUdise(null);
+    setCurrentView('dashboard');
     logout();
     setAuthMode('LOGIN');
   };
@@ -113,10 +449,7 @@ const MainAppContent: React.FC = () => {
       <Header
         onOpenGlobalSearch={() => handleGlobalSearch('')}
         onOpenMobileSidebar={() => setIsSidebarOpen(true)}
-        onNavigate={(viewId) => {
-          setCurrentView(viewId);
-          setIsSidebarOpen(false);
-        }}
+        onNavigate={handleNavigate}
         onOpenLogoutDialog={() => setShowLogoutModal(true)}
       />
 
@@ -125,48 +458,141 @@ const MainAppContent: React.FC = () => {
         {/* Navigation Sidebar (Desktop visible, Tablet/Mobile Drawer) */}
         <Sidebar
           currentView={currentView}
-          onNavigate={(viewId) => {
-            setCurrentView(viewId);
-            setIsSidebarOpen(false);
-          }}
+          onNavigate={handleNavigate}
           mobileOpen={isSidebarOpen}
           onCloseMobile={() => setIsSidebarOpen(false)}
           onOpenLogout={() => setShowLogoutModal(true)}
         />
 
         {/* Dynamic Main Workspace Content */}
-        <main className="flex-1 min-w-0 w-full space-y-4 md:space-y-6">
+        <main key={selectedSessionId} className="flex-1 min-w-0 w-full space-y-4 md:space-y-6">
+          {/* Direct Route Access Violation Alert */}
+          {routeAccessDeniedMessage && (
+              <div className="bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 p-4 rounded-xl flex items-start justify-between gap-3 text-red-800 dark:text-red-200 shadow-sm animate-in fade-in">
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-sm">सुरक्षा नियंत्रण: अनाधिकृत मार्ग अनुरोध (Unauthorized Direct Route)</div>
+                    <div className="text-xs mt-0.5 text-red-700 dark:text-red-300 leading-relaxed">{routeAccessDeniedMessage}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setRouteAccessDeniedMessage(null)}
+                  className="text-red-600 hover:text-red-900 dark:hover:text-red-100 p-1 rounded-md transition-colors cursor-pointer"
+                  title="बंद करें"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
           {/* Views Routing */}
           {/* Fallback to Dashboard if invalid/legacy route */}
-          {!['schools', 'school-profile', 'students', 'teachers', 'attendance', 'facilities', 'mdm', 'work', 'government-work', 'notifications', 'complaints', 'documents', 'export', 'export-center', 'upload', 'history', 'audit-log', 'reports', 'search', 'global-search', 'profile', 'settings'].includes(currentView) && (
+          {(currentView === 'dashboard' ||
+            ![
+              'schools',
+              'school-profile',
+              'students',
+              'teachers',
+              'staff',
+              'attendance',
+              'cac-attendance-monitoring',
+              'attendance-monitoring',
+              'facilities',
+              'mdm',
+              'rasoiya',
+              'cook',
+              'rasoiya-management',
+              'shg',
+              'shgs',
+              'shg-management',
+              'self-help-group',
+              'work',
+              'government-work',
+              'notifications',
+              'complaints',
+              'documents',
+              'export',
+              'export-center',
+              'upload',
+              'data-upload',
+              'history',
+              'audit-log',
+              'reports',
+              'search',
+              'global-search',
+              'profile',
+              'user-directory',
+              'users',
+              'settings',
+              'literacy',
+              'literacy-dashboard',
+              'literacy-register',
+              'illiterate-persons',
+              'literacy-learners',
+              'akshar-sathi',
+              'literacy-volunteers',
+              'exam-results',
+              'literacy-exams',
+              'supporting-institutions',
+              'literacy-institutions',
+              'literacy-partners',
+              'literacy-reports',
+              'literacy-print',
+              'literacy-export',
+            ].includes(currentView)) && (
             <DashboardView
-              onNavigate={(viewId) => setCurrentView(viewId)}
+              onNavigate={handleNavigate}
               onSelectSchool={handleSelectSchoolFromList}
             />
           )}
 
           {currentView === 'schools' && (
-            <SchoolListView onSelectSchool={handleSelectSchoolFromList} />
+            isSchoolRestricted ? (
+              <SchoolProfileView
+                udise={currentUser?.assignedSchoolUdise || '23080104101'}
+                onBack={() => handleNavigate('dashboard')}
+                onNavigateToStudent={() => handleNavigate('students')}
+                onNavigateToStaff={() => handleNavigate('teachers')}
+                onNavigateToAttendance={() => handleNavigate('attendance')}
+                onNavigateToFacilities={() => handleNavigate('facilities')}
+                onNavigateToMDM={() => handleNavigate('mdm')}
+              />
+            ) : (
+              <SchoolListView onSelectSchool={handleSelectSchoolFromList} />
+            )
           )}
 
-          {currentView === 'school-profile' && selectedProfileUdise && (
+          {currentView === 'school-profile' && (
             <SchoolProfileView
-              udise={selectedProfileUdise}
-              onBack={() => setCurrentView('schools')}
-              onNavigateToStudent={() => setCurrentView('students')}
-              onNavigateToStaff={() => setCurrentView('teachers')}
+              udise={isSchoolRestricted ? (currentUser?.assignedSchoolUdise || '23080104101') : (selectedProfileUdise || '23080104101')}
+              onBack={() => handleNavigate(isSchoolRestricted ? 'dashboard' : 'schools')}
+              onNavigateToStudent={() => handleNavigate('students')}
+              onNavigateToStaff={() => handleNavigate('teachers')}
+              onNavigateToAttendance={() => handleNavigate('attendance')}
+              onNavigateToFacilities={() => handleNavigate('facilities')}
+              onNavigateToMDM={() => handleNavigate('mdm')}
             />
           )}
 
           {currentView === 'students' && <StudentsView />}
 
-          {currentView === 'teachers' && <TeachersView />}
+          {(currentView === 'teachers' || currentView === 'staff') && <TeachersView />}
 
           {currentView === 'attendance' && <AttendanceView />}
+
+          {(currentView === 'cac-attendance-monitoring' || currentView === 'attendance-monitoring') &&
+            (currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN') && (
+              <CacAttendanceMonitoringView />
+            )}
 
           {currentView === 'facilities' && <FacilitiesView />}
 
           {currentView === 'mdm' && <MDMView />}
+
+          {(currentView === 'rasoiya' || currentView === 'cook' || currentView === 'rasoiya-management') && <RasoiyaView />}
+
+          {(currentView === 'shg' || currentView === 'shgs' || currentView === 'shg-management' || currentView === 'self-help-group') && <SHGView />}
 
           {(currentView === 'work' || currentView === 'government-work') && <GovernmentWorkView />}
 
@@ -178,7 +604,9 @@ const MainAppContent: React.FC = () => {
 
           {(currentView === 'export' || currentView === 'export-center') && <ExportCenterView />}
 
-          {currentView === 'upload' && <DataUploadView />}
+          {(currentView === 'upload' || currentView === 'data-upload') && currentUser?.role === 'ADMIN' && (
+            <DataUploadView onNavigateToModule={(mod) => setCurrentView(mod)} />
+          )}
 
           {(currentView === 'history' || currentView === 'audit-log') && <AuditLogView />}
 
@@ -194,7 +622,66 @@ const MainAppContent: React.FC = () => {
 
           {currentView === 'profile' && <ProfileView />}
 
-          {currentView === 'settings' && <SettingsView />}
+          {(currentView === 'user-directory' || currentView === 'users') && (
+            currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' ? (
+              <ClusterUserDirectoryView />
+            ) : (
+              <div className="bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 p-6 rounded-2xl text-center space-y-3 max-w-xl mx-auto my-8">
+                <ShieldAlert className="w-10 h-10 text-red-600 dark:text-red-400 mx-auto" />
+                <h3 className="text-base font-bold text-red-900 dark:text-red-200">
+                  अनधिकृत पहुंच (Access Restricted)
+                </h3>
+                <p className="text-xs text-red-700 dark:text-red-300">
+                  संकुल उपयोगकर्ता डायरेक्टरी केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) के लिए अधिकृत है।
+                </p>
+              </div>
+            )
+          )}
+
+          {currentView === 'settings' && (
+            isSchoolRestricted ? (
+              <div className="bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 p-6 rounded-2xl text-center space-y-3 max-w-xl mx-auto my-8">
+                <ShieldAlert className="w-10 h-10 text-red-600 dark:text-red-400 mx-auto" />
+                <h3 className="text-base font-bold text-red-900 dark:text-red-200">
+                  अनधिकृत पहुंच (Access Restricted)
+                </h3>
+                <p className="text-xs text-red-700 dark:text-red-300">
+                  सिस्टम सेटिंग्स, डेटा बैकअप एवं प्रणाली सूचना केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) के लिए अधिकृत हैं।
+                </p>
+              </div>
+            ) : (
+              <SettingsView />
+            )
+          )}
+
+          {/* 📚 नवभारत साक्षरता कार्यक्रम (Navbharat Literacy Program) Routes */}
+          {(currentView === 'literacy' || currentView === 'literacy-dashboard') && (
+            <LiteracyDashboardView onNavigate={(viewId) => setCurrentView(viewId)} />
+          )}
+
+          {currentView === 'literacy-register' && <LiteracyRegisterView />}
+
+          {(currentView === 'illiterate-persons' || currentView === 'literacy-learners') && (
+            <IlliteratePersonView />
+          )}
+
+          {(currentView === 'akshar-sathi' || currentView === 'literacy-volunteers') && (
+            <AksharSathiView />
+          )}
+
+          {(currentView === 'exam-results' || currentView === 'literacy-exams') && (
+            <ExamResultsView />
+          )}
+
+          {(currentView === 'supporting-institutions' || currentView === 'literacy-institutions' || currentView === 'literacy-partners') && (
+            <SupportingInstitutionsView />
+          )}
+
+          {currentView === 'literacy-reports' && <LiteracyReportView />}
+
+          {(currentView === 'literacy-print' || currentView === 'literacy-export') && (
+            <ExportCenterView initialTab="LITERACY_FORMS" />
+          )}
         </main>
       </div>
 

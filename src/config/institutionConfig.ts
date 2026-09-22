@@ -33,7 +33,7 @@ export interface InstitutionConfig {
 
 export const institutionConfig: InstitutionConfig = {
   department: 'स्कूल शिक्षा विभाग, मध्य प्रदेश शासन',
-  institutionName: 'संकुल एवं जन शिक्षा केंद्र मलगुवां',
+  institutionName: 'जन शिक्षा केंद्र मलगुवां',
   institutionShortName: 'संकुल मलगुवां',
   fullTitle: 'जन शिक्षा केंद्र / संकुल मलगुवां शैक्षिक एवं प्रशासनिक प्रबंधन प्रणाली',
   subtitle: 'शैक्षिक एवं प्रशासनिक प्रबंधन प्रणाली',
@@ -45,7 +45,7 @@ export const institutionConfig: InstitutionConfig = {
   districtEnglish: 'Tikamgarh',
   state: 'मध्य प्रदेश',
   stateEnglish: 'Madhya Pradesh',
-  pinCode: '472115',
+  pinCode: '472111',
   diseCode: '23080113607',
   academicSession: '2026-27',
   cac1: {

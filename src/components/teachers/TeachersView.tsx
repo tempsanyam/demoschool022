@@ -1,794 +1,1029 @@
 import React, { useState, useMemo } from 'react';
 import {
   Users,
+  GraduationCap,
   Search,
   Filter,
   Plus,
-  Download,
   Printer,
+  Download,
+  Eye,
   Edit2,
   Trash2,
+  School as SchoolIcon,
   Phone,
-  Mail,
-  Award,
   CheckCircle2,
-  Briefcase,
+  XCircle,
+  FileText,
   X,
-  School,
   UserCheck,
   Building2,
-  Calendar,
-  Sparkles,
-  BookOpen
+  ShieldCheck,
+  Table as TableIcon,
+  LayoutGrid
 } from 'lucide-react';
-import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
+import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { Staff } from '../../types';
-import { exportToExcel, exportToCSV, triggerSystemPrint } from '../../utils/exportUtils';
-import { ConfirmDialog } from '../common/ConfirmDialog';
+import { exportToExcel } from '../../utils/exportUtils';
+import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { SmartExportModal } from '../export/SmartExportModal';
+import { TeacherProfileModal } from './TeacherProfileModal';
+import { TeacherPrintModal } from './TeacherPrintModal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
+import { StaffCategorySelectionModal, StaffCategory } from './StaffCategorySelectionModal';
+import { TeacherFormModal } from './TeacherFormModal';
+import { OtherStaffFormModal } from './OtherStaffFormModal';
+
+export type CategoryFilterType = 'ALL' | 'TEACHER' | 'OTHER_STAFF';
+
+interface UnifiedStaffItem {
+  id: string;
+  category: 'TEACHER' | 'OTHER_STAFF';
+  name: string;
+  designation: string;
+  schoolUdise: string;
+  mobile: string;
+  status: string;
+  codeOrId?: string;
+  uniqueId?: string;
+  teacherType?: string;
+  subject?: string;
+  caste?: string;
+  qualification?: string;
+  postingDate?: string;
+  joiningDate?: string;
+  rawStaff: Staff;
+}
+
+const isNonTeachingDesignation = (desig: string): boolean => {
+  const nonTeaching = [
+    'भृत्य',
+    'कार्यालय सहायक',
+    'चौकीदार',
+    'प्रयोगशाला सहायक',
+    'सफाई कर्मचारी',
+    'सहायक ग्रेड-3',
+    'अन्य कर्मचारी'
+  ];
+  return nonTeaching.includes(desig);
+};
 
 export const TeachersView: React.FC = () => {
   const { currentUser } = useAuth();
   const {
-    scopedStaff,
     schools,
-    selectedSchool,
+    currentSchool,
+    currentSchoolUdise,
+    isSchoolUser: isSchoolRestricted,
+    staff: scopedStaff,
     addStaff,
     updateStaff,
-    deleteStaff
-  } = useData();
+    deleteStaff,
+  } = useSchoolScope();
 
+  const { selectedSessionId, isSessionLocked, assertSessionModifiable } = useData();
+
+  // Category Filter & Search States
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDesignation, setSelectedDesignation] = useState<string>('ALL');
-  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('ALL');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>(
+    isSchoolRestricted ? (currentSchoolUdise || schools[0]?.udise || '') : 'ALL'
+  );
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
-  const [formData, setFormData] = useState<Partial<Staff>>({
-    designation: 'माध्यमिक शिक्षक',
-    subject: 'गणित',
-    gender: 'MALE',
-    employmentType: 'REGULAR',
-    status: 'ACTIVE',
-    assignedSchoolUdise: selectedSchool?.udise || schools[0]?.udise || '',
-  });
+  // Modal Flow States
+  const [isCategorySelectionOpen, setIsCategorySelectionOpen] = useState(false);
 
-  // Delete State
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  // Form Modals
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState<Staff | null>(null);
 
-  // Smart Export State
+  const [isOtherStaffModalOpen, setIsOtherStaffModalOpen] = useState(false);
+  const [editingOtherStaff, setEditingOtherStaff] = useState<Staff | null>(null);
+
+  // Profile & Print Modals
+  const [viewingProfileStaff, setViewingProfileStaff] = useState<Staff | null>(null);
+  const [printingStaff, setPrintingStaff] = useState<Staff | null>(null);
+
+  // Deletion State
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportStaffTarget, setExportStaffTarget] = useState<Staff | null>(null);
 
-  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN';
+  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'SCHOOL';
+  const sessionIsLocked = typeof isSessionLocked === 'function' ? isSessionLocked(selectedSessionId) : !!isSessionLocked;
 
-  // Summary counts
-  const stats = useMemo(() => {
-    const total = scopedStaff.length;
-    const hmCount = scopedStaff.filter((s) => s.designation?.includes('प्रधानाध्यापक') || s.designation?.includes('Headmaster')).length;
-    const msCount = scopedStaff.filter((s) => s.designation === 'माध्यमिक शिक्षक' || s.designation === 'उच्च श्रेणी शिक्षक').length;
-    const psCount = scopedStaff.filter((s) => s.designation === 'प्राथमिक शिक्षक').length;
-    const guestCount = scopedStaff.filter((s) => s.designation?.includes('अतिथि') || s.employmentType === 'GUEST').length;
-    const cookCount = scopedStaff.filter((s) => s.designation?.includes('रसोइया')).length;
-    return { total, hmCount, msCount, psCount, guestCount, cookCount };
+  // Auto-sync school filter if restricted
+  React.useEffect(() => {
+    if (isSchoolRestricted && currentSchoolUdise) {
+      setSelectedSchoolFilter(currentSchoolUdise);
+    }
+  }, [isSchoolRestricted, currentSchoolUdise]);
+
+  // UNIFIED LIST: All Teaching and Non-Teaching Staff (Categorized into TEACHER vs OTHER_STAFF)
+  const unifiedItems = useMemo<UnifiedStaffItem[]>(() => {
+    return scopedStaff.map((s) => {
+      const isOther = isNonTeachingDesignation(s.designation) || 
+                      s.teacherType === 'अन्य' || 
+                      s.designation.includes('सहायक') || 
+                      s.designation.includes('भृत्य') || 
+                      s.designation.includes('चौकीदार') || 
+                      s.designation.includes('सफाई') || 
+                      s.designation.includes('गैर-शैक्षणिक');
+      const cat: 'TEACHER' | 'OTHER_STAFF' = isOther ? 'OTHER_STAFF' : 'TEACHER';
+
+      return {
+        id: s.id,
+        category: cat,
+        name: s.name,
+        designation: s.designation || 'शिक्षक',
+        schoolUdise: s.assignedSchoolUdise,
+        mobile: s.mobile || '',
+        status: s.status || 'ACTIVE',
+        codeOrId: s.employeeId || s.employeeCode,
+        uniqueId: s.uniqueId,
+        teacherType: s.teacherType,
+        subject: s.subject,
+        caste: s.caste,
+        qualification: s.qualification,
+        postingDate: s.postingDate,
+        joiningDate: s.joiningDate,
+        rawStaff: s,
+      };
+    });
   }, [scopedStaff]);
 
-  // Robust Multi-field Filtered Staff
-  const filteredStaff = useMemo(() => {
+  // Counts for pills
+  const counts = useMemo(() => {
+    const total = unifiedItems.length;
+    const teachers = unifiedItems.filter((i) => i.category === 'TEACHER').length;
+    const otherStaff = unifiedItems.filter((i) => i.category === 'OTHER_STAFF').length;
+    const active = unifiedItems.filter((i) => i.status === 'ACTIVE').length;
+    const inactive = unifiedItems.filter((i) => i.status !== 'ACTIVE').length;
+    return { total, teachers, otherStaff, active, inactive };
+  }, [unifiedItems]);
+
+  // Filtered List
+  const filteredList = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    return scopedStaff.filter((stf) => {
-      // 1. Search Query check
+    return unifiedItems.filter((item) => {
+      // 1. Category Filter
+      if (categoryFilter !== 'ALL' && item.category !== categoryFilter) {
+        return false;
+      }
+
+      // 2. School Filter
+      if (!isSchoolRestricted && selectedSchoolFilter !== 'ALL') {
+        if (item.schoolUdise !== selectedSchoolFilter) return false;
+      }
+
+      // 3. Status Filter
+      if (selectedStatusFilter !== 'ALL') {
+        if (item.status !== selectedStatusFilter) return false;
+      }
+
+      // 4. Search Filter
       if (term) {
-        const empCode = (stf?.employeeId || stf?.employeeCode || '').toLowerCase();
-        const name = (stf?.name || '').toLowerCase();
-        const mobile = (stf?.mobile || '').toLowerCase();
-        const subject = (stf?.subject || '').toLowerCase();
-        const designation = (stf?.designation || '').toLowerCase();
-        const qualification = (stf?.qualification || '').toLowerCase();
-        const udise = (stf?.assignedSchoolUdise || '').toLowerCase();
-        const empType = (stf?.employmentType || '').toLowerCase();
-
-        // Linked School information
-        const sObj = schools.find((s) => s.udise === stf?.assignedSchoolUdise);
-        const schoolHindi = (sObj?.hindiName || '').toLowerCase();
-        const schoolName = (sObj?.name || '').toLowerCase();
-        const schoolVillage = (sObj?.village || '').toLowerCase();
-
+        const sObj = schools.find((s) => s.udise === item.schoolUdise);
+        const schoolName = (sObj?.hindiName || sObj?.name || '').toLowerCase();
         const matches =
-          name.includes(term) ||
-          empCode.includes(term) ||
-          mobile.includes(term) ||
-          subject.includes(term) ||
-          designation.includes(term) ||
-          qualification.includes(term) ||
-          udise.includes(term) ||
-          empType.includes(term) ||
-          schoolHindi.includes(term) ||
-          schoolName.includes(term) ||
-          schoolVillage.includes(term);
+          (item.name || '').toLowerCase().includes(term) ||
+          (item.codeOrId || '').toLowerCase().includes(term) ||
+          (item.uniqueId || '').toLowerCase().includes(term) ||
+          (item.mobile || '').includes(term) ||
+          (item.designation || '').toLowerCase().includes(term) ||
+          (item.subject || '').toLowerCase().includes(term) ||
+          (item.caste || '').toLowerCase().includes(term) ||
+          (item.schoolUdise || '').includes(term) ||
+          schoolName.includes(term);
 
         if (!matches) return false;
       }
 
-      // 2. Designation Filter
-      if (selectedDesignation !== 'ALL') {
-        if (stf.designation !== selectedDesignation) return false;
-      }
-
-      // 3. School Filter
-      if (selectedSchoolFilter !== 'ALL') {
-        if (stf.assignedSchoolUdise !== selectedSchoolFilter) return false;
-      }
-
-      // 4. Status Filter
-      if (selectedStatusFilter !== 'ALL') {
-        if (stf.status !== selectedStatusFilter) return false;
-      }
-
       return true;
     });
-  }, [scopedStaff, schools, searchTerm, selectedDesignation, selectedSchoolFilter, selectedStatusFilter]);
+  }, [unifiedItems, categoryFilter, selectedSchoolFilter, selectedStatusFilter, searchTerm, isSchoolRestricted, schools]);
 
+  // ADD FLOW: Opens Selection Modal first
   const handleOpenAdd = () => {
-    setEditingStaff(null);
-    const genId = `EMP-TCH-${Math.floor(100 + Math.random() * 900)}`;
-    setFormData({
-      employeeId: genId,
-      employeeCode: genId,
-      name: '',
-      gender: 'MALE',
-      designation: 'माध्यमिक शिक्षक',
-      subject: 'गणित',
-      qualification: 'B.Sc., B.Ed.',
-      mobile: '',
-      email: '',
-      joiningDate: '2016-07-15',
-      employmentType: 'REGULAR',
-      assignedSchoolUdise: selectedSchool?.udise || schools[0]?.udise || '',
-      status: 'ACTIVE',
-      dob: '1988-06-15',
-      category: 'OBC',
-    });
-    setIsModalOpen(true);
+    if (sessionIsLocked) {
+      alert('यह शैक्षणिक सत्र लॉक्ड है। नया रिकॉर्ड जोड़ना प्रतिबंधित है।');
+      return;
+    }
+    setIsCategorySelectionOpen(true);
   };
 
-  const handleOpenEdit = (stf: Staff) => {
-    setEditingStaff(stf);
-    setFormData({
-      ...stf,
-      employeeCode: stf.employeeCode || stf.employeeId,
-      employeeId: stf.employeeId || stf.employeeCode,
-    });
-    setIsModalOpen(true);
+  // User selects category from Selection Modal
+  const handleSelectCategory = (cat: StaffCategory) => {
+    setIsCategorySelectionOpen(false);
+
+    if (cat === 'TEACHER') {
+      setEditingTeacher(null);
+      setIsTeacherModalOpen(true);
+    } else if (cat === 'OTHER_STAFF') {
+      setEditingOtherStaff(null);
+      setIsOtherStaffModalOpen(true);
+    }
   };
 
-  const handleSaveSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = (formData.employeeId || formData.employeeCode || '').trim();
-
-    if (!formData.name?.trim() || !code || !formData.assignedSchoolUdise) {
-      alert('कृपया नाम, कर्मचारी कोड एवं विद्यालय का चयन करें।');
+  // EDIT FLOW: Directly opens the respective edit form
+  const handleOpenEdit = (item: UnifiedStaffItem) => {
+    if (sessionIsLocked) {
+      alert('यह शैक्षणिक सत्र लॉक्ड है। रिकॉर्ड संशोधन प्रतिबंधित है।');
       return;
     }
 
-    const payload: Staff = {
-      ...(formData as Staff),
-      employeeId: code.toUpperCase(),
-      employeeCode: code.toUpperCase(),
-      name: formData.name.trim(),
-      mobile: (formData.mobile || '').trim(),
-      subject: (formData.subject || 'सामान्य').trim(),
-      designation: formData.designation || 'माध्यमिक शिक्षक',
-      assignedSchoolUdise: formData.assignedSchoolUdise,
-      status: formData.status || 'ACTIVE',
-      employmentType: formData.employmentType || 'REGULAR',
-      gender: formData.gender || 'MALE',
-      qualification: (formData.qualification || '').trim(),
-      dob: formData.dob || '1988-06-15',
-      category: formData.category || 'OBC',
-      joiningDate: formData.joiningDate || new Date().toISOString().split('T')[0],
-    };
-
-    if (editingStaff) {
-      updateStaff({ ...payload, id: editingStaff.id });
-    } else {
-      addStaff(payload);
+    if (item.category === 'TEACHER') {
+      setEditingTeacher(item.rawStaff);
+      setIsTeacherModalOpen(true);
+    } else if (item.category === 'OTHER_STAFF') {
+      setEditingOtherStaff(item.rawStaff);
+      setIsOtherStaffModalOpen(true);
     }
-    setIsModalOpen(false);
   };
 
-  const handleExport = (type: 'EXCEL' | 'CSV') => {
+  // CHANGE CATEGORY: switches back to Selection Modal from Add Form
+  const handleChangeCategoryFromTeacher = () => {
+    setIsTeacherModalOpen(false);
+    setIsCategorySelectionOpen(true);
+  };
+
+  const handleChangeCategoryFromOtherStaff = () => {
+    setIsOtherStaffModalOpen(false);
+    setIsCategorySelectionOpen(true);
+  };
+
+  // SAVE HANDLERS
+  const handleSaveTeacher = (data: Staff) => {
+    assertSessionModifiable(selectedSessionId, 'saveTeacher');
+    if (editingTeacher) {
+      updateStaff(data);
+    } else {
+      addStaff(data);
+    }
+    setIsTeacherModalOpen(false);
+    setEditingTeacher(null);
+  };
+
+  const handleSaveOtherStaff = (data: Staff) => {
+    assertSessionModifiable(selectedSessionId, 'saveOtherStaff');
+    if (editingOtherStaff) {
+      updateStaff(data);
+    } else {
+      addStaff(data);
+    }
+    setIsOtherStaffModalOpen(false);
+    setEditingOtherStaff(null);
+  };
+
+  // DELETE HANDLERS
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    assertSessionModifiable(selectedSessionId, 'deleteStaff');
+    deleteStaff(deleteTarget.id);
+    setDeleteTarget(null);
+  };
+
+  // EXCEL EXPORT
+  const handleExportExcel = () => {
     const headers = [
-      'क्रमांक',
-      'कर्मचारी कोड (ID)',
+      'क्रम',
       'नाम',
-      'लिंग',
-      'पदनाम',
-      'मुख्य विषय',
-      'पदस्थ विद्यालय',
-      'यूडाइस कोड',
-      'मोबाइल नंबर',
-      'रोजगार प्रकार',
-      'योग्यता',
-      'नियुक्ति तिथि',
+      'प्रकार',
+      'पद',
+      'विद्यालय',
+      'UDISE',
+      'Employee Code',
+      'Unique ID',
+      'मोबाइल',
       'स्थिति'
     ];
 
-    const rows = filteredStaff.map((stf, idx) => {
-      const sch = schools.find((s) => s.udise === stf.assignedSchoolUdise);
+    const rows = filteredList.map((item, idx) => {
+      const sObj = schools.find((s) => s.udise === item.schoolUdise);
+      const schoolName = sObj?.hindiName || sObj?.name || item.schoolUdise;
+      const catLabel = item.category === 'TEACHER' ? 'शिक्षक' : 'अन्य स्टाफ';
+
       return [
-        idx + 1,
-        stf.employeeId || stf.employeeCode || '-',
-        stf.name,
-        stf.gender === 'MALE' ? 'पुरुष' : 'महिला',
-        stf.designation,
-        stf.subject,
-        sch?.hindiName || sch?.name || stf.assignedSchoolUdise,
-        stf.assignedSchoolUdise,
-        stf.mobile,
-        stf.employmentType || 'REGULAR',
-        stf.qualification || '-',
-        stf.joiningDate || '-',
-        stf.status === 'ACTIVE' ? 'सक्रिय' : stf.status
+        (idx + 1).toString(),
+        item.name,
+        catLabel,
+        item.designation,
+        schoolName,
+        item.schoolUdise,
+        item.codeOrId || '-',
+        item.uniqueId || '-',
+        item.mobile || '-',
+        item.status === 'ACTIVE' ? 'सक्रिय' : 'निष्क्रिय'
       ];
     });
 
-    const payload = {
-      title: 'जन शिक्षा केंद्र मलगुवां - शिक्षक एवं स्टाफ रोस्टर',
-      subtitle: `सत्र 2026-27 | कुल स्टाफ: ${filteredStaff.length}`,
+    exportToExcel({
+      title: 'शिक्षक एवं स्टाफ रोस्टर विवरण',
+      subtitle: `सत्र ${selectedSessionId} | कुल कर्मचारी: ${filteredList.length}`,
+      schoolName: currentSchool?.name || currentSchool?.hindiName,
+      udise: isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter),
+      session: selectedSessionId,
       headers,
       rows,
-      fileName: `Malguwa_Staff_Roster_${Date.now()}`,
-    };
-
-    if (type === 'EXCEL') exportToExcel(payload);
-    else exportToCSV(payload);
+      fileName: `Staff_Roster_${selectedSessionId}`
+    });
   };
 
-  const handleQuickFilter = (desig: string) => {
-    setSelectedDesignation(desig);
-    setSearchTerm('');
+  // EXPORT PAYLOAD FOR UNIFIED PRINT BUTTON
+  const getStaffExportPayload = () => {
+    const headers = [
+      'क्र.',
+      'श्रेणी',
+      'कर्मचारी नाम',
+      'पदनाम/दायित्व',
+      'संबंधित विद्यालय',
+      'UDISE कोड',
+      'मोबाइल नंबर',
+      'कर्मचारी कोड/आईडी',
+      'यूनिक आईडी',
+      'सेवा स्थिति'
+    ];
+
+    const rows = filteredList.map((item, idx) => {
+      const sObj = schools.find((s) => s.udise === item.schoolUdise);
+      const schoolName = sObj?.hindiName || sObj?.name || item.schoolUdise;
+      const catLabel = item.category === 'TEACHER' ? 'शिक्षक' : 'अन्य स्टाफ';
+
+      return [
+        (idx + 1).toString(),
+        catLabel,
+        item.name,
+        item.designation,
+        schoolName,
+        item.schoolUdise,
+        item.mobile || '-',
+        item.codeOrId || '-',
+        item.uniqueId || '-',
+        item.status === 'ACTIVE' ? 'सक्रिय' : 'निष्क्रिय'
+      ];
+    });
+
+    return {
+      title: 'शिक्षक एवं स्टाफ रोस्टर विवरण',
+      schoolName: currentSchool?.name || currentSchool?.hindiName,
+      udise: isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter),
+      session: selectedSessionId,
+      headers,
+      rows,
+      fileName: `Staff_Roster_${selectedSessionId}`,
+    };
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
-      {/* Top Banner */}
-      <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Top Page Header */}
+      <div className="bg-white dark:bg-[#17211C] p-4 sm:p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-700 dark:text-purple-300">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  शिक्षक एवं स्टाफ प्रबंधन (Teachers & Staff Roster)
+                  शिक्षक एवं स्टाफ प्रबंधन
                 </h2>
                 <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                  कुल {filteredStaff.length} / {scopedStaff.length} स्टाफ
+                  कुल {filteredList.length} / {counts.total} दर्ज
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono font-medium">
+                  सत्र: {selectedSessionId}
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                संकुल मलगुवां अंतर्गत पदस्थ प्रधानाध्यापक, नियमित शिक्षक, अतिथि शिक्षक एवं रसोइया रोस्टर
+                विद्यालयवार शिक्षक एवं कर्मचारी जानकारी का प्रबंधन
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Top Actions: + जोड़ें, Search, Filter, Print, PDF, Excel */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {canEdit && (
+            <button
+              id="btn-open-add-flow"
+              type="button"
+              aria-label="नया शिक्षक या स्टाफ जोड़ें"
+              onClick={handleOpenAdd}
+              disabled={sessionIsLocked}
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                sessionIsLocked
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-[#0B6B4B] hover:bg-emerald-800 text-white'
+              }`}
+              title={sessionIsLocked ? 'सत्र लॉक्ड है' : '+ जोड़ें पर क्लिक कर श्रेणी चुनें'}
+            >
+              <Plus className="w-4 h-4 pointer-events-none" />
+              <span>+ जोड़ें</span>
+            </button>
+          )}
+
           <button
-            onClick={() => {
+            id="btn-teachers-excel"
+            onClick={handleExportExcel}
+            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Excel स्प्रेडशीट डाउनलोड करें"
+          >
+            <Download className="w-4 h-4" />
+            <span>Excel</span>
+          </button>
+
+          <UnifiedPrintButton
+            id="teachers-unified-print"
+            currentSession={selectedSessionId}
+            currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+            currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter)}
+            onPrintCurrentView={() => window.print()}
+            onPrintReport={() => {
               setExportStaffTarget(null);
               setIsExportModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-lg border border-purple-300 dark:border-purple-700 hover:bg-purple-100 flex items-center gap-1.5 transition-colors shadow-2xs"
-            title="स्मार्ट एक्सपोर्ट व A4 प्रिंट केंद्र"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>स्मार्ट एक्सपोर्ट</span>
-          </button>
-          <button
-            onClick={() => handleExport('EXCEL')}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
-            title="एक्सेल फाइल डाउनलोड करें"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल (Excel)</span>
-          </button>
-          <button
-            onClick={() => triggerSystemPrint()}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center gap-1.5 transition-colors"
-            title="स्टाफ रोस्टर प्रिंट करें"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>प्रिंट (Print)</span>
-          </button>
-          {canEdit && (
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>नया स्टाफ जोड़ें</span>
-            </button>
-          )}
+            currentViewLabel="Print"
+            currentViewSubtext="वर्तमान शिक्षक एवं स्टाफ सूची का त्वरित प्रिंट"
+            reportLabel="PDF"
+            reportSubtext="स्टाफ सेवा विवरण / आधिकारिक A4 स्मार्ट रिपोर्ट"
+            exportPayload={getStaffExportPayload}
+          />
         </div>
       </div>
 
-      {/* Quick Category Summary Stats Chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-        <button
-          onClick={() => handleQuickFilter('ALL')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'ALL'
-              ? 'bg-emerald-50 border-emerald-400 dark:bg-emerald-950/60 dark:border-emerald-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">कुल स्टाफ</div>
-          <div className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">{stats.total}</div>
-        </button>
+      {/* Category Filter Pills (Tabs): [ सभी ] [ शिक्षक ] [ अन्य स्टाफ ] */}
+      <div className="bg-white dark:bg-[#17211C] p-2.5 sm:p-3 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-gray-600 dark:text-gray-400 px-1">श्रेणी:</span>
 
-        <button
-          onClick={() => handleQuickFilter('प्रधानाध्यापक')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'प्रधानाध्यापक'
-              ? 'bg-purple-50 border-purple-400 dark:bg-purple-950/60 dark:border-purple-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">प्रधानाध्यापक</div>
-          <div className="text-lg font-bold text-purple-700 dark:text-purple-300 mt-0.5">{stats.hmCount}</div>
-        </button>
+          <button
+            id="btn-filter-category-all"
+            type="button"
+            onClick={() => setCategoryFilter('ALL')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              categoryFilter === 'ALL'
+                ? 'bg-[#0B6B4B] text-white shadow-sm'
+                : 'bg-gray-50 dark:bg-[#121B17] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>सभी ({counts.total})</span>
+          </button>
 
-        <button
-          onClick={() => handleQuickFilter('माध्यमिक शिक्षक')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'माध्यमिक शिक्षक'
-              ? 'bg-blue-50 border-blue-400 dark:bg-blue-950/60 dark:border-blue-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">माध्यमिक शिक्षक</div>
-          <div className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-0.5">{stats.msCount}</div>
-        </button>
+          <button
+            id="btn-filter-category-teacher"
+            type="button"
+            onClick={() => setCategoryFilter('TEACHER')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              categoryFilter === 'TEACHER'
+                ? 'bg-purple-700 text-white shadow-sm'
+                : 'bg-gray-50 dark:bg-[#121B17] text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>👨‍🏫 शिक्षक ({counts.teachers})</span>
+          </button>
 
-        <button
-          onClick={() => handleQuickFilter('प्राथमिक शिक्षक')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'प्राथमिक शिक्षक'
-              ? 'bg-teal-50 border-teal-400 dark:bg-teal-950/60 dark:border-teal-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">प्राथमिक शिक्षक</div>
-          <div className="text-lg font-bold text-teal-700 dark:text-teal-300 mt-0.5">{stats.psCount}</div>
-        </button>
+          <button
+            id="btn-filter-category-other-staff"
+            type="button"
+            onClick={() => setCategoryFilter('OTHER_STAFF')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              categoryFilter === 'OTHER_STAFF'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-gray-50 dark:bg-[#121B17] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>👤 अन्य स्टाफ ({counts.otherStaff})</span>
+          </button>
+        </div>
 
-        <button
-          onClick={() => handleQuickFilter('अतिथि शिक्षक')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'अतिथि शिक्षक'
-              ? 'bg-amber-50 border-amber-400 dark:bg-amber-950/60 dark:border-amber-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">अतिथि शिक्षक</div>
-          <div className="text-lg font-bold text-amber-700 dark:text-amber-300 mt-0.5">{stats.guestCount}</div>
-        </button>
-
-        <button
-          onClick={() => handleQuickFilter('रसोइया')}
-          className={`p-2.5 rounded-xl border text-left transition-all ${
-            selectedDesignation === 'रसोइया'
-              ? 'bg-orange-50 border-orange-400 dark:bg-orange-950/60 dark:border-orange-600 shadow-xs'
-              : 'bg-white dark:bg-[#17211C] border-[#DDE7E2] dark:border-[#2B3933] hover:border-gray-300'
-          }`}
-        >
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">रसोइया (MDM)</div>
-          <div className="text-lg font-bold text-orange-700 dark:text-orange-300 mt-0.5">{stats.cookCount}</div>
-        </button>
+        {/* View Mode Toggle: Table / Cards */}
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'table'
+                ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+            title="तालिका प्रारूप (Table View)"
+          >
+            <TableIcon className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'cards'
+                ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+            title="कार्ड ग्रिड प्रारूप (Card View)"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Filter & Search Toolbar */}
-      <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[260px] max-w-md">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+      {/* Filter and Search Toolbar */}
+      <div className="bg-white dark:bg-[#17211C] p-3.5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Search input */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
+            placeholder="नाम, कोड, यूनिक आईडी, पद, विषय, मोबाइल या शाला खोजें..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="नाम, कोड, मोबाइल, विषय, विद्यालय या ग्राम से खोजें..."
-            className="w-full pl-9 pr-8 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0B6B4B]"
+            className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B]"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              title="सर्च साफ़ करें"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Dropdowns */}
+        {/* School & Status Dropdowns */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* School Selector */}
-          <div className="flex items-center gap-1">
-            <School className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          {!isSchoolRestricted && (
+            <div className="relative min-w-[180px]">
+              <select
+                value={selectedSchoolFilter}
+                onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none"
+              >
+                <option value="ALL">सभी संकुल विद्यालय ({schools.length})</option>
+                {schools.map((s) => (
+                  <option key={s.udise} value={s.udise}>
+                    {s.hindiName || s.name} ({s.udise})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="relative min-w-[130px]">
             <select
-              value={selectedSchoolFilter}
-              onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-              className="px-2.5 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 font-medium"
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none"
             >
-              <option value="ALL">सभी विद्यालय ({schools.length})</option>
-              {schools.map((s) => (
-                <option key={s.udise} value={s.udise}>
-                  {s.name || s.hindiName} ({s.udise.slice(-4)})
-                </option>
-              ))}
+              <option value="ALL">सभी स्थिति</option>
+              <option value="ACTIVE">सक्रिय (Active)</option>
+              <option value="INACTIVE">निष्क्रिय (Inactive)</option>
             </select>
           </div>
 
-          {/* Designation Selector */}
-          <div className="flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <select
-              value={selectedDesignation}
-              onChange={(e) => setSelectedDesignation(e.target.value)}
-              className="px-2.5 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 font-medium"
-            >
-              <option value="ALL">सभी पदनाम</option>
-              <option value="प्रधानाध्यापक">प्रधानाध्यापक (Headmaster)</option>
-              <option value="माध्यमिक शिक्षक">माध्यमिक शिक्षक</option>
-              <option value="प्राथमिक शिक्षक">प्राथमिक शिक्षक</option>
-              <option value="उच्च श्रेणी शिक्षक">उच्च श्रेणी शिक्षक</option>
-              <option value="अतिथि शिक्षक">अतिथि शिक्षक (Guest Teacher)</option>
-              <option value="रसोइया">रसोइया (MDM Cook)</option>
-            </select>
-          </div>
-
-          {/* Reset Filters button if any active */}
-          {(searchTerm || selectedDesignation !== 'ALL' || selectedSchoolFilter !== 'ALL' || selectedStatusFilter !== 'ALL') && (
+          {/* Reset Filters button */}
+          {(searchTerm || categoryFilter !== 'ALL' || (!isSchoolRestricted && selectedSchoolFilter !== 'ALL') || selectedStatusFilter !== 'ALL') && (
             <button
               onClick={() => {
                 setSearchTerm('');
-                setSelectedDesignation('ALL');
-                setSelectedSchoolFilter('ALL');
+                setCategoryFilter('ALL');
+                if (!isSchoolRestricted) setSelectedSchoolFilter('ALL');
                 setSelectedStatusFilter('ALL');
               }}
-              className="px-2.5 py-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-lg border border-rose-200 dark:border-rose-800 hover:bg-rose-100 flex items-center gap-1 font-semibold"
+              className="px-2.5 py-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-lg border border-rose-200 dark:border-rose-800 hover:bg-rose-100 flex items-center gap-1 font-semibold cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
-              <span>फ़िल्टर रीसेट</span>
+              <span>रीसेट</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Staff Grid */}
-      {filteredStaff.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStaff.map((stf) => {
-            const sObj = schools.find((s) => s.udise === stf.assignedSchoolUdise);
-            const empCode = stf.employeeId || stf.employeeCode || '-';
+      {/* Main Content: Table View (Primary) or Cards View */}
+      {filteredList.length > 0 ? (
+        viewMode === 'table' ? (
+          /* Table: | क्रम | नाम | प्रकार | पद | विद्यालय | Employee Code | Unique ID | मोबाइल | स्थिति | Action | */
+          <div className="bg-white dark:bg-[#17211C] rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 font-bold">
+                    <th className="py-3 px-3 w-12 text-center">क्रम</th>
+                    <th className="py-3 px-3">नाम</th>
+                    <th className="py-3 px-3">प्रकार</th>
+                    <th className="py-3 px-3">पद</th>
+                    <th className="py-3 px-3">विद्यालय</th>
+                    <th className="py-3 px-3 font-mono">Employee Code</th>
+                    <th className="py-3 px-3 font-mono">Unique ID</th>
+                    <th className="py-3 px-3">मोबाइल</th>
+                    <th className="py-3 px-3 text-center">स्थिति</th>
+                    <th className="py-3 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {filteredList.map((item, idx) => {
+                    const sObj = schools.find((s) => s.udise === item.schoolUdise);
+                    const schoolName = sObj?.hindiName || sObj?.name || item.schoolUdise;
 
-            return (
-              <div
-                key={stf.id}
-                className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
-                      ID: {empCode}
-                    </span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                      stf.status === 'ACTIVE'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                    }`}>
-                      {stf.status === 'ACTIVE' ? 'सक्रिय (Active)' : stf.status}
-                    </span>
-                  </div>
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-gray-50/70 dark:hover:bg-[#1b2721] transition-colors"
+                      >
+                        {/* 1. क्रम */}
+                        <td className="py-3 px-3 text-center text-gray-500 font-medium">
+                          {idx + 1}
+                        </td>
 
-                  <h3 className="font-bold text-base text-gray-900 dark:text-white">
-                    {stf.name}
-                  </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    <strong className="text-gray-800 dark:text-gray-200">{stf.designation}</strong>
-                    {stf.subject && <span> • {stf.subject}</span>}
-                  </p>
+                        {/* 2. नाम */}
+                        <td className="py-3 px-3">
+                          <button
+                            type="button"
+                            onClick={() => setViewingProfileStaff(item.rawStaff)}
+                            className="font-bold text-gray-900 dark:text-white hover:text-[#0B6B4B] dark:hover:text-emerald-400 text-left transition-colors cursor-pointer"
+                            title="प्रोफ़ाइल देखें"
+                          >
+                            {item.name}
+                          </button>
+                          {item.subject && (
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                              विषय: {item.subject}
+                            </div>
+                          )}
+                        </td>
 
-                  <div className="mt-3 text-xs space-y-1.5 text-gray-600 dark:text-gray-300">
-                    <div className="flex items-center gap-1.5">
-                      <Briefcase className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="truncate font-medium text-gray-800 dark:text-gray-200">
-                        {sObj?.name || sObj?.hindiName || stf.assignedSchoolUdise}
+                        {/* 3. प्रकार (Visually distinct category badge) */}
+                        <td className="py-3 px-3">
+                          {item.category === 'TEACHER' ? (
+                            <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[11px] font-bold px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800 inline-flex items-center gap-1">
+                              <GraduationCap className="w-3 h-3" />
+                              👨‍🏫 शिक्षक
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-100 text-[#0B6B4B] dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              👤 अन्य स्टाफ
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 4. पद */}
+                        <td className="py-3 px-3 font-medium text-gray-800 dark:text-gray-200">
+                          {item.designation}
+                        </td>
+
+                        {/* 5. विद्यालय */}
+                        <td className="py-3 px-3">
+                          <div className="font-medium text-gray-900 dark:text-white truncate max-w-[180px]" title={schoolName}>
+                            {schoolName}
+                          </div>
+                          <div className="text-[10px] text-gray-400 font-mono">
+                            {item.schoolUdise}
+                          </div>
+                        </td>
+
+                        {/* 6. Employee Code */}
+                        <td className="py-3 px-3 font-mono text-gray-700 dark:text-gray-300">
+                          {item.codeOrId || '-'}
+                        </td>
+
+                        {/* 7. Unique ID */}
+                        <td className="py-3 px-3 font-mono text-gray-700 dark:text-gray-300">
+                          {item.uniqueId || '-'}
+                        </td>
+
+                        {/* 8. मोबाइल */}
+                        <td className="py-3 px-3 font-mono text-gray-900 dark:text-white">
+                          {item.mobile ? (
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-gray-400" />
+                              <span>{item.mobile}</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+
+                        {/* 9. स्थिति */}
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              item.status === 'ACTIVE'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }`}
+                          >
+                            {item.status === 'ACTIVE' ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                            {item.status === 'ACTIVE' ? 'सक्रिय' : 'निष्क्रिय'}
+                          </span>
+                        </td>
+
+                        {/* 10. Action: View, Edit, Print, Delete */}
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewingProfileStaff(item.rawStaff)}
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
+                              title="प्रोफ़ाइल देखें (View)"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setPrintingStaff(item.rawStaff)}
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
+                              title="प्रिंट करें (Print)"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
+                            {canEdit && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(item)}
+                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
+                                  title="संपादित करें (Edit)"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteTarget({
+                                      id: item.id,
+                                      name: item.name,
+                                    });
+                                  }}
+                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                                  title="हटाएं (Delete)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* Cards Grid view */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredList.map((item) => {
+              const sObj = schools.find((s) => s.udise === item.schoolUdise);
+              const schoolName = sObj?.hindiName || sObj?.name || item.schoolUdise;
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1.5 mb-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.category === 'TEACHER' ? (
+                          <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                            👨‍🏫 शिक्षक
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-100 text-[#0B6B4B] dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                            👤 अन्य स्टाफ
+                          </span>
+                        )}
+
+                        {item.codeOrId && (
+                          <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+                            {item.codeOrId}
+                          </span>
+                        )}
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                          item.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        }`}
+                      >
+                        {item.status === 'ACTIVE' ? 'सक्रिय' : 'निष्क्रिय'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <a
-                        href={`tel:${stf.mobile}`}
-                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        {stf.mobile || '-'}
-                      </a>
-                    </div>
-
-                    {stf.qualification && (
-                      <div className="flex items-center gap-1.5">
-                        <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">{stf.qualification}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-1.5 text-gray-400 text-[11px]">
-                      <Building2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>यूडाइस: <span className="font-mono">{stf.assignedSchoolUdise}</span></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>नियुक्ति: {stf.joiningDate || '15/07/2016'}</span>
-                  </span>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setExportStaffTarget(stf);
-                        setIsExportModalOpen(true);
-                      }}
-                      className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors"
-                      title="प्रिंट व डोजियर निर्यात"
+                    <h3
+                      onClick={() => setViewingProfileStaff(item.rawStaff)}
+                      className="font-bold text-base text-gray-900 dark:text-white cursor-pointer hover:text-[#0B6B4B] dark:hover:text-emerald-400 transition-colors flex items-center justify-between group"
+                      title="प्रोफ़ाइल देखने के लिए क्लिक करें"
                     >
-                      <Printer className="w-3.5 h-3.5" />
+                      <span>{item.name}</span>
+                      <span className="text-[11px] font-medium text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                        <Eye className="w-3.5 h-3.5" /> प्रोफ़ाइल
+                      </span>
+                    </h3>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <strong className="text-gray-800 dark:text-gray-200">{item.designation}</strong>
+                      {item.subject && <span> • {item.subject}</span>}
+                    </p>
+
+                    <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <SchoolIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="truncate">{schoolName}</span>
+                      </div>
+                      {item.mobile && (
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span>{item.mobile}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                    <button
+                      onClick={() => setViewingProfileStaff(item.rawStaff)}
+                      className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>पूर्ण प्रोफ़ाइल</span>
                     </button>
-                    {canEdit && (
-                      <>
-                        <button
-                          onClick={() => handleOpenEdit(stf)}
-                          className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors"
-                          title="संपादित करें"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTargetId(stf.id)}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors"
-                          title="हटाएं"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPrintingStaff(item.rawStaff)}
+                        className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
+                        title="प्रिंट करें"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => handleOpenEdit(item)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
+                            title="संपादित करें"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteTarget({
+                                id: item.id,
+                                name: item.name,
+                              });
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                            title="हटाएं"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       ) : (
         <div className="bg-white dark:bg-[#17211C] p-12 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] text-center">
           <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
-            कोई स्टाफ रिकॉर्ड नहीं मिला
+            {counts.total === 0
+              ? 'इस शैक्षणिक सत्र में अभी कोई डेटा उपलब्ध नहीं है।'
+              : 'कोई रिकॉर्ड नहीं मिला'}
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
-            आपके द्वारा दिए गए सर्च शब्द &quot;{searchTerm}&quot; या फ़िल्टर के अनुसार कोई शिक्षक या कर्मचारी उपलब्ध नहीं है।
+            {counts.total === 0
+              ? `सत्र ${selectedSessionId} के लिए कोई शिक्षक या कर्मचारी पदस्थापना उपलब्ध नहीं है।`
+              : `दिए गए फ़िल्टर या खोज शब्द के अनुसार कोई परिणाम नहीं मिला।`}
           </p>
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedDesignation('ALL');
-              setSelectedSchoolFilter('ALL');
-              setSelectedStatusFilter('ALL');
-            }}
-            className="mt-4 px-4 py-2 bg-[#0B6B4B] text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition-colors inline-flex items-center gap-1.5"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span>सभी स्टाफ देखें (फ़िल्टर हटाएं)</span>
-          </button>
+          {counts.total > 0 && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setCategoryFilter('ALL');
+                setSelectedStatusFilter('ALL');
+              }}
+              className="mt-4 px-4 py-2 bg-[#0B6B4B] text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>सभी देखें (फ़िल्टर हटाएं)</span>
+            </button>
+          )}
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs no-print">
-          <div className="bg-white dark:bg-[#17211C] rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#DDE7E2] dark:border-[#2B3933] max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <Users className="w-5 h-5 text-emerald-600" />
-              <span>{editingStaff ? 'स्टाफ विवरण संशोधित करें' : 'नया शिक्षक / कर्मचारी पंजीकृत करें'}</span>
-            </h3>
+      {/* 1. Category Selection Modal on "+ जोड़ें" */}
+      <StaffCategorySelectionModal
+        isOpen={isCategorySelectionOpen}
+        onClose={() => setIsCategorySelectionOpen(false)}
+        onSelectCategory={handleSelectCategory}
+        selectedSessionId={selectedSessionId}
+        isSessionLocked={sessionIsLocked}
+      />
 
-            <form onSubmit={handleSaveSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    कर्मचारी कोड (Employee Code / ID) *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.employeeId || formData.employeeCode || ''}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setFormData({ ...formData, employeeId: val, employeeCode: val });
-                    }}
-                    placeholder="उदा. EMP-TCH-301"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg font-mono focus:ring-2 focus:ring-[#0B6B4B]"
-                    required
-                  />
-                </div>
+      {/* 2. Teacher Add/Edit Modal */}
+      <TeacherFormModal
+        isOpen={isTeacherModalOpen}
+        onClose={() => setIsTeacherModalOpen(false)}
+        initialData={editingTeacher}
+        isEdit={!!editingTeacher}
+        onChangeCategory={handleChangeCategoryFromTeacher}
+        schools={schools}
+        currentSchoolUdise={currentSchoolUdise}
+        isSchoolRestricted={isSchoolRestricted}
+        selectedSessionId={selectedSessionId}
+        onSave={handleSaveTeacher}
+        existingStaff={scopedStaff}
+      />
 
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    पूरा नाम (Full Name) *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name || ''}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="शिक्षक / कर्मचारी का पूरा नाम"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#0B6B4B]"
-                    required
-                  />
-                </div>
+      {/* 3. Other Staff Add/Edit Modal */}
+      <OtherStaffFormModal
+        isOpen={isOtherStaffModalOpen}
+        onClose={() => setIsOtherStaffModalOpen(false)}
+        initialData={editingOtherStaff}
+        isEdit={!!editingOtherStaff}
+        onChangeCategory={handleChangeCategoryFromOtherStaff}
+        schools={schools}
+        currentSchoolUdise={currentSchoolUdise}
+        isSchoolRestricted={isSchoolRestricted}
+        selectedSessionId={selectedSessionId}
+        onSave={handleSaveOtherStaff}
+        existingStaff={scopedStaff}
+      />
 
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    पदनाम (Designation) *
-                  </label>
-                  <select
-                    value={formData.designation}
-                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  >
-                    <option value="माध्यमिक शिक्षक">माध्यमिक शिक्षक</option>
-                    <option value="प्राथमिक शिक्षक">प्राथमिक शिक्षक</option>
-                    <option value="उच्च श्रेणी शिक्षक">उच्च श्रेणी शिक्षक</option>
-                    <option value="प्रधानाध्यापक">प्रधानाध्यापक</option>
-                    <option value="अतिथि शिक्षक">अतिथि शिक्षक</option>
-                    <option value="रसोइया">रसोइया</option>
-                  </select>
-                </div>
+      {/* 4. Teacher Profile Modal */}
+      <TeacherProfileModal
+        isOpen={!!viewingProfileStaff}
+        onClose={() => setViewingProfileStaff(null)}
+        staff={viewingProfileStaff}
+        schools={schools}
+        canEdit={canEdit}
+        onEdit={(stf) => {
+          setViewingProfileStaff(null);
+          handleOpenEdit({
+            id: stf.id,
+            category: isNonTeachingDesignation(stf.designation) || stf.teacherType === 'अन्य' ? 'OTHER_STAFF' : 'TEACHER',
+            name: stf.name,
+            designation: stf.designation,
+            schoolUdise: stf.assignedSchoolUdise,
+            mobile: stf.mobile,
+            status: stf.status,
+            rawStaff: stf,
+          });
+        }}
+        onPrint={(stf) => {
+          setViewingProfileStaff(null);
+          setPrintingStaff(stf);
+        }}
+        userRole={currentUser?.role}
+        userAssignedUdise={currentSchoolUdise}
+        isSchoolRestricted={isSchoolRestricted}
+      />
 
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    मुख्य विषय (Subject)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.subject || ''}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="उदा. गणित, विज्ञान, हिंदी"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  />
-                </div>
+      {/* 5. Teacher Print Modal */}
+      <TeacherPrintModal
+        isOpen={!!printingStaff}
+        onClose={() => setPrintingStaff(null)}
+        staff={printingStaff}
+        school={schools.find((s) => s.udise === printingStaff?.assignedSchoolUdise)}
+        session={selectedSessionId}
+        isAuthorizedToViewAadhaar={canEdit}
+      />
 
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    पदस्थ विद्यालय *
-                  </label>
-                  <select
-                    value={formData.assignedSchoolUdise}
-                    onChange={(e) => setFormData({ ...formData, assignedSchoolUdise: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  >
-                    {schools.map((s) => (
-                      <option key={s.udise} value={s.udise}>
-                        {s.name || s.hindiName} ({s.udise})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    मोबाइल नंबर (10 अंक) *
-                  </label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={formData.mobile || ''}
-                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '') })}
-                    placeholder="9826XXXXXX"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    शैक्षणिक योग्यता
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.qualification || ''}
-                    onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
-                    placeholder="उदा. M.Sc., B.Ed."
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    लिंग (Gender)
-                  </label>
-                  <select
-                    value={formData.gender || 'MALE'}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'MALE' | 'FEMALE' })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  >
-                    <option value="MALE">पुरुष (Male)</option>
-                    <option value="FEMALE">महिला (Female)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    रोजगार प्रकार (Employment Type)
-                  </label>
-                  <select
-                    value={formData.employmentType || 'REGULAR'}
-                    onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  >
-                    <option value="REGULAR">नियमित (Regular)</option>
-                    <option value="GUEST">अतिथि शिक्षक (Guest)</option>
-                    <option value="CONTRACT">संविदा (Contract)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 rounded-lg"
-                >
-                  रद्द करें
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-sm font-bold text-white bg-[#0B6B4B] hover:bg-emerald-800 rounded-lg shadow-sm"
-                >
-                  सुरक्षित करें
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
+      {/* 6. Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={!!deleteTargetId}
-        title="स्टाफ रिकॉर्ड हटाने की पुष्टि"
-        message="क्या आप वास्तव में इस स्टाफ/शिक्षक का रिकॉर्ड हटाना चाहते हैं? यह कार्यवाही ऑडिट लॉग में दर्ज की जाएगी।"
+        isOpen={!!deleteTarget}
+        title="रिकॉर्ड हटाने की पुष्टि"
+        message={`क्या आप वास्तव में "${deleteTarget?.name}" का रिकॉर्ड हटाना चाहते हैं? यह कार्यवाही सुरक्षित ऑडिट लॉग में दर्ज की जाएगी।`}
         confirmText="हटाएं"
         cancelText="रद्द करें"
         isDestructive
-        onConfirm={() => {
-          if (deleteTargetId) {
-            deleteStaff(deleteTargetId);
-            setDeleteTargetId(null);
-          }
-        }}
-        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Smart Export & Print Modal */}
+      {/* 7. Smart Export & Print Modal */}
       <SmartExportModal
         isOpen={isExportModalOpen}
         onClose={() => {

@@ -16,8 +16,11 @@ import {
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { GovernmentWork, WorkStatus } from '../../types';
-import { exportToExcel, exportToCSV, triggerSystemPrint } from '../../utils/exportUtils';
+import { exportToExcel } from '../../utils/exportUtils';
+import { triggerPrint } from '../../utils/printUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
+import { SmartExportModal } from '../export/SmartExportModal';
 
 export const GovernmentWorkView: React.FC = () => {
   const { currentUser } = useAuth();
@@ -25,10 +28,18 @@ export const GovernmentWorkView: React.FC = () => {
     scopedWork,
     schools,
     selectedSchool,
+    currentSchoolUdise,
     addGovernmentWork,
     updateGovernmentWork,
-    deleteGovernmentWork
+    deleteGovernmentWork,
+    selectedSessionId
   } = useData();
+
+  const isSchoolRestricted = currentUser?.role === 'SCHOOL';
+
+  const defaultWorkUdise = isSchoolRestricted
+    ? (currentSchoolUdise || currentUser?.assignedSchoolUdise || schools[0]?.udise || '')
+    : (selectedSchool?.udise || schools[0]?.udise || '');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -37,7 +48,7 @@ export const GovernmentWorkView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWork, setEditingWork] = useState<GovernmentWork | null>(null);
   const [formData, setFormData] = useState<Partial<GovernmentWork>>({
-    schoolUdise: selectedSchool?.udise || schools[0]?.udise || '',
+    schoolUdise: defaultWorkUdise,
     workName: '',
     orderNumber: `ORDER-2026-${Math.floor(100 + Math.random() * 900)}`,
     department: 'राज्य शिक्षा केंद्र, भोपाल',
@@ -50,10 +61,20 @@ export const GovernmentWorkView: React.FC = () => {
   });
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isSmartExportOpen, setIsSmartExportOpen] = useState(false);
 
-  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN';
+  const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'SCHOOL';
+
+  // Invalidate and safely close modal if academic session changes
+  React.useEffect(() => {
+    if (isModalOpen) {
+      setIsModalOpen(false);
+      setEditingWork(null);
+    }
+  }, [selectedSessionId]);
 
   // Filtered Work
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const filteredWork = useMemo(() => {
     return scopedWork.filter((w) => {
       const matchSearch =
@@ -61,15 +82,24 @@ export const GovernmentWorkView: React.FC = () => {
         w.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         w.assignedTo.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchStatus = selectedStatus === 'ALL' || w.status === selectedStatus;
+      let matchStatus = true;
+      if (selectedStatus === 'ALL') {
+        matchStatus = true;
+      } else if (selectedStatus === 'DUE_TODAY') {
+        matchStatus = w.deadline === todayStr && w.status !== 'COMPLETED';
+      } else if (selectedStatus === 'UPCOMING') {
+        matchStatus = w.deadline > todayStr && w.status !== 'COMPLETED';
+      } else {
+        matchStatus = w.status === selectedStatus;
+      }
       return matchSearch && matchStatus;
     });
-  }, [scopedWork, searchTerm, selectedStatus]);
+  }, [scopedWork, searchTerm, selectedStatus, todayStr]);
 
   const handleOpenAdd = () => {
     setEditingWork(null);
     setFormData({
-      schoolUdise: selectedSchool?.udise || schools[0]?.udise || '',
+      schoolUdise: defaultWorkUdise,
       workName: '',
       orderNumber: `RSK/2026/${Math.floor(1000 + Math.random() * 9000)}`,
       department: 'राज्य शिक्षा केंद्र, म.प्र.',
@@ -104,7 +134,7 @@ export const GovernmentWorkView: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleExport = (type: 'EXCEL' | 'CSV') => {
+  const getGovtWorkExportPayload = () => {
     const headers = [
       'क्रमांक',
       'शासकीय कार्य / आदेश नाम',
@@ -131,16 +161,14 @@ export const GovernmentWorkView: React.FC = () => {
       w.assignedTo
     ]);
 
-    const payload = {
+    return {
       title: 'जन शिक्षा केंद्र मलगुवां - शासकीय कार्य एवं टास्क रजिस्टर',
-      subtitle: `सत्र 2026-27 | कुल कार्य: ${filteredWork.length}`,
+      subtitle: `सत्र ${selectedSessionId} | कुल कार्य: ${filteredWork.length}`,
+      session: selectedSessionId,
       headers,
       rows,
-      fileName: 'Malguwa_Government_Work',
+      fileName: `Govt_Work_${selectedSessionId}`,
     };
-
-    if (type === 'EXCEL') exportToExcel(payload);
-    else exportToCSV(payload);
   };
 
   return (
@@ -162,20 +190,17 @@ export const GovernmentWorkView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => handleExport('EXCEL')}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल (Excel)</span>
-          </button>
-          <button
-            onClick={() => triggerSystemPrint()}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-200 flex items-center gap-1.5"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>प्रिंट (Print)</span>
-          </button>
+          <UnifiedPrintButton
+            id="govt-work-unified-print"
+            currentSession={selectedSessionId}
+            onPrintCurrentView={() => triggerPrint()}
+            onPrintReport={() => setIsSmartExportOpen(true)}
+            currentViewLabel="Print Current View"
+            currentViewSubtext="वर्तमान शासकीय कार्य सूची व स्थिति तालिका का त्वरित प्रिंट"
+            reportLabel="Print Report"
+            reportSubtext="शासकीय कार्य प्रगति प्रतिवेदन / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+            exportPayload={getGovtWorkExportPayload}
+          />
           {canEdit && (
             <button
               onClick={handleOpenAdd}
@@ -210,104 +235,120 @@ export const GovernmentWorkView: React.FC = () => {
             <option value="ALL">सभी स्थितियां (Status)</option>
             <option value="PENDING">लंबित (Pending)</option>
             <option value="IN_PROGRESS">प्रगति पर (In Progress)</option>
-            <option value="COMPLETED">पूर्ण (Completed)</option>
+            <option value="DUE_TODAY">आज देय (Due Today)</option>
+            <option value="UPCOMING">आगामी समय-सीमा (Upcoming)</option>
             <option value="OVERDUE">अति-लंबित (Overdue)</option>
+            <option value="COMPLETED">पूर्ण (Completed)</option>
           </select>
         </div>
       </div>
 
       {/* Work Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredWork.map((w) => {
-          const sObj = schools.find((s) => s.udise === w.schoolUdise);
-          return (
-            <div
-              key={w.id}
-              className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded">
-                    {w.orderNumber}
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      w.status === 'COMPLETED'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : w.status === 'IN_PROGRESS'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                        : w.status === 'OVERDUE'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                    }`}
-                  >
-                    {w.status}
-                  </span>
-                </div>
-
-                <h3 className="font-bold text-base text-gray-900 dark:text-white">
-                  {w.workName}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  विभाग: {w.department} | विद्यालय: {sObj?.name || sObj?.hindiName || w.schoolUdise}
-                </p>
-
-                {/* Progress bar */}
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">कार्य प्रगति:</span>
-                    <span className="text-gray-900 dark:text-white">{w.completionPercentage}%</span>
-                  </div>
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        w.completionPercentage >= 100
-                          ? 'bg-emerald-600'
-                          : w.completionPercentage >= 50
-                          ? 'bg-blue-600'
-                          : 'bg-amber-500'
+      {filteredWork.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredWork.map((w) => {
+            const sObj = schools.find((s) => s.udise === w.schoolUdise);
+            return (
+              <div
+                key={w.id}
+                className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded">
+                      {w.orderNumber}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        w.status === 'COMPLETED'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : w.status === 'IN_PROGRESS'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                          : w.status === 'OVERDUE'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                       }`}
-                      style={{ width: `${w.completionPercentage}%` }}
-                    />
+                    >
+                      {w.status}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                    {w.workName}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    विभाग: {w.department} | विद्यालय: {sObj?.name || sObj?.hindiName || w.schoolUdise}
+                  </p>
+
+                  {/* Progress bar */}
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-gray-600 dark:text-gray-400">कार्य प्रगति:</span>
+                      <span className="text-gray-900 dark:text-white">{w.completionPercentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          w.completionPercentage >= 100
+                            ? 'bg-emerald-600'
+                            : w.completionPercentage >= 50
+                            ? 'bg-blue-600'
+                            : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${w.completionPercentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center justify-between">
+                      <span>📅 अंतिम तिथि (Deadline):</span>
+                      <strong className="text-red-600 dark:text-red-400">{w.deadline}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>👤 प्रभारी / नोडल:</span>
+                      <span>{w.assignedTo}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-3 text-xs space-y-1 text-gray-600 dark:text-gray-300">
-                  <div className="flex items-center justify-between">
-                    <span>📅 अंतिम तिथि (Deadline):</span>
-                    <strong className="text-red-600 dark:text-red-400">{w.deadline}</strong>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>👤 प्रभारी / नोडल:</span>
-                    <span>{w.assignedTo}</span>
-                  </div>
+                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
+                  {canEdit && (
+                    <button
+                      onClick={() => handleOpenEdit(w)}
+                      className="p-1.5 text-gray-500 hover:text-emerald-600 rounded"
+                      title="संशोधित करें"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      onClick={() => setDeleteTargetId(w.id)}
+                      className="p-1.5 text-gray-500 hover:text-red-600 rounded"
+                      title="हटाएं"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
-
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
-                {canEdit && (
-                  <button
-                    onClick={() => handleOpenEdit(w)}
-                    className="p-1.5 text-gray-500 hover:text-emerald-600 rounded"
-                    title="संशोधित करें"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {canEdit && (
-                  <button
-                    onClick={() => setDeleteTargetId(w.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-600 rounded"
-                    title="हटाएं"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-[#17211C] p-12 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] text-center">
+          <ClipboardList className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
+            इस शैक्षणिक सत्र में अभी कोई डेटा उपलब्ध नहीं है।
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
+            {scopedWork.length === 0
+              ? `सत्र ${selectedSessionId} के लिए कोई शासकीय कार्य अथवा आदेश प्रविष्टि उपलब्ध नहीं है।`
+              : 'चयनित खोज अथवा स्थिति के अनुसार कोई शासकीय कार्य नहीं मिला।'}
+          </p>
+        </div>
+      )}
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
@@ -326,7 +367,7 @@ export const GovernmentWorkView: React.FC = () => {
                   type="text"
                   value={formData.workName || ''}
                   onChange={(e) => setFormData({ ...formData, workName: e.target.value })}
-                  placeholder="उदा. यूडाइस प्लस 2026-27 सत्यापन"
+                  placeholder={`उदा. यूडाइस प्लस ${selectedSessionId} सत्यापन`}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
                   required
                 />
@@ -349,17 +390,23 @@ export const GovernmentWorkView: React.FC = () => {
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
                     संबंधित विद्यालय *
                   </label>
-                  <select
-                    value={formData.schoolUdise}
-                    onChange={(e) => setFormData({ ...formData, schoolUdise: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-                  >
-                    {schools.map((s) => (
-                      <option key={s.udise} value={s.udise}>
-                        {s.name || s.hindiName} ({s.udise.slice(-4)})
-                      </option>
-                    ))}
-                  </select>
+                  {isSchoolRestricted ? (
+                    <div className="w-full px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[#0B6B4B] dark:text-emerald-200 font-bold truncate">
+                      {schools.find(s => s.udise === defaultWorkUdise)?.name || schools.find(s => s.udise === defaultWorkUdise)?.hindiName || 'मेरा विद्यालय'} ({defaultWorkUdise})
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.schoolUdise}
+                      onChange={(e) => setFormData({ ...formData, schoolUdise: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
+                    >
+                      {schools.map((s) => (
+                        <option key={s.udise} value={s.udise}>
+                          {s.name || s.hindiName} ({s.udise.slice(-4)})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -457,6 +504,13 @@ export const GovernmentWorkView: React.FC = () => {
           }
         }}
         onCancel={() => setDeleteTargetId(null)}
+      />
+      {/* Smart Export Modal for Government Work */}
+      <SmartExportModal
+        isOpen={isSmartExportOpen}
+        onClose={() => setIsSmartExportOpen(false)}
+        initialType="COMPLETE_SCHOOL"
+        initialUdise={defaultWorkUdise}
       />
     </div>
   );

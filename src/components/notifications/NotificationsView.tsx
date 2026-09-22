@@ -24,7 +24,8 @@ export const NotificationsView: React.FC = () => {
     addNotification,
     markNotificationAsRead,
     schools,
-    selectedSchoolUdise
+    selectedSchoolUdise,
+    selectedSessionId
   } = useData();
   const { currentUser } = useAuth();
 
@@ -43,21 +44,34 @@ export const NotificationsView: React.FC = () => {
   const [dueDate, setDueDate] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
 
-  const isCAC = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR';
+  const isCAC = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN';
+  const isSchoolUser = currentUser?.role === 'SCHOOL';
+  const schoolUdise = (currentUser?.assignedSchoolUdise || selectedSchoolUdise || '').trim();
 
-  // Filter notifications based on search, priority, target, and school context
+  // Filter notifications based on search, priority, target, and strict school isolation
   const filteredNotifications = notifications.filter((notif) => {
-    // School context filter if a school is selected
-    if (selectedSchoolUdise && notif.targetSchoolUdise && notif.targetSchoolUdise !== selectedSchoolUdise) {
-      return false;
+    // Strict School Role Isolation: School user can ONLY see notifications targeted to 'ALL', or specifically to their school UDISE
+    if (isSchoolUser) {
+      if (notif.targetAudience === 'SPECIFIC_SCHOOL' && notif.targetSchoolUdise && notif.targetSchoolUdise !== schoolUdise) {
+        return false;
+      }
+      if (notif.targetSchoolUdise && notif.targetSchoolUdise !== 'ALL' && notif.targetSchoolUdise !== schoolUdise) {
+        return false;
+      }
+    } else if (selectedSchoolUdise) {
+      // CAC/Admin context filter if a specific school is selected
+      if (notif.targetSchoolUdise && notif.targetSchoolUdise !== 'ALL' && notif.targetSchoolUdise !== selectedSchoolUdise) {
+        return false;
+      }
     }
 
     // Search filter
+    const term = (searchTerm || '').trim().toLowerCase();
     if (
-      searchTerm &&
-      !notif.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !notif.message.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !(notif.orderNumber && notif.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+      term &&
+      !(notif.title || '').toLowerCase().includes(term) &&
+      !(notif.message || '').toLowerCase().includes(term) &&
+      !(notif.orderNumber && notif.orderNumber.toLowerCase().includes(term))
     ) {
       return false;
     }
@@ -351,7 +365,7 @@ export const NotificationsView: React.FC = () => {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="उदा. सत्र 2026-27 के लिए छात्रवृत्ति सत्यापन के संबंध में"
+                  placeholder={`उदा. सत्र ${selectedSessionId} के लिए छात्रवृत्ति सत्यापन के संबंध में`}
                   required
                   className="w-full px-3 py-2 bg-[#F8FAF8] dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
                 />
@@ -381,7 +395,7 @@ export const NotificationsView: React.FC = () => {
                     onChange={(e) => setTargetType(e.target.value as any)}
                     className="w-full px-3 py-2 bg-[#F8FAF8] dark:bg-[#0F1713] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
                   >
-                    <option value="ALL">समस्त 37 विद्यालय (क्लस्टर)</option>
+                    <option value="ALL">समस्त संकुल विद्यालय</option>
                     <option value="PRINCIPALS">केवल संस्था प्रभारी (Principals)</option>
                     <option value="TEACHERS">केवल शिक्षकगण (Teachers)</option>
                     <option value="SPECIFIC_SCHOOL">विशिष्ट विद्यालय (Single School)</option>

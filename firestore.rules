@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : {};
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'ADMIN';
+    }
+
+    function isCAC() {
+      return isSignedIn() && getUserData().role == 'CAC';
+    }
+
+    function isSchool() {
+      return isSignedIn() && getUserData().role == 'SCHOOL';
+    }
+
+    function isMySchool(udise) {
+      return isSchool() && getUserData().assignedSchoolUdise == udise;
+    }
+
+    function isSchoolAuditScoped(data) {
+      return !('schoolUdise' in data) ||
+             data.schoolUdise == null ||
+             data.schoolUdise == '' ||
+             isMySchool(data.schoolUdise);
+    }
+
+    function isAuthoritativeAuditUser(userId) {
+      return userId == request.auth.uid ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              (userId == getUserData().username ||
+               userId == getUserData().id ||
+               ('employeeId' in getUserData() && userId == getUserData().employeeId)));
+    }
+
+    function isValidPreAuthSecurityEvent() {
+      let data = request.resource.data;
+      return
+        // Whitelist allowed fields only - client CANNOT send arbitrary role, userName, userId, admin, cac, etc.
+        data.keys().hasOnly(['eventId', 'eventType', 'timestamp', 'sanitizedIdentifier', 'identifierHash', 'success', 'reasonCode', 'source', 'details']) &&
+        // Required minimum fields
+        data.keys().hasAll(['eventId', 'eventType', 'timestamp', 'sanitizedIdentifier', 'success', 'reasonCode', 'source']) &&
+        // Whitelist allowed event types
+        data.eventType in ['FAILED_LOGIN', 'AUTH_ATTEMPT', 'AUTH_ERROR', 'LOGIN_LOCKOUT', 'UNKNOWN_USER', 'SESSION_EXPIRED', 'SESSION_TAMPERED'] &&
+        // Pre-auth events are strictly non-success security records
+        data.success == false &&
+        // Strict type and length limits to prevent abuse / oversized payloads
+        data.eventId is string && data.eventId.size() <= 64 &&
+        data.timestamp is string && data.timestamp.size() <= 40 &&
+        data.sanitizedIdentifier is string && data.sanitizedIdentifier.size() <= 100 &&
+        data.reasonCode is string && data.reasonCode.size() <= 100 &&
+        data.source is string && data.source.size() <= 50 &&
+        (!('identifierHash' in data) || (data.identifierHash is string && data.identifierHash.size() <= 128)) &&
+        (!('details' in data) || (data.details is string && data.details.size() <= 300));
+    }
+
+    // Connection ping test
+    match /_connection_test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Schools Collection - Protected Soft Delete Architecture (Hard delete strictly disabled)
+    match /schools/{schoolId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (isAdmin() || isCAC());
+      // Physical delete is strictly disabled to prevent accidental data loss (Soft Delete Architecture)
+      allow delete: if false;
+      // Controlled update: ADMIN & CAC can update/archive/restore/activate/deactivate;
+      // SCHOOL role can only update their own school's profile fields and cannot alter status or isDeleted
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        isCAC() ||
+        (isMySchool(schoolId) &&
+         request.resource.data.status == resource.data.status &&
+         request.resource.data.isDeleted == resource.data.isDeleted)
+      );
+    }
+
+    // Student Masters Collection
+    match /studentMasters/{studentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCAC() || isSchool();
+    }
+
+    // Student Academic Records Collection
+    match /studentAcademicRecords/{recordId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
+      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Staff Masters Collection
+    match /staffMasters/{staffId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCAC() || isSchool();
+    }
+
+    // Staff Postings Collection
+    match /staffPostings/{postingId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
+      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Daily Attendance Records
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
+      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Daily MDM Records
+    match /mdmRecords/{mdmId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
+      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Government Work & Orders
+    match /governmentWork/{workId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || resource.data.schoolUdise == null || isMySchool(resource.data.schoolUdise));
+      allow create, update: if isAdmin() || isCAC() || (isSchool() && isMySchool(request.resource.data.schoolUdise));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Complaints & Grievances
+    match /complaints/{complaintId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise);
+      allow delete: if isAdmin();
+    }
+
+    // Documents Metadata
+    match /documents/{documentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCAC() || isSchool();
+    }
+
+    // Dedicated MDM Rasoiya Master
+    match /rasoiya/{rasoiyaId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
+      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
+      allow delete: if isAdmin() || isCAC();
+    }
+
+    // Physical Facilities
+    match /facilities/{facilityId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCAC() || (isSchool() && isMySchool(facilityId));
+    }
+
+    // Academic Sessions Definition
+    match /academicSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // User Accounts Master
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || request.auth.uid == userId);
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isCAC());
+      allow update: if isAdmin() ||
+                      (isCAC() && resource.data.role != 'ADMIN' && request.resource.data.role != 'ADMIN') ||
+                      (isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    // System Settings
+    match /systemSettings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Authenticated Audit Logs - Authoritative Identity, Role Enforced & Strictly Append-Only
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC());
+      allow create: if isSignedIn() && isValidId(logId) &&
+        isAuthoritativeAuditUser(request.resource.data.userId) &&
+        (
+          (isAdmin() && request.resource.data.role == 'ADMIN') ||
+          (isCAC() && request.resource.data.role == 'CAC') ||
+          (isSchool() && request.resource.data.role == 'SCHOOL' && isSchoolAuditScoped(request.resource.data))
+        );
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Pre-Authentication Security Events - Dedicated collection with strict schema & abuse protection
+    match /preAuthSecurityEvents/{eventId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC());
+      allow create: if isValidId(eventId) && isValidPreAuthSecurityEvent();
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
+

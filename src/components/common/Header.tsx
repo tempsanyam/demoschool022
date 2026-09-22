@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
   Bell,
@@ -21,7 +21,15 @@ import {
   Settings,
   X,
   Key,
-  FileText
+  FileText,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  ShieldAlert,
+  WifiOff,
+  KeyRound,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -41,26 +49,49 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onOpenLogoutDialog,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, firebaseUser, firebaseAuthStatus, firebaseAuthError, retryFirebaseAuth } = useAuth();
   const {
     schools,
     selectedSchoolUdise,
     setSelectedSchoolUdise,
     selectedSchool,
     notifications,
-    settings
+    settings,
+    academicSessions,
+    visibleAcademicSessions,
+    selectedSessionId,
+    setSelectedSessionId,
+    activeSessionId,
+    isCurrentSessionSelected,
+    isCloudConnected,
+    cloudSyncStatus,
+    triggerManualCloudSync,
+    connectivityState,
+    checkCloudConnectivity,
   } = useData();
   const { theme, toggleTheme } = useTheme();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNewEntryMenu, setShowNewEntryMenu] = useState(false);
+  const [showCloudDetails, setShowCloudDetails] = useState(false);
+  const [isRetryingAuth, setIsRetryingAuth] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const newEntryRef = useRef<HTMLDivElement>(null);
+  const cloudDetailsRef = useRef<HTMLDivElement>(null);
 
-  const activeSession = settings?.academicSession || institutionConfig.academicSession;
+  const activeSession = selectedSessionId || settings?.academicSession || institutionConfig.academicSession;
+
+  const schoolTypeSummary = useMemo(() => {
+    const ps = schools.filter((s) => s.schoolType?.includes('प्राथमिक')).length;
+    const ms = schools.filter((s) => s.schoolType === 'माध्यमिक').length;
+    const hs = schools.filter(
+      (s) => s.schoolType === 'हाई स्कूल' || s.schoolType === 'उच्चतर माध्यमिक' || s.schoolType?.includes('हाई स्कूल')
+    ).length;
+    return { ps, ms, hs, total: schools.length };
+  }, [schools]);
 
   // Keyboard shortcut Ctrl+K / Cmd+K for search
   useEffect(() => {
@@ -73,6 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
         setShowNotifications(false);
         setShowUserMenu(false);
         setShowNewEntryMenu(false);
+        setShowCloudDetails(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -91,6 +123,9 @@ export const Header: React.FC<HeaderProps> = ({
       if (newEntryRef.current && !newEntryRef.current.contains(e.target as Node)) {
         setShowNewEntryMenu(false);
       }
+      if (cloudDetailsRef.current && !cloudDetailsRef.current.contains(e.target as Node)) {
+        setShowCloudDetails(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -102,8 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const canSwitchSchools =
     currentUser?.role === 'CAC' ||
-    currentUser?.role === 'ADMIN' ||
-    currentUser?.role === 'OPERATOR';
+    currentUser?.role === 'ADMIN';
 
   return (
     <header className="w-full flex flex-col no-print z-40 relative">
@@ -222,17 +256,19 @@ export const Header: React.FC<HeaderProps> = ({
             
             {/* Left Group: CAC Panel & School Selector */}
             <div className="flex items-center gap-2 min-w-0 shrink-0">
-              {/* CAC Panel Button */}
+              {/* Panel Button (ADMIN / CAC / SCHOOL) */}
               <button
                 onClick={() => {
-                  setSelectedSchoolUdise('');
+                  if (canSwitchSchools) {
+                    setSelectedSchoolUdise('');
+                  }
                   onNavigate('dashboard');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer whitespace-nowrap"
-                title="CAC डैशबोर्ड / समस्त संकुल (37 शालाएं)"
+                title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
               >
                 <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse"></span>
-                <span>CAC Panel</span>
+                <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
               </button>
 
               {/* School Selector Dropdown */}
@@ -253,10 +289,13 @@ export const Header: React.FC<HeaderProps> = ({
                   </select>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-400/40 font-medium">
+                <div className="flex items-center gap-2 bg-[#074731] text-emerald-100 text-xs px-3 py-1.5 rounded-lg border border-emerald-400/40 font-semibold shadow-2xs">
                   <SchoolIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                  <span className="truncate max-w-[160px]">
+                  <span className="truncate max-w-[180px] text-white">
                     {selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
+                  </span>
+                  <span className="font-mono text-[10px] bg-[#063B29] text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                    {selectedSchool?.udise}
                   </span>
                 </div>
               )}
@@ -283,11 +322,37 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Right Group: Actions, Session, New Entry, Export, Theme, Notifications & Profile */}
             <div className="flex items-center gap-2 shrink-0">
-              {/* Academic Session Pill */}
-              <span className="hidden xl:inline-flex items-center gap-1 bg-[#08553B] text-emerald-100 border border-emerald-400/30 text-xs font-bold px-2.5 py-1.5 rounded-lg">
-                <Calendar className="w-3 h-3 text-[#FF7A00]" />
-                <span className="whitespace-nowrap">सत्र {activeSession}</span>
-              </span>
+              {/* Academic Session Switcher Dropdown */}
+              <div className="relative flex items-center">
+                <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 transition-all ${
+                  !isCurrentSessionSelected
+                    ? 'bg-amber-500 text-gray-950 font-black ring-2 ring-amber-300 shadow-sm'
+                    : 'bg-[#08553B] text-emerald-100 border border-emerald-400/40'
+                }`}>
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${!isCurrentSessionSelected ? 'text-gray-950' : 'text-[#FF7A00]'}`} />
+                  <select
+                    value={selectedSessionId}
+                    onChange={(e) => setSelectedSessionId(e.target.value)}
+                    aria-label="शैक्षणिक सत्र चुनें"
+                    className={`bg-transparent font-bold text-xs focus:outline-none cursor-pointer pr-1 ${
+                      !isCurrentSessionSelected ? 'text-gray-950 font-black' : 'text-emerald-100'
+                    }`}
+                    title={!isCurrentSessionSelected ? `विगत सत्र ${selectedSessionId} (अभिलेख केवल पठन हेतु)` : `सक्रिय सत्र ${selectedSessionId}`}
+                  >
+                    {visibleAcademicSessions.map((session) => (
+                      <option key={session.id} value={session.id} className="bg-white text-gray-900 font-medium">
+                        {session.isCurrent ? `★ सत्र ${session.sessionName || session.name || session.id} (वर्तमान सक्रिय)` : `सत्र ${session.sessionName || session.name || session.id} (${session.status === 'LOCKED' ? '🔒 लॉक' : session.status === 'UPCOMING' ? 'भविष्य' : 'विगत'})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {!isCurrentSessionSelected && (
+                  <span className="hidden 2xl:inline-flex ml-1.5 items-center gap-1 bg-amber-400 text-amber-950 text-[10px] font-black uppercase px-2 py-1 rounded shadow-xs animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                    पुराना सत्र (ReadOnly)
+                  </span>
+                )}
+              </div>
 
               {/* + New Entry Shortcut Menu */}
               <div className="relative" ref={newEntryRef}>
@@ -356,6 +421,202 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <AlertTriangle className="w-4 h-4 text-red-500" />
                         शिकायत दर्ज करें
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cloud Database Live Sync Indicator & Diagnostics */}
+              <div className="relative" ref={cloudDetailsRef}>
+                <button
+                  onClick={() => {
+                    setShowCloudDetails((prev) => !prev);
+                    checkCloudConnectivity();
+                  }}
+                  className={`p-1.5 px-2.5 py-1.5 rounded-lg border text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                    connectivityState.status === 'connected'
+                      ? 'bg-emerald-900/60 border-emerald-400/40 hover:bg-emerald-900/80 text-emerald-100'
+                      : connectivityState.status === 'syncing'
+                      ? 'bg-blue-900/60 border-blue-400/40 hover:bg-blue-900/80 text-blue-100'
+                      : connectivityState.status === 'initializing'
+                      ? 'bg-amber-900/60 border-amber-400/40 hover:bg-amber-900/80 text-amber-100'
+                      : connectivityState.status === 'auth_required' || connectivityState.status === 'auth_error'
+                      ? 'bg-amber-950/70 border-amber-400/60 hover:bg-amber-900/80 text-amber-200'
+                      : connectivityState.status === 'permission_denied'
+                      ? 'bg-red-950/70 border-red-400/60 hover:bg-red-900/80 text-red-200'
+                      : connectivityState.status === 'unavailable'
+                      ? 'bg-amber-900/70 border-amber-400/50 hover:bg-amber-900/90 text-amber-200'
+                      : 'bg-gray-800/80 border-gray-600/40 hover:bg-gray-800 text-gray-200'
+                  }`}
+                  title={`${connectivityState.statusLabel} - विस्तृत स्थिति देखने के लिए क्लिक करें`}
+                  aria-label="क्लाउड डेटाबेस स्थिति"
+                >
+                  {connectivityState.status === 'connected' ? (
+                    <>
+                      <Cloud className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
+                      <span className="hidden md:inline">क्लाउड लाइव</span>
+                    </>
+                  ) : connectivityState.status === 'syncing' ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 text-blue-200 animate-spin" />
+                      <span className="hidden md:inline">सिंक जारी...</span>
+                    </>
+                  ) : connectivityState.status === 'initializing' ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-200 animate-spin" />
+                      <span className="hidden md:inline">कनेक्टिंग...</span>
+                    </>
+                  ) : connectivityState.status === 'auth_required' ? (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5 text-amber-300" />
+                      <span className="hidden md:inline">प्रमाणीकरण आवश्यक</span>
+                    </>
+                  ) : connectivityState.status === 'auth_error' ? (
+                    <>
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+                      <span className="hidden md:inline">Auth Provider</span>
+                    </>
+                  ) : connectivityState.status === 'permission_denied' ? (
+                    <>
+                      <ShieldAlert className="w-3.5 h-3.5 text-red-300" />
+                      <span className="hidden md:inline">अनुमति त्रुटि</span>
+                    </>
+                  ) : connectivityState.status === 'unavailable' ? (
+                    <>
+                      <CloudOff className="w-3.5 h-3.5 text-amber-300" />
+                      <span className="hidden md:inline">क्लाउड अनुपलब्ध</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="hidden md:inline">नेटवर्क ऑफलाइन</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Granular Connectivity Diagnostic Dropdown */}
+                {showCloudDetails && (
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-3 px-4 z-50 text-gray-800 dark:text-gray-200 text-xs">
+                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Cloud className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-bold text-sm text-gray-900 dark:text-white">क्लाउड कनेक्शन स्थिति</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        connectivityState.status === 'connected'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                          : connectivityState.status === 'offline'
+                          ? 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300'
+                          : connectivityState.status === 'permission_denied'
+                          ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300'
+                          : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                      }`}>
+                        {connectivityState.statusLabel}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 mb-3">
+                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                        <span className="text-gray-500 dark:text-gray-400">इंटरनेट कनेक्टिविटी:</span>
+                        <span className="font-medium flex items-center gap-1.5">
+                          {connectivityState.isBrowserOnline ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> ऑनलाइन (Online)
+                            </span>
+                          ) : (
+                            <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <WifiOff className="w-3.5 h-3.5" /> ऑफ़लाइन (Offline)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                        <span className="text-gray-500 dark:text-gray-400">Firebase Auth सत्र:</span>
+                        <span className="font-medium text-right truncate max-w-[180px]">
+                          {firebaseUser ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[11px]" title={firebaseUser.uid}>
+                              {firebaseUser.uid.substring(0, 10)}...
+                            </span>
+                          ) : firebaseAuthStatus === 'error' && firebaseAuthError === 'auth/operation-not-allowed' ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                              Provider अक्षम (Console)
+                            </span>
+                          ) : firebaseAuthStatus === 'initializing' ? (
+                            <span className="text-amber-600 dark:text-amber-400">सत्यापन जारी...</span>
+                          ) : (
+                            <span className="text-gray-500">अप्रमाणित (Not Authenticated)</span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                        <span className="text-gray-500 dark:text-gray-400">Firestore Project:</span>
+                        <span className="font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                          celestial-byway-ft8c4
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                        <span className="text-gray-500 dark:text-gray-400">लॉगिन उपयोगकर्ता / रोल:</span>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                          {currentUser ? `${currentUser.name} (${currentUser.role})` : 'कोई नहीं'}
+                        </span>
+                      </div>
+
+                      {connectivityState.latencyMs !== undefined && (
+                        <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                          <span className="text-gray-500 dark:text-gray-400">डेटाबेस लेटेंसी:</span>
+                          <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                            {connectivityState.latencyMs} ms
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 mb-3 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+                      {connectivityState.message}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={async () => {
+                          await checkCloudConnectivity();
+                        }}
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        जाँचें (Verify)
+                      </button>
+
+                      {(!firebaseUser || connectivityState.status === 'auth_error' || connectivityState.status === 'auth_required') && (
+                        <button
+                          disabled={isRetryingAuth}
+                          onClick={async () => {
+                            setIsRetryingAuth(true);
+                            try {
+                              await retryFirebaseAuth();
+                              await checkCloudConnectivity();
+                            } finally {
+                              setIsRetryingAuth(false);
+                            }
+                          }}
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          {isRetryingAuth ? 'प्रयास जारी...' : 'Auth पुनः प्रयास'}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={async () => {
+                          await triggerManualCloudSync();
+                        }}
+                        className="py-1.5 px-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-xs transition-colors"
+                        title="मैन्युअल सिंक ट्रिगर करें"
+                      >
+                        सिंक
                       </button>
                     </div>
                   </div>
@@ -483,13 +744,11 @@ export const Header: React.FC<HeaderProps> = ({
                       {currentUser?.name || institutionConfig.cac1.shortName}
                     </div>
                     <div className="text-[9px] text-emerald-200 font-medium leading-none">
-                      {currentUser?.role === 'CAC'
-                        ? 'CAC'
-                        : currentUser?.role === 'PRINCIPAL'
-                        ? 'प्रधानाध्यापक'
-                        : currentUser?.role === 'TEACHER'
-                        ? 'शिक्षक'
-                        : 'ऑपरेटर'}
+                      {currentUser?.role === 'ADMIN'
+                        ? 'व्यवस्थापक (Admin)'
+                        : currentUser?.role === 'CAC'
+                        ? 'जन शिक्षक (CAC)'
+                        : 'शाला प्रभारी (School)'}
                     </div>
                   </div>
                   <ChevronDown className="w-3 h-3 text-emerald-300 shrink-0" />
@@ -555,16 +814,18 @@ export const Header: React.FC<HeaderProps> = ({
                         गतिविधियां व ऑडिट लॉग्स
                       </button>
 
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onNavigate('settings');
-                        }}
-                        className="w-full px-4 py-2 text-left flex items-center gap-2.5 hover:bg-[#F8FAF8] dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
-                      >
-                        <Settings className="w-4 h-4 text-[#FF7A00]" />
-                        सिस्टम सेटिंग्स (Settings)
-                      </button>
+                      {(currentUser?.role === 'ADMIN' || currentUser?.role === 'CAC') && (
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onNavigate('settings');
+                          }}
+                          className="w-full px-4 py-2 text-left flex items-center gap-2.5 hover:bg-[#F8FAF8] dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                        >
+                          <Settings className="w-4 h-4 text-[#FF7A00]" />
+                          सिस्टम सेटिंग्स (Settings)
+                        </button>
+                      )}
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-800 pt-1">
@@ -614,18 +875,20 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   onClick={() => {
-                    setSelectedSchoolUdise('');
+                    if (canSwitchSchools) {
+                      setSelectedSchoolUdise('');
+                    }
                     onNavigate('dashboard');
                   }}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shrink-0"
-                  title="CAC डैशबोर्ड"
+                  title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
                 >
                   <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse"></span>
-                  <span>CAC Panel</span>
+                  <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
                 </button>
 
-                {canSwitchSchools && (
-                  <div className="relative min-w-0 flex-1 max-w-[240px]">
+                {canSwitchSchools ? (
+                  <div className="relative min-w-0 flex-1 max-w-[200px]">
                     <select
                       value={selectedSchoolUdise}
                       onChange={(e) => setSelectedSchoolUdise(e.target.value)}
@@ -639,7 +902,34 @@ export const Header: React.FC<HeaderProps> = ({
                       ))}
                     </select>
                   </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-400/40 font-medium truncate max-w-[160px]">
+                    <SchoolIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                    <span className="truncate">
+                      {selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
+                    </span>
+                  </div>
                 )}
+
+                {/* Tablet Session Switcher */}
+                <div className="shrink-0">
+                  <select
+                    value={selectedSessionId}
+                    onChange={(e) => setSelectedSessionId(e.target.value)}
+                    aria-label="सत्र चुनें"
+                    className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer ${
+                      !isCurrentSessionSelected
+                        ? 'bg-amber-500 text-gray-950 font-black ring-1 ring-amber-300'
+                        : 'bg-[#074731] text-emerald-100 border border-emerald-400/40'
+                    }`}
+                  >
+                    {visibleAcademicSessions.map((session) => (
+                      <option key={session.id} value={session.id} className="bg-white text-gray-900">
+                        {session.sessionName || session.name || session.id} {session.isCurrent ? '★' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Tablet Quick Action Buttons */}
@@ -726,13 +1016,16 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   onClick={() => {
-                    setSelectedSchoolUdise('');
+                    if (canSwitchSchools) {
+                      setSelectedSchoolUdise('');
+                    }
                     onNavigate('dashboard');
                   }}
                   className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#08553B] border border-emerald-400/30 text-white text-[11px] font-bold shrink-0"
+                  title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A00] animate-pulse"></span>
-                  <span>CAC Panel</span>
+                  <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
                 </button>
               </div>
 
@@ -779,23 +1072,45 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* Mobile Row 2: Full Width School Selector (if can switch) */}
-            {canSwitchSchools && (
-              <div className="w-full">
+            {/* Mobile Row 2: School Selector & Academic Session Switcher */}
+            <div className="w-full flex items-center gap-1.5">
+              {canSwitchSchools ? (
+                <div className="flex-1 min-w-0">
+                  <select
+                    value={selectedSchoolUdise}
+                    onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+                    className="w-full bg-[#074731] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2 py-1.5 truncate"
+                  >
+                    <option value="">🏫 समस्त {schools.length} संकुल शालाएं</option>
+                    {schools.map((s) => (
+                      <option key={s.udise} value={s.udise} className="bg-white text-gray-900">
+                        {s.name || s.hindiName} ({s.village})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              {/* Mobile Academic Session Switcher */}
+              <div className="shrink-0">
                 <select
-                  value={selectedSchoolUdise}
-                  onChange={(e) => setSelectedSchoolUdise(e.target.value)}
-                  className="w-full bg-[#074731] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2.5 py-1.5 truncate"
+                  value={selectedSessionId}
+                  onChange={(e) => setSelectedSessionId(e.target.value)}
+                  aria-label="सत्र चुनें"
+                  className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer ${
+                    !isCurrentSessionSelected
+                      ? 'bg-amber-500 text-gray-950 font-black ring-1 ring-amber-300'
+                      : 'bg-[#074731] text-emerald-100 border border-emerald-400/40'
+                  }`}
                 >
-                  <option value="">🏫 समस्त {schools.length} संकुल शालाएं</option>
-                  {schools.map((s) => (
-                    <option key={s.udise} value={s.udise} className="bg-white text-gray-900">
-                      {s.name || s.hindiName} ({s.village})
+                  {visibleAcademicSessions.map((session) => (
+                    <option key={session.id} value={session.id} className="bg-white text-gray-900">
+                      {session.sessionName || session.name || session.id} {session.isCurrent ? '★' : ''}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
+            </div>
 
             {/* Mobile Row 3: Full Width Interactive Search Trigger */}
             <div
@@ -871,17 +1186,19 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   </div>
 
-                  {/* Right: Clear / Switch Button */}
-                  <div className="shrink-0">
-                    <button
-                      onClick={() => setSelectedSchoolUdise('')}
-                      className="bg-white/10 hover:bg-white/20 active:bg-white/25 text-emerald-100 hover:text-white border border-emerald-400/30 px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                      title="समस्त संकुल दृश्य पर जाएं"
-                    >
-                      <X className="w-3 h-3 text-amber-300" />
-                      <span>समस्त शालाएं</span>
-                    </button>
-                  </div>
+                  {/* Right: Clear / Switch Button (Only for CAC/Admin/Operator) */}
+                  {canSwitchSchools && (
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => setSelectedSchoolUdise('')}
+                        className="bg-white/10 hover:bg-white/20 active:bg-white/25 text-emerald-100 hover:text-white border border-emerald-400/30 px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="समस्त संकुल दृश्य पर जाएं"
+                      >
+                        <X className="w-3 h-3 text-amber-300" />
+                        <span>समस्त शालाएं</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 3B. SINGLE SCHOOL MODE - TABLET & MOBILE Layout */}
@@ -897,13 +1214,15 @@ export const Header: React.FC<HeaderProps> = ({
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => setSelectedSchoolUdise('')}
-                      className="bg-white/15 active:bg-white/25 text-white border border-emerald-300/40 px-2 py-0.5 rounded text-[10px] font-bold shrink-0 flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3 text-amber-300" />
-                      <span>समस्त</span>
-                    </button>
+                    {canSwitchSchools && (
+                      <button
+                        onClick={() => setSelectedSchoolUdise('')}
+                        className="bg-white/15 active:bg-white/25 text-white border border-emerald-300/40 px-2 py-0.5 rounded text-[10px] font-bold shrink-0 flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3 text-amber-300" />
+                        <span>समस्त</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[10.5px] text-emerald-100/90 pt-1 border-t border-emerald-600/30">
@@ -957,7 +1276,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                     <span className="text-emerald-500/60">•</span>
                     <span className="flex items-center gap-1 text-emerald-200 shrink-0">
-                      <span>25 प्राथमिक (PS)</span> • <span>10 माध्यमिक (MS)</span> • <span>2 हाई स्कूल (HS)</span>
+                      <span>{schoolTypeSummary.ps} प्राथमिक (PS)</span> • <span>{schoolTypeSummary.ms} माध्यमिक (MS)</span> • <span>{schoolTypeSummary.hs} हाई स्कूल (HS)</span>
                     </span>
                   </div>
 
@@ -989,6 +1308,27 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Read-Only Notice Banner for Past / Inactive Sessions */}
+      {!isCurrentSessionSelected && (
+        <div className="w-full bg-amber-500 text-gray-950 px-3 sm:px-4 md:px-6 py-1.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm border-b-2 border-amber-600 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 text-center sm:text-left">
+            <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 animate-pulse">
+              अभिलेख दृश्य (ReadOnly)
+            </span>
+            <span className="font-semibold">
+              वर्तमान में आप विगत शैक्षणिक सत्र <strong className="font-black text-black underline">{selectedSessionId}</strong> का डेटा देख रहे हैं। इस सत्र में नवीन परिवर्तन सुरक्षित नहीं होंगे।
+            </span>
+          </div>
+          <button
+            onClick={() => setSelectedSessionId(activeSessionId)}
+            className="px-3 py-1 bg-gray-950 text-amber-300 hover:bg-gray-800 rounded-lg font-bold text-xs transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1"
+          >
+            <span>सक्रिय सत्र ({activeSessionId}) पर जाएं</span>
+            <span>→</span>
+          </button>
+        </div>
+      )}
     </header>
   );
 };

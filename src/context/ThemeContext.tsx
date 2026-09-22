@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { safeSetItem } from '../utils/safeStorage';
 
 type Theme = 'light' | 'dark';
 
@@ -27,12 +28,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem('jsk_theme', theme);
-      localStorage.setItem('jsk_malguwa_theme', theme);
-    } catch {
-      // ignore
-    }
+    safeSetItem('jsk_theme', theme);
+    safeSetItem('jsk_malguwa_theme', theme);
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
