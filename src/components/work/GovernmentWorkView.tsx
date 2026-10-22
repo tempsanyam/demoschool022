@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { GovernmentWork, WorkStatus } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
 import { triggerPrint } from '../../utils/printUtils';
@@ -24,6 +25,7 @@ import { SmartExportModal } from '../export/SmartExportModal';
 
 export const GovernmentWorkView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     scopedWork,
     schools,
@@ -101,13 +103,13 @@ export const GovernmentWorkView: React.FC = () => {
     setFormData({
       schoolUdise: defaultWorkUdise,
       workName: '',
-      orderNumber: `RSK/2026/${Math.floor(1000 + Math.random() * 9000)}`,
-      department: 'राज्य शिक्षा केंद्र, म.प्र.',
+      orderNumber: '',
+      department: 'स्कूल शिक्षा विभाग, म.प्र.',
       assignedDate: new Date().toISOString().split('T')[0],
-      deadline: '2026-03-31',
-      status: 'IN_PROGRESS',
-      assignedTo: 'संस्था प्रधान',
-      completionPercentage: 20,
+      deadline: '',
+      status: 'PENDING',
+      assignedTo: 'संस्था प्रभारी',
+      completionPercentage: 0,
       remarks: '',
     });
     setIsModalOpen(true);
@@ -190,18 +192,20 @@ export const GovernmentWorkView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="govt-work-unified-print"
-            currentSession={selectedSessionId}
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="वर्तमान शासकीय कार्य सूची व स्थिति तालिका का त्वरित प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="शासकीय कार्य प्रगति प्रतिवेदन / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-            exportPayload={getGovtWorkExportPayload}
-          />
-          {canEdit && (
+          {isFeatureEnabled('module.work.action.print_export') && (
+            <UnifiedPrintButton
+              id="govt-work-unified-print"
+              currentSession={selectedSessionId}
+              onPrintCurrentView={() => triggerPrint()}
+              onPrintReport={() => setIsSmartExportOpen(true)}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="वर्तमान शासकीय कार्य सूची व स्थिति तालिका का त्वरित प्रिंट"
+              reportLabel="Print Report"
+              reportSubtext="शासकीय कार्य प्रगति प्रतिवेदन / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+              exportPayload={getGovtWorkExportPayload}
+            />
+          )}
+          {canEdit && isFeatureEnabled('module.work.action.add') && (
             <button
               onClick={handleOpenAdd}
               className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -313,7 +317,7 @@ export const GovernmentWorkView: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
-                  {canEdit && (
+                  {canEdit && (isFeatureEnabled('module.work.action.edit') || isFeatureEnabled('module.work.action.update_status')) && (
                     <button
                       onClick={() => handleOpenEdit(w)}
                       className="p-1.5 text-gray-500 hover:text-emerald-600 rounded"
@@ -322,7 +326,7 @@ export const GovernmentWorkView: React.FC = () => {
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  {canEdit && (
+                  {canEdit && isFeatureEnabled('module.work.action.delete') && (
                     <button
                       onClick={() => setDeleteTargetId(w.id)}
                       className="p-1.5 text-gray-500 hover:text-red-600 rounded"

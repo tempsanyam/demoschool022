@@ -603,6 +603,9 @@ export function composeStudentsForSession(
   sessionEnrollments.forEach((enr) => {
     const master = masterMap.get(enr.studentId);
     if (!master) return;
+    if (master.motherName === 'शांति देवी' && (master.fatherName === 'राम दीक्षित' || master.fatherName === 'राम पटेल' || master.fatherName === 'राम अहिरवार' || master.fatherName === 'राम गौड़')) {
+      return;
+    }
 
     // Get complete multi-year academic history for this student
     const studentEnrollments = enrollments
@@ -678,6 +681,9 @@ export function composeStaffForSession(
   sessionPostings.forEach((pst) => {
     const master = masterMap.get(pst.staffId);
     if (!master) return;
+    if (master.id?.startsWith('STF-') && master.employeeCode?.startsWith('EMP-')) {
+      return;
+    }
 
     composed.push({
       id: master.id,

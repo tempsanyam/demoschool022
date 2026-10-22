@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { SHG, SHGMember } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
@@ -34,6 +35,7 @@ import { SHGPrintModal } from './SHGPrintModal';
 export const SHGView: React.FC = () => {
   const { currentUser } = useAuth();
   const { selectedSessionId, isSessionLocked, assertSessionModifiable } = useData();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     shgs: scopedSHGs,
     schools,
@@ -74,18 +76,14 @@ export const SHGView: React.FC = () => {
     registrationNumber: '',
     formationDate: new Date().toISOString().split('T')[0],
     purpose: 'मध्याह्न भोजन (पीएम-पोषण) संचालन एवं पोषण सुरक्षा',
-    bankName: 'भारतीय स्टेट बैंक (SBI)',
+    bankName: '',
     accountNumber: '',
-    ifsc: 'SBIN0001234',
-    branchName: 'बलदेवगढ़',
+    ifsc: '',
+    branchName: '',
     status: 'ACTIVE',
-    totalMembers: 5,
-    members: [
-      { id: '1', name: '', role: 'मुख्य रसोइया', mobile: '', aadhaarNumber: '' },
-      { id: '2', name: '', role: 'सहायक रसोइया', mobile: '', aadhaarNumber: '' },
-      { id: '3', name: '', role: 'सदस्य', mobile: '', aadhaarNumber: '' }
-    ],
-    remarks: 'मध्याह्न भोजन सुचारू व स्वच्छ रूप से संचालित किया जा रहा है।'
+    totalMembers: 0,
+    members: [],
+    remarks: ''
   };
 
   const [formData, setFormData] = useState<Partial<SHG>>(initialFormState);
@@ -139,7 +137,7 @@ export const SHGView: React.FC = () => {
   const stats = useMemo(() => {
     const total = scopedSHGs.length;
     const active = scopedSHGs.filter((s) => s.status === 'ACTIVE').length;
-    const totalMembers = scopedSHGs.reduce((acc, curr) => acc + (curr.totalMembers || curr.members?.length || 5), 0);
+    const totalMembers = scopedSHGs.reduce((acc, curr) => acc + (curr.totalMembers || curr.members?.length || 0), 0);
     const totalSchools = new Set(scopedSHGs.map((s) => s.schoolUdise)).size;
     return { total, active, totalMembers, totalSchools };
   }, [scopedSHGs]);
@@ -395,7 +393,7 @@ export const SHGView: React.FC = () => {
 
         {/* 5 Required Action Buttons: + SHG जोड़ें, खोजें, Print, PDF, Excel */}
         <div className="flex items-center gap-2 flex-wrap">
-          {canEdit && (
+          {canEdit && isFeatureEnabled('module.shg.action.add') && (
             <button
               id="btn-add-shg"
               onClick={handleOpenAddModal}
@@ -417,35 +415,39 @@ export const SHGView: React.FC = () => {
             🔍 खोजें
           </button>
 
-          <button
-            id="btn-print-shg"
-            onClick={handlePrintList}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="प्रिंट करें"
-          >
-            <Printer className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            🖨 Print
-          </button>
+          {isFeatureEnabled('module.shg.action.print_export') && (
+            <>
+              <button
+                id="btn-print-shg"
+                onClick={handlePrintList}
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="प्रिंट करें"
+              >
+                <Printer className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                🖨 Print
+              </button>
 
-          <button
-            id="btn-pdf-shg"
-            onClick={handlePrintList}
-            className="px-3 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="PDF अभिलेख डाउनलोड करें"
-          >
-            <FileText className="w-4 h-4" />
-            PDF
-          </button>
+              <button
+                id="btn-pdf-shg"
+                onClick={handlePrintList}
+                className="px-3 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="PDF अभिलेख डाउनलोड करें"
+              >
+                <FileText className="w-4 h-4" />
+                PDF
+              </button>
 
-          <button
-            id="btn-excel-shg"
-            onClick={handleExportExcel}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Excel स्प्रेडशीट डाउनलोड करें"
-          >
-            <Download className="w-4 h-4" />
-            Excel
-          </button>
+              <button
+                id="btn-excel-shg"
+                onClick={handleExportExcel}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Excel स्प्रेडशीट डाउनलोड करें"
+              >
+                <Download className="w-4 h-4" />
+                Excel
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -659,29 +661,35 @@ export const SHGView: React.FC = () => {
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => setPrintingSHG(s)}
-                            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                            title="Print"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
+                          {isFeatureEnabled('module.shg.action.print_export') && (
+                            <button
+                              onClick={() => setPrintingSHG(s)}
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+                              title="Print"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {canEdit && (
                             <>
-                              <button
-                                onClick={() => handleOpenEditModal(s)}
-                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTargetId(s.id)}
-                                className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {isFeatureEnabled('module.shg.action.edit') && (
+                                <button
+                                  onClick={() => handleOpenEditModal(s)}
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {isFeatureEnabled('module.shg.action.delete') && (
+                                <button
+                                  onClick={() => setDeleteTargetId(s.id)}
+                                  className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

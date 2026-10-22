@@ -319,10 +319,10 @@ export const StaffAttendanceTab: React.FC<StaffAttendanceTabProps> = ({
       </div>
 
       {/* Action Toolbar & Filters */}
-      <div className="bg-white dark:bg-[#17211C] p-3.5 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-white dark:bg-[#17211C] p-3.5 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs min-w-0">
         {/* Search & Filter */}
-        <div className="flex items-center gap-2.5 flex-1 min-w-[240px]">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 sm:min-w-[220px]">
+          <div className="relative flex-1 min-w-[140px] max-w-xs">
             <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"

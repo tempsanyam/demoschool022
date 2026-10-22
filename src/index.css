@@ -24,6 +24,7 @@
 @layer base {
   html {
     color-scheme: light;
+    max-width: 100%;
   }
   html.dark {
     color-scheme: dark;
@@ -32,7 +33,45 @@
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'Mangal', 'Nirmala UI', 'Inter', 'Noto Sans', Arial, Helvetica, sans-serif;
+    line-height: 1.65;
+    max-width: 100%;
   }
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  p, span, label, td, th, li, div {
+    overflow-wrap: break-word;
+  }
+  select {
+    max-width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(11, 107, 75, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 107, 75, 0.45);
 }
 
 .unicode-safe,

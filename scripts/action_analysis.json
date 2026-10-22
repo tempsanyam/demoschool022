@@ -1,0 +1,583 @@
+[
+  {
+    "key": "module.dashboard.action.quick_entry",
+    "labelHi": "+ त्वरित प्रविष्टि बटन (Quick Entry Action)",
+    "moduleKey": "module.dashboard",
+    "parentKey": "module.dashboard",
+    "inRules": false
+  },
+  {
+    "key": "module.dashboard.action.print_summary",
+    "labelHi": "डैशबोर्ड प्रिंट / एक्सपोर्ट (Print Dashboard Summary)",
+    "moduleKey": "module.dashboard",
+    "parentKey": "module.dashboard",
+    "inRules": false
+  },
+  {
+    "key": "module.schools.action.add",
+    "labelHi": "नई शाला जोड़ें (Add New School)",
+    "moduleKey": "module.schools",
+    "parentKey": "module.schools",
+    "inRules": true
+  },
+  {
+    "key": "module.schools.action.edit",
+    "labelHi": "शाला विवरण संपादित करें (Edit School Profile)",
+    "moduleKey": "module.schools",
+    "parentKey": "module.schools",
+    "inRules": true
+  },
+  {
+    "key": "module.schools.action.print_export",
+    "labelHi": "शाला सूची प्रिंट एवं एक्सपोर्ट (Print & Export Schools)",
+    "moduleKey": "module.schools",
+    "parentKey": "module.schools",
+    "inRules": false
+  },
+  {
+    "key": "module.students.action.add",
+    "labelHi": "नया छात्र जोड़ें (Add New Student)",
+    "moduleKey": "module.students",
+    "parentKey": "module.students",
+    "inRules": true
+  },
+  {
+    "key": "module.students.action.edit",
+    "labelHi": "छात्र विवरण संपादित करें (Edit Student)",
+    "moduleKey": "module.students",
+    "parentKey": "module.students",
+    "inRules": true
+  },
+  {
+    "key": "module.students.action.delete",
+    "labelHi": "छात्र रिकॉर्ड हटाएं (Delete Student)",
+    "moduleKey": "module.students",
+    "parentKey": "module.students",
+    "inRules": true
+  },
+  {
+    "key": "module.students.action.print_export",
+    "labelHi": "छात्र सूची प्रिंट एवं एक्सपोर्ट (Print & Export Students)",
+    "moduleKey": "module.students",
+    "parentKey": "module.students",
+    "inRules": false
+  },
+  {
+    "key": "module.teachers.action.add",
+    "labelHi": "नया शिक्षक/स्टाफ जोड़ें (Add Teacher/Staff)",
+    "moduleKey": "module.teachers",
+    "parentKey": "module.teachers",
+    "inRules": true
+  },
+  {
+    "key": "module.teachers.action.edit",
+    "labelHi": "शिक्षक विवरण संपादित करें (Edit Teacher/Staff)",
+    "moduleKey": "module.teachers",
+    "parentKey": "module.teachers",
+    "inRules": true
+  },
+  {
+    "key": "module.teachers.action.delete",
+    "labelHi": "शिक्षक रिकॉर्ड हटाएं (Delete Teacher/Staff)",
+    "moduleKey": "module.teachers",
+    "parentKey": "module.teachers",
+    "inRules": true
+  },
+  {
+    "key": "module.teachers.action.print_export",
+    "labelHi": "शिक्षक सूची प्रिंट एवं एक्सपोर्ट (Print & Export Staff)",
+    "moduleKey": "module.teachers",
+    "parentKey": "module.teachers",
+    "inRules": false
+  },
+  {
+    "key": "module.attendance.action.mark_save",
+    "labelHi": "उपस्थिति दर्ज / संशोधित करें (Mark & Save Attendance)",
+    "moduleKey": "module.attendance",
+    "parentKey": "module.attendance",
+    "inRules": true
+  },
+  {
+    "key": "module.attendance.action.print_export",
+    "labelHi": "उपस्थिति रिपोर्ट प्रिंट एवं एक्सपोर्ट (Print & Export Attendance)",
+    "moduleKey": "module.attendance",
+    "parentKey": "module.attendance",
+    "inRules": false
+  },
+  {
+    "key": "module.mdm.action.add_edit",
+    "labelHi": "एमडीएम दैनिक प्रविष्टि जोड़ें / सुधारें (Add/Edit MDM Entry)",
+    "moduleKey": "module.mdm",
+    "parentKey": "module.mdm",
+    "inRules": true
+  },
+  {
+    "key": "module.mdm.action.delete",
+    "labelHi": "एमडीएम प्रविष्टि हटाएं (Delete MDM Entry)",
+    "moduleKey": "module.mdm",
+    "parentKey": "module.mdm",
+    "inRules": true
+  },
+  {
+    "key": "module.mdm.action.print_export",
+    "labelHi": "एमडीएम रिपोर्ट प्रिंट एवं एक्सपोर्ट (Print & Export MDM)",
+    "moduleKey": "module.mdm",
+    "parentKey": "module.mdm",
+    "inRules": false
+  },
+  {
+    "key": "module.rasoiya.action.add",
+    "labelHi": "नया रसोइया जोड़ें (Add Rasoiya)",
+    "moduleKey": "module.rasoiya",
+    "parentKey": "module.rasoiya",
+    "inRules": true
+  },
+  {
+    "key": "module.rasoiya.action.edit",
+    "labelHi": "रसोइया विवरण संपादित करें (Edit Rasoiya)",
+    "moduleKey": "module.rasoiya",
+    "parentKey": "module.rasoiya",
+    "inRules": true
+  },
+  {
+    "key": "module.rasoiya.action.delete",
+    "labelHi": "रसोइया रिकॉर्ड हटाएं (Delete Rasoiya)",
+    "moduleKey": "module.rasoiya",
+    "parentKey": "module.rasoiya",
+    "inRules": true
+  },
+  {
+    "key": "module.rasoiya.action.print_export",
+    "labelHi": "रसोइया सूची प्रिंट एवं एक्सपोर्ट (Print & Export Rasoiya)",
+    "moduleKey": "module.rasoiya",
+    "parentKey": "module.rasoiya",
+    "inRules": false
+  },
+  {
+    "key": "module.shg.action.add",
+    "labelHi": "नया समूह जोड़ें (Add SHG)",
+    "moduleKey": "module.shg",
+    "parentKey": "module.shg",
+    "inRules": true
+  },
+  {
+    "key": "module.shg.action.edit",
+    "labelHi": "समूह विवरण संपादित करें (Edit SHG)",
+    "moduleKey": "module.shg",
+    "parentKey": "module.shg",
+    "inRules": true
+  },
+  {
+    "key": "module.shg.action.delete",
+    "labelHi": "समूह हटाएं (Delete SHG)",
+    "moduleKey": "module.shg",
+    "parentKey": "module.shg",
+    "inRules": true
+  },
+  {
+    "key": "module.shg.action.print_export",
+    "labelHi": "समूह सूची प्रिंट एवं एक्सपोर्ट (Print & Export SHG)",
+    "moduleKey": "module.shg",
+    "parentKey": "module.shg",
+    "inRules": false
+  },
+  {
+    "key": "module.facilities.action.update",
+    "labelHi": "भौतिक सुविधा स्थिति अपडेट करें (Update Facility Status)",
+    "moduleKey": "module.facilities",
+    "parentKey": "module.facilities",
+    "inRules": true
+  },
+  {
+    "key": "module.facilities.action.print_export",
+    "labelHi": "सुविधा रिपोर्ट प्रिंट एवं एक्सपोर्ट (Print & Export Facilities)",
+    "moduleKey": "module.facilities",
+    "parentKey": "module.facilities",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy.action.print_export",
+    "labelHi": "साक्षरता डैशबोर्ड प्रिंट एवं एक्सपोर्ट (Print & Export Literacy Dashboard)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-register.action.edit",
+    "labelHi": "साक्षरता पंजी प्रविष्टि जोड़ें / सुधारें (Add/Edit Literacy Register)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.registers",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-register.action.delete",
+    "labelHi": "साक्षरता पंजी रिकॉर्ड हटाएं (Delete Literacy Register)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.registers",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-register.action.print_export",
+    "labelHi": "साक्षरता पंजी प्रिंट एवं एक्सपोर्ट (Print/Export Literacy Register)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.registers",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-learners.action.add",
+    "labelHi": "नया असाक्षर व्यक्ति जोड़ें (Add Illiterate Learner)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.learners",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-learners.action.edit",
+    "labelHi": "असाक्षर व्यक्ति विवरण सुधारें (Edit Illiterate Learner)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.learners",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-learners.action.delete",
+    "labelHi": "असाक्षर व्यक्ति रिकॉर्ड हटाएं (Delete Illiterate Learner)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.learners",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-learners.action.print_export",
+    "labelHi": "असाक्षर सूची प्रिंट एवं एक्सपोर्ट (Print/Export Learners)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.learners",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-volunteers.action.add",
+    "labelHi": "नया अक्षर साथी जोड़ें (Add Akshar Sathi Volunteer)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.volunteers",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-volunteers.action.edit",
+    "labelHi": "अक्षर साथी विवरण संपादित करें (Edit Akshar Sathi)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.volunteers",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-volunteers.action.delete",
+    "labelHi": "अक्षर साथी रिकॉर्ड हटाएं (Delete Akshar Sathi)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.volunteers",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-volunteers.action.print_export",
+    "labelHi": "अक्षर साथी सूची प्रिंट एवं एक्सपोर्ट (Print/Export Volunteers)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.volunteers",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-exams.action.add_edit",
+    "labelHi": "साक्षरता परीक्षा परिणाम दर्ज/सुधारें (Add/Edit Exam Results)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.exams",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-exams.action.delete",
+    "labelHi": "साक्षरता परीक्षा परिणाम हटाएं (Delete Exam Result)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.exams",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-exams.action.print_export",
+    "labelHi": "परीक्षा परिणाम प्रिंट एवं एक्सपोर्ट (Print/Export Exam Results)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.exams",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-partners.action.add",
+    "labelHi": "नई सहयोगी संस्था जोड़ें (Add Partner Institution)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.institutions",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-partners.action.edit",
+    "labelHi": "सहयोगी संस्था विवरण सुधारें (Edit Partner Institution)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.institutions",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-partners.action.delete",
+    "labelHi": "सहयोगी संस्था हटाएं (Delete Partner Institution)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.institutions",
+    "inRules": true
+  },
+  {
+    "key": "module.literacy-partners.action.print_export",
+    "labelHi": "सहयोगी संस्था सूची प्रिंट एवं एक्सपोर्ट (Print/Export Partners)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.institutions",
+    "inRules": false
+  },
+  {
+    "key": "module.literacy-reports.action.print_export",
+    "labelHi": "साक्षरता समेकित रिपोर्ट प्रिंट/एक्सपोर्ट (Print/Export Literacy Reports)",
+    "moduleKey": "module.literacy",
+    "parentKey": "module.literacy.sub.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.work.action.add",
+    "labelHi": "नया शासकीय कार्य सौंपें / जोड़ें (Create/Assign Gov Work)",
+    "moduleKey": "module.work",
+    "parentKey": "module.work",
+    "inRules": true
+  },
+  {
+    "key": "module.work.action.edit",
+    "labelHi": "शासकीय कार्य विवरण संपादित करें (Edit Gov Work)",
+    "moduleKey": "module.work",
+    "parentKey": "module.work",
+    "inRules": true
+  },
+  {
+    "key": "module.work.action.update_status",
+    "labelHi": "कार्य प्रगति / स्थिति अपडेट करें (Update Work Status)",
+    "moduleKey": "module.work",
+    "parentKey": "module.work",
+    "inRules": true
+  },
+  {
+    "key": "module.work.action.delete",
+    "labelHi": "शासकीय कार्य हटाएं (Delete Gov Work)",
+    "moduleKey": "module.work",
+    "parentKey": "module.work",
+    "inRules": true
+  },
+  {
+    "key": "module.work.action.print_export",
+    "labelHi": "शासकीय कार्य रिपोर्ट प्रिंट एवं एक्सपोर्ट (Print & Export Work)",
+    "moduleKey": "module.work",
+    "parentKey": "module.work",
+    "inRules": false
+  },
+  {
+    "key": "module.complaints.action.create",
+    "labelHi": "नई शिकायत दर्ज करें (Register New Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.edit",
+    "labelHi": "शिकायत विवरण संपादित करें (Edit Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.resolve",
+    "labelHi": "शिकायत निराकरण दर्ज करें (Resolve Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.close",
+    "labelHi": "शिकायत अंतिम रूप से बंद करें (Close Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.reopen",
+    "labelHi": "शिकायत पुनः खोलें (Reopen Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.delete",
+    "labelHi": "शिकायत रिकॉर्ड हटाएं (Delete Complaint)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": true
+  },
+  {
+    "key": "module.complaints.action.print_export",
+    "labelHi": "शिकायत पंजी प्रिंट एवं एक्सपोर्ट (Print & Export Complaints)",
+    "moduleKey": "module.complaints",
+    "parentKey": "module.complaints",
+    "inRules": false
+  },
+  {
+    "key": "module.notifications.action.create",
+    "labelHi": "नई सूचना / आदेश प्रसारित करें (Publish Notice/Circular)",
+    "moduleKey": "module.notifications",
+    "parentKey": "module.notifications",
+    "inRules": true
+  },
+  {
+    "key": "module.notifications.action.mark_read",
+    "labelHi": "सूचना पठित चिन्हित करें (Mark Notification as Read)",
+    "moduleKey": "module.notifications",
+    "parentKey": "module.notifications",
+    "inRules": true
+  },
+  {
+    "key": "module.notifications.action.delete",
+    "labelHi": "सूचना हटाएं (Delete Notice)",
+    "moduleKey": "module.notifications",
+    "parentKey": "module.notifications",
+    "inRules": true
+  },
+  {
+    "key": "module.documents.action.upload",
+    "labelHi": "नया दस्तावेज़ अपलोड करें (Upload Document)",
+    "moduleKey": "module.documents",
+    "parentKey": "module.documents",
+    "inRules": true
+  },
+  {
+    "key": "module.documents.action.download",
+    "labelHi": "दस्तावेज़ देखें एवं डाउनलोड करें (View & Download Document)",
+    "moduleKey": "module.documents",
+    "parentKey": "module.documents",
+    "inRules": false
+  },
+  {
+    "key": "module.documents.action.print_export",
+    "labelHi": "दस्तावेज़ सूची प्रिंट एवं एक्सपोर्ट (Print & Export Documents)",
+    "moduleKey": "module.documents",
+    "parentKey": "module.documents",
+    "inRules": false
+  },
+  {
+    "key": "module.documents.action.delete",
+    "labelHi": "दस्तावेज़ हटाएं (Delete Document)",
+    "moduleKey": "module.documents",
+    "parentKey": "module.documents",
+    "inRules": true
+  },
+  {
+    "key": "module.reports.action.print",
+    "labelHi": "प्रतिवेदन सीधा प्रिंट करें (Direct Print Report)",
+    "moduleKey": "module.reports",
+    "parentKey": "module.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.reports.action.pdf",
+    "labelHi": "प्रतिवेदन PDF डाउनलोड (Export Report as PDF)",
+    "moduleKey": "module.reports",
+    "parentKey": "module.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.reports.action.excel",
+    "labelHi": "प्रतिवेदन Excel डाउनलोड (Export Report as Excel)",
+    "moduleKey": "module.reports",
+    "parentKey": "module.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.reports.action.csv",
+    "labelHi": "प्रतिवेदन CSV डाउनलोड (Export Report as CSV)",
+    "moduleKey": "module.reports",
+    "parentKey": "module.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.reports.action.print_export",
+    "labelHi": "प्रतिवेदन स्मार्ट प्रिंट एवं एक्सपोर्ट (Unified Print & Export Reports)",
+    "moduleKey": "module.reports",
+    "parentKey": "module.reports",
+    "inRules": false
+  },
+  {
+    "key": "module.export.action.csv_excel",
+    "labelHi": "एक्सेल / CSV डाउनलोड (Download Excel / CSV)",
+    "moduleKey": "module.export",
+    "parentKey": "module.export",
+    "inRules": false
+  },
+  {
+    "key": "module.export.action.official_print",
+    "labelHi": "आधिकारिक शासकीय पत्रक प्रिंट (Official Print / PDF)",
+    "moduleKey": "module.export",
+    "parentKey": "module.export",
+    "inRules": false
+  },
+  {
+    "key": "module.upload.action.import_file",
+    "labelHi": "फाइल इम्पोर्ट एवं डेटा सिंक करें (Execute Bulk Import)",
+    "moduleKey": "module.upload",
+    "parentKey": "module.upload",
+    "inRules": false
+  },
+  {
+    "key": "module.users.action.approve",
+    "labelHi": "नवीन यूज़र पंजीकरण स्वीकृत करें (Approve User Registration)",
+    "moduleKey": "module.users",
+    "parentKey": "module.users",
+    "inRules": true
+  },
+  {
+    "key": "module.users.action.reject",
+    "labelHi": "यूज़र पंजीकरण अस्वीकृत करें (Reject User Registration)",
+    "moduleKey": "module.users",
+    "parentKey": "module.users",
+    "inRules": true
+  },
+  {
+    "key": "module.users.action.activate_deactivate",
+    "labelHi": "यूज़र खाता सक्रिय / निष्क्रिय करें (Activate/Deactivate User)",
+    "moduleKey": "module.users",
+    "parentKey": "module.users",
+    "inRules": true
+  },
+  {
+    "key": "module.users.action.export",
+    "labelHi": "यूज़र डायरेक्टरी प्रिंट एवं एक्सपोर्ट (Print & Export Users)",
+    "moduleKey": "module.users",
+    "parentKey": "module.users",
+    "inRules": false
+  },
+  {
+    "key": "module.audit.action.export",
+    "labelHi": "ऑडिट लॉग प्रिंट एवं एक्सपोर्ट (Print & Export Audit Trail)",
+    "moduleKey": "module.audit",
+    "parentKey": "module.audit",
+    "inRules": false
+  },
+  {
+    "key": "module.profile.action.edit_profile",
+    "labelHi": "प्रोफाइल विवरण संपादित करें (Edit Profile Details)",
+    "moduleKey": "module.profile",
+    "parentKey": "module.profile",
+    "inRules": true
+  },
+  {
+    "key": "module.profile.action.change_password",
+    "labelHi": "लॉगिन पासवर्ड बदलें (Change Password)",
+    "moduleKey": "module.profile",
+    "parentKey": "module.profile",
+    "inRules": false
+  },
+  {
+    "key": "module.profile.action.print_export",
+    "labelHi": "प्रोफाइल कार्ड प्रिंट करें (Print Profile Card)",
+    "moduleKey": "module.profile",
+    "parentKey": "module.profile",
+    "inRules": false
+  }
+]

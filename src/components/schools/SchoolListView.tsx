@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { School, SchoolType } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
 import { triggerPrint } from '../../utils/printUtils';
@@ -46,6 +47,7 @@ type StatusFilterType = 'ACTIVE' | 'INACTIVE';
 
 export const SchoolListView: React.FC<SchoolListViewProps> = ({ onSelectSchool }) => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const isSchoolRestricted = currentUser?.role === 'SCHOOL';
 
   if (isSchoolRestricted) {
@@ -424,23 +426,27 @@ export const SchoolListView: React.FC<SchoolListViewProps> = ({ onSelectSchool }
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="schools-list-unified-print"
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="संकुल विद्यालय डायरेक्टरी व सूची का त्वरित प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="शाला विवरण प्रतिवेदन / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-          />
+          {isFeatureEnabled('module.schools.action.print_export') && (
+            <>
+              <UnifiedPrintButton
+                id="schools-list-unified-print"
+                onPrintCurrentView={() => triggerPrint()}
+                onPrintReport={() => setIsSmartExportOpen(true)}
+                currentViewLabel="Print Current View"
+                currentViewSubtext="संकुल विद्यालय डायरेक्टरी व सूची का त्वरित प्रिंट"
+                reportLabel="Print Report"
+                reportSubtext="शाला विवरण प्रतिवेदन / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+              />
 
-          <button
-            onClick={handleExport}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल निर्यात (Excel)</span>
-          </button>
+              <button
+                onClick={handleExport}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>एक्सेल निर्यात (Excel)</span>
+              </button>
+            </>
+          )}
 
           <button
             type="button"
@@ -452,7 +458,7 @@ export const SchoolListView: React.FC<SchoolListViewProps> = ({ onSelectSchool }
             <span>शाला लॉगिन व ऑडिट ({activeSchoolsCount})</span>
           </button>
 
-          {canEdit && (
+          {canEdit && isFeatureEnabled('module.schools.action.add') && (
             <button
               onClick={handleOpenAdd}
               className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -484,20 +490,22 @@ export const SchoolListView: React.FC<SchoolListViewProps> = ({ onSelectSchool }
               <span>सक्रिय विद्यालय (Active - {activeSchoolsCount})</span>
             </button>
 
-            <button
-              onClick={() => {
-                setStatusFilter('INACTIVE');
-                setSearchTerm('');
-              }}
-              className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                statusFilter === 'INACTIVE'
-                  ? 'bg-white dark:bg-[#1C2822] text-amber-700 dark:text-amber-400 shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              <Archive className="w-4 h-4 text-amber-600" />
-              <span>निष्क्रिय / संगृहीत विद्यालय (Archived - {archivedSchoolsCount})</span>
-            </button>
+            {isFeatureEnabled('module.schools.sub.archive_vault') && (
+              <button
+                onClick={() => {
+                  setStatusFilter('INACTIVE');
+                  setSearchTerm('');
+                }}
+                className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === 'INACTIVE'
+                    ? 'bg-white dark:bg-[#1C2822] text-amber-700 dark:text-amber-400 shadow-xs'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Archive className="w-4 h-4 text-amber-600" />
+                <span>निष्क्रिय / संगृहीत विद्यालय (Archived - {archivedSchoolsCount})</span>
+              </button>
+            )}
           </div>
 
           {/* Search box & Dropdowns */}
@@ -762,7 +770,7 @@ export const SchoolListView: React.FC<SchoolListViewProps> = ({ onSelectSchool }
                     )}
 
                     {/* Edit */}
-                    {canEdit && (
+                    {canEdit && isFeatureEnabled('module.schools.action.edit') && (
                       <button
                         onClick={(e) => handleOpenEdit(school, e)}
                         className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded transition-colors cursor-pointer"

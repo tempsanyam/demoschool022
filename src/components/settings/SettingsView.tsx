@@ -23,14 +23,18 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { initialSchools, initialStudents, initialStaff, initialFacilities, initialMDM, initialGovernmentWork, initialComplaints } from '../../data/seedData';
 import { institutionConfig } from '../../config/institutionConfig';
 import { AcademicSessionManagement } from './AcademicSessionManagement';
+import { FeatureControlPanel } from './FeatureControlPanel';
+import { FeatureGuard } from '../common/FeatureGuard';
 import { safeSetJSON, safeRemoveItem } from '../../utils/safeStorage';
 
 export const SettingsView: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { currentUser, firebaseUser, firebaseAuthStatus, firebaseAuthError, retryFirebaseAuth } = useAuth();
+  const { getFeatureEvaluation } = useFeatureControl();
   const isAdmin = currentUser?.role === 'ADMIN';
   const isSchoolUser = currentUser?.role === 'SCHOOL';
 
@@ -72,9 +76,12 @@ export const SettingsView: React.FC = () => {
   const [isRetryingAuth, setIsRetryingAuth] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'SESSIONS' | 'GENERAL' | 'BACKUP' | 'INFO'>('SESSIONS');
+  const [activeTab, setActiveTab] = useState<'SESSIONS' | 'GENERAL' | 'BACKUP' | 'INFO' | 'FEATURE_CONTROL'>('SESSIONS');
   const [isResetDone, setIsResetDone] = useState(false);
   const [sessionChangeFeedback, setSessionChangeFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const sessionsSubEval = getFeatureEvaluation('module.settings.sub.sessions');
+  const backupSubEval = getFeatureEvaluation('module.settings.sub.backup');
 
   // Export full JSON Backup
   const handleBackupDownload = () => {
@@ -153,18 +160,34 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Header Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto bg-gray-100 dark:bg-gray-800/60 p-1.5 rounded-xl text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('SESSIONS')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'SESSIONS'
-                ? 'bg-[#0B6B4B] text-white shadow-xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>सत्र प्रबंधन</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 dark:bg-gray-800/60 p-1.5 rounded-xl text-xs font-bold">
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('FEATURE_CONTROL')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'FEATURE_CONTROL'
+                  ? 'bg-[#0B6B4B] text-white shadow-xs'
+                  : 'text-[#0B6B4B] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>🔐 मॉड्यूल एवं विकल्प नियंत्रण</span>
+            </button>
+          )}
+
+          {sessionsSubEval.allowed && (
+            <button
+              onClick={() => setActiveTab('SESSIONS')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'SESSIONS'
+                  ? 'bg-[#0B6B4B] text-white shadow-xs'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>सत्र प्रबंधन</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('GENERAL')}
@@ -178,17 +201,19 @@ export const SettingsView: React.FC = () => {
             <span>सामान्य व थीम</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('BACKUP')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'BACKUP'
-                ? 'bg-[#0B6B4B] text-white shadow-xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>डेटा बैकअप</span>
-          </button>
+          {backupSubEval.allowed && (
+            <button
+              onClick={() => setActiveTab('BACKUP')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'BACKUP'
+                  ? 'bg-[#0B6B4B] text-white shadow-xs'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>डेटा बैकअप</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('INFO')}
@@ -205,7 +230,13 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Tab Contents */}
-      {activeTab === 'SESSIONS' && <AcademicSessionManagement />}
+      {activeTab === 'FEATURE_CONTROL' && isAdmin && <FeatureControlPanel />}
+
+      {activeTab === 'SESSIONS' && (
+        <FeatureGuard featureKey="module.settings.sub.sessions" evaluation={sessionsSubEval} mode="banner">
+          <AcademicSessionManagement />
+        </FeatureGuard>
+      )}
 
       {activeTab === 'GENERAL' && (
         <div className="space-y-4 text-xs max-w-3xl">
@@ -303,152 +334,154 @@ export const SettingsView: React.FC = () => {
 
       {activeTab === 'BACKUP' && (
         <div className="space-y-4 text-xs max-w-3xl">
-          {/* Cloud Database Cross-Device Synchronization Control & Diagnostics */}
-          <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-emerald-300 dark:border-emerald-800/70 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Cloud className="w-5 h-5 text-[#0B6B4B] dark:text-emerald-400" />
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-white">
-                    केंद्रीकृत क्लाउड डेटाबेस (Google Cloud Firestore Central Database)
-                  </h3>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      connectivityState.status === 'connected'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
-                        : connectivityState.status === 'syncing'
-                        ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300'
-                        : connectivityState.status === 'permission_denied'
-                        ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300'
-                        : connectivityState.status === 'offline'
-                        ? 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300'
-                        : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
-                    }`}
-                  >
-                    {connectivityState.statusLabel}
-                  </span>
+          {/* Cloud Database Cross-Device Synchronization Control & Diagnostics (ADMIN ONLY) */}
+          {isAdmin && (
+            <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-emerald-300 dark:border-emerald-800/70 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-5 h-5 text-[#0B6B4B] dark:text-emerald-400" />
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                      केंद्रीकृत क्लाउड डेटाबेस (Google Cloud Firestore Central Database)
+                    </h3>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        connectivityState.status === 'connected'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                          : connectivityState.status === 'syncing'
+                          ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300'
+                          : connectivityState.status === 'permission_denied'
+                          ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300'
+                          : connectivityState.status === 'offline'
+                          ? 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                      }`}
+                    >
+                      {connectivityState.statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    सभी संकुल शालाएं, जन शिक्षक (CAC) एवं व्यवस्थापक (Admin) मोबाइल या कंप्यूटर किसी भी डिवाइस से वास्तविक समय में एक ही सेंट्रलाइज्ड क्लाउड डेटाबेस से जुड़े हैं।
+                  </p>
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
-                  सभी संकुल शालाएं, जन शिक्षक (CAC) एवं व्यवस्थापक (Admin) मोबाइल या कंप्यूटर किसी भी डिवाइस से वास्तविक समय में एक ही सेंट्रलाइज्ड क्लाउड डेटाबेस से जुड़े हैं।
-                </p>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={async () => {
-                    await checkCloudConnectivity();
-                  }}
-                  className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl font-bold hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer text-xs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>जाँचें</span>
-                </button>
-
-                {(!firebaseUser || connectivityState.status === 'auth_error' || connectivityState.status === 'auth_required') && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    disabled={isRetryingAuth}
                     onClick={async () => {
-                      setIsRetryingAuth(true);
+                      await checkCloudConnectivity();
+                    }}
+                    className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl font-bold hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer text-xs"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>जाँचें</span>
+                  </button>
+
+                  {(!firebaseUser || connectivityState.status === 'auth_error' || connectivityState.status === 'auth_required') && (
+                    <button
+                      disabled={isRetryingAuth}
+                      onClick={async () => {
+                        setIsRetryingAuth(true);
+                        try {
+                          await retryFirebaseAuth();
+                          await checkCloudConnectivity();
+                        } finally {
+                          setIsRetryingAuth(false);
+                        }
+                      }}
+                      className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors flex items-center gap-1.5 cursor-pointer text-xs disabled:opacity-50"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>{isRetryingAuth ? 'Auth प्रयास...' : 'Auth पुनः प्रयास'}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      setIsCloudSyncing(true);
+                      setCloudSyncMessage(null);
                       try {
-                        await retryFirebaseAuth();
-                        await checkCloudConnectivity();
+                        const res = await triggerManualCloudSync();
+                        if (res.success) {
+                          setCloudSyncMessage(`डेटाबेस सफलतापूर्वक सिंक हुआ (${res.count} रिकॉर्ड्स क्लाउड में अद्यतन)`);
+                        } else {
+                          setCloudSyncMessage('क्लाउड सिंक में त्रुटि आई। कृपया नेटवर्क जांचें।');
+                        }
+                      } catch (e) {
+                        setCloudSyncMessage('सिंक विफल हुआ।');
                       } finally {
-                        setIsRetryingAuth(false);
+                        setIsCloudSyncing(false);
                       }
                     }}
-                    className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors flex items-center gap-1.5 cursor-pointer text-xs disabled:opacity-50"
+                    disabled={isCloudSyncing}
+                    className="px-4 py-2 bg-[#0B6B4B] hover:bg-[#08553B] text-white rounded-xl font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50 text-xs"
                   >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>{isRetryingAuth ? 'Auth प्रयास...' : 'Auth पुनः प्रयास'}</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isCloudSyncing ? 'सिंक हो रहा है...' : 'मैन्युअल क्लाउड सिंक'}</span>
                   </button>
-                )}
-
-                <button
-                  onClick={async () => {
-                    setIsCloudSyncing(true);
-                    setCloudSyncMessage(null);
-                    try {
-                      const res = await triggerManualCloudSync();
-                      if (res.success) {
-                        setCloudSyncMessage(`डेटाबेस सफलतापूर्वक सिंक हुआ (${res.count} रिकॉर्ड्स क्लाउड में अद्यतन)`);
-                      } else {
-                        setCloudSyncMessage('क्लाउड सिंक में त्रुटि आई। कृपया नेटवर्क जांचें।');
-                      }
-                    } catch (e) {
-                      setCloudSyncMessage('सिंक विफल हुआ।');
-                    } finally {
-                      setIsCloudSyncing(false);
-                    }
-                  }}
-                  disabled={isCloudSyncing}
-                  className="px-4 py-2 bg-[#0B6B4B] hover:bg-[#08553B] text-white rounded-xl font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50 text-xs"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isCloudSyncing ? 'सिंक हो रहा है...' : 'मैन्युअल क्लाउड सिंक'}</span>
-                </button>
+                </div>
               </div>
+
+              {/* Granular status breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-[11px]">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">इंटरनेट स्थिति:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1 mt-0.5">
+                    {connectivityState.isBrowserOnline ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> ऑनलाइन
+                      </span>
+                    ) : (
+                      <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                        <WifiOff className="w-3.5 h-3.5" /> ऑफलाइन
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">Firebase Auth:</span>
+                  <span className="font-mono text-[11px] text-gray-800 dark:text-gray-200 block truncate mt-0.5">
+                    {firebaseUser ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                        सक्रिय ({firebaseUser.uid.substring(0, 8)}...)
+                      </span>
+                    ) : firebaseAuthStatus === 'error' && firebaseAuthError === 'auth/operation-not-allowed' ? (
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">
+                        Provider अक्षम (Console)
+                      </span>
+                    ) : firebaseAuthStatus === 'initializing' ? (
+                      <span className="text-amber-600 dark:text-amber-400">सत्यापन जारी...</span>
+                    ) : (
+                      <span className="text-gray-500">अप्रमाणित</span>
+                    )}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">अंतिम सिंक समय:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 block mt-0.5">
+                    {lastCloudSyncAt ? lastCloudSyncAt.toLocaleTimeString('hi-IN') : 'सक्रिय'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-gray-600 dark:text-gray-300">
+                {connectivityState.message}
+              </div>
+
+              {cloudSyncMessage && (
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 font-semibold text-xs flex items-center justify-between">
+                  <span>{cloudSyncMessage}</span>
+                  <button
+                    onClick={() => setCloudSyncMessage(null)}
+                    className="text-emerald-600 dark:text-emerald-400 underline cursor-pointer"
+                  >
+                    हटाएं
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* Granular status breakdown */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-[11px]">
-              <div>
-                <span className="text-gray-500 dark:text-gray-400 block">इंटरनेट स्थिति:</span>
-                <span className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1 mt-0.5">
-                  {connectivityState.isBrowserOnline ? (
-                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> ऑनलाइन
-                    </span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
-                      <WifiOff className="w-3.5 h-3.5" /> ऑफलाइन
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-gray-500 dark:text-gray-400 block">Firebase Auth:</span>
-                <span className="font-mono text-[11px] text-gray-800 dark:text-gray-200 block truncate mt-0.5">
-                  {firebaseUser ? (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                      सक्रिय ({firebaseUser.uid.substring(0, 8)}...)
-                    </span>
-                  ) : firebaseAuthStatus === 'error' && firebaseAuthError === 'auth/operation-not-allowed' ? (
-                    <span className="text-amber-600 dark:text-amber-400 font-bold">
-                      Provider अक्षम (Console)
-                    </span>
-                  ) : firebaseAuthStatus === 'initializing' ? (
-                    <span className="text-amber-600 dark:text-amber-400">सत्यापन जारी...</span>
-                  ) : (
-                    <span className="text-gray-500">अप्रमाणित</span>
-                  )}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-gray-500 dark:text-gray-400 block">अंतिम सिंक समय:</span>
-                <span className="font-semibold text-gray-800 dark:text-gray-200 block mt-0.5">
-                  {lastCloudSyncAt ? lastCloudSyncAt.toLocaleTimeString('hi-IN') : 'सक्रिय'}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-gray-600 dark:text-gray-300">
-              {connectivityState.message}
-            </div>
-
-            {cloudSyncMessage && (
-              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 font-semibold text-xs flex items-center justify-between">
-                <span>{cloudSyncMessage}</span>
-                <button
-                  onClick={() => setCloudSyncMessage(null)}
-                  className="text-emerald-600 dark:text-emerald-400 underline cursor-pointer"
-                >
-                  हटाएं
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* 3. Database Backup */}
           <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex items-center justify-between">
@@ -526,7 +559,7 @@ export const SettingsView: React.FC = () => {
             </div>
             <div className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
               <span className="text-gray-500">संबद्ध विद्यालय संख्या:</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200">{schools.length || institutionConfig.totalSchoolsCount} शासकीय प्राथमिक एवं माध्यमिक शालाएं</span>
+              <span className="font-bold text-gray-800 dark:text-gray-200">{schools.length} शासकीय प्राथमिक एवं माध्यमिक शालाएं</span>
             </div>
             <div className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
               <span className="text-gray-500">सक्रिय शैक्षणिक सत्र:</span>

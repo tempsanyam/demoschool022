@@ -43,26 +43,23 @@ export const OtherStaffFormModal: React.FC<OtherStaffFormModalProps> = ({
   const defaultUdise = currentSchoolUdise || schools[0]?.udise || '';
 
   const getFreshOtherStaffState = (): Partial<Staff> => {
-    const genId = `EMP-STF-${Math.floor(100 + Math.random() * 900)}`;
-    const genUid = `UID-STF-${Math.floor(1000 + Math.random() * 9000)}`;
-
     return {
-      employeeId: genId,
-      employeeCode: genId,
-      uniqueId: genUid,
+      employeeId: '',
+      employeeCode: '',
+      uniqueId: '',
       name: '',
       gender: 'MALE',
       designation: 'भृत्य',
       teacherType: 'अन्य',
-      subject: 'कार्यालयीन कार्य व सुरक्षा',
-      duty: 'दैनिक कार्यालय संचालन, पत्राचार व शाला परिसर देखरेख',
-      qualification: '10वीं / 12वीं उत्तीर्ण',
+      subject: '',
+      duty: '',
+      qualification: '',
       mobile: '',
       email: '',
       caste: '',
       aadhaarNumber: '',
       voterIdNumber: '',
-      joiningDate: '2019-04-01',
+      joiningDate: '',
       postingDate: new Date().toISOString().split('T')[0],
       isBlo: false,
       isCensus: false,
@@ -70,7 +67,7 @@ export const OtherStaffFormModal: React.FC<OtherStaffFormModalProps> = ({
       employmentType: 'REGULAR',
       assignedSchoolUdise: defaultUdise,
       status: 'ACTIVE',
-      dob: '1990-08-20',
+      dob: '',
       category: 'OBC',
     };
   };

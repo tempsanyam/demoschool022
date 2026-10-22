@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { institutionConfig } from '../../config/institutionConfig';
 import { UserRole, Gender } from '../../types';
 import { exportToUnicodePDF } from '../../utils/exportUtils';
@@ -40,6 +41,7 @@ import { ClusterUserDirectoryView } from '../users/ClusterUserDirectoryView';
 
 export const ProfileView: React.FC = () => {
   const { currentUser, users, registeredUsers, updateCurrentUser, updatePassword } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const { schools, activeSchools, auditLogs, logActivity, settings, selectedSessionId, staff, academicSessions } = useData();
 
   // Active sub-tab inside Profile
@@ -277,7 +279,7 @@ export const ProfileView: React.FC = () => {
   };
 
   // Handle Password Change
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPassErrorMsg('');
     setPassSuccessMsg('');
@@ -297,7 +299,7 @@ export const ProfileView: React.FC = () => {
       return;
     }
 
-    const res = updatePassword(passData.currentPass, passData.newPass);
+    const res = await updatePassword(passData.currentPass, passData.newPass);
     if (res.success) {
       logActivity('UPDATE', 'Auth', `${currentUser?.name || currentUser?.username} द्वारा खाता सुरक्षा पासवर्ड बदला गया।`);
       setPassSuccessMsg('✓ पासवर्ड सफलतापूर्वक बदल दिया गया है।');
@@ -611,39 +613,47 @@ export const ProfileView: React.FC = () => {
 
             {/* Quick Header Action Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handleOpenEditModal}
-                className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 text-[#0B6B4B] font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span>{isSchoolUser ? 'प्रोफ़ाइल संपादित करें' : 'प्रोफ़ाइल संपादित करें'}</span>
-              </button>
+              {isFeatureEnabled('module.profile.action.edit_profile') && (
+                <button
+                  onClick={handleOpenEditModal}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 text-[#0B6B4B] font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>{isSchoolUser ? 'प्रोफ़ाइल संपादित करें' : 'प्रोफ़ाइल संपादित करें'}</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('security')}
-                className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
-              >
-                <Key className="w-4 h-4 text-amber-300" />
-                <span>पासवर्ड</span>
-              </button>
+              {isFeatureEnabled('module.profile.action.change_password') && (
+                <button
+                  onClick={() => setActiveTab('security')}
+                  className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                >
+                  <Key className="w-4 h-4 text-amber-300" />
+                  <span>पासवर्ड</span>
+                </button>
+              )}
 
-              <button
-                onClick={handlePrintProfile}
-                className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
-                title="प्रिंट निकालें"
-              >
-                <Printer className="w-4 h-4" />
-                <span className="hidden sm:inline">प्रिंट</span>
-              </button>
+              {isFeatureEnabled('module.profile.action.print_export') && (
+                <>
+                  <button
+                    onClick={handlePrintProfile}
+                    className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                    title="प्रिंट निकालें"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span className="hidden sm:inline">प्रिंट</span>
+                  </button>
 
-              <button
-                onClick={handleDownloadPDF}
-                className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
-                title="PDF फ़ाइल डाउनलोड करें"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">PDF</span>
-              </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                    title="PDF फ़ाइल डाउनलोड करें"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">PDF</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -729,17 +739,19 @@ export const ProfileView: React.FC = () => {
           )}
         </button>
 
-        <button
-          onClick={() => setActiveTab('security')}
-          className={`pb-2.5 px-3 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'security'
-              ? 'border-[#0B6B4B] text-[#0B6B4B] dark:text-emerald-400 dark:border-emerald-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-          }`}
-        >
-          <Shield className="w-4 h-4" />
-          <span>सुरक्षा एवं पासवर्ड</span>
-        </button>
+        {isFeatureEnabled('module.profile.action.change_password') && (
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`pb-2.5 px-3 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'security'
+                ? 'border-[#0B6B4B] text-[#0B6B4B] dark:text-emerald-400 dark:border-emerald-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            <span>सुरक्षा एवं पासवर्ड</span>
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('activity')}
@@ -753,7 +765,7 @@ export const ProfileView: React.FC = () => {
           <span>{isSchoolUser ? `विद्यालय गतिविधियां व ऑडिट लॉग (${userActivities.length})` : `मेरी गतिविधियां व ऑडिट लॉग (${userActivities.length})`}</span>
         </button>
 
-        {(currentUser.role === 'CAC' || currentUser.role === 'ADMIN') && (
+        {(currentUser.role === 'CAC' || currentUser.role === 'ADMIN') && isFeatureEnabled('module.users') && (
           <button
             onClick={() => setActiveTab('directory')}
             className={`pb-2.5 px-3 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
@@ -786,13 +798,15 @@ export const ProfileView: React.FC = () => {
                   <SchoolIcon className="w-4 h-4 text-[#0B6B4B] dark:text-emerald-400" />
                   <span>1. विद्यालय पहचान (School Identity)</span>
                 </h3>
-                <button
-                  onClick={handleOpenEditModal}
-                  className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>संपर्क विवरण अद्यतन</span>
-                </button>
+                {isFeatureEnabled('module.profile.action.edit_profile') && (
+                  <button
+                    onClick={handleOpenEditModal}
+                    className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>संपर्क विवरण अद्यतन</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2.5 text-xs">
@@ -1006,13 +1020,15 @@ export const ProfileView: React.FC = () => {
                   <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>4. संस्था खाता एवं सुरक्षा (Institution Account & Security)</span>
                 </h3>
-                <button
-                  onClick={() => setActiveTab('security')}
-                  className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  <span>पासवर्ड बदलें</span>
-                </button>
+                {isFeatureEnabled('module.profile.action.change_password') && (
+                  <button
+                    onClick={() => setActiveTab('security')}
+                    className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>पासवर्ड बदलें</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2.5 text-xs">
@@ -1081,13 +1097,15 @@ export const ProfileView: React.FC = () => {
                   <User className="w-4 h-4 text-[#0B6B4B] dark:text-emerald-400" />
                   <span>व्यक्तिगत जानकारी (Personal Information)</span>
                 </h3>
-                <button
-                  onClick={handleOpenEditModal}
-                  className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>संपादित करें</span>
-                </button>
+                {isFeatureEnabled('module.profile.action.edit_profile') && (
+                  <button
+                    onClick={handleOpenEditModal}
+                    className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>संपादित करें</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2.5 text-xs">

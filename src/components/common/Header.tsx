@@ -34,6 +34,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { institutionConfig } from '../../config/institutionConfig';
 
 interface HeaderProps {
@@ -50,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogoutDialog,
 }) => {
   const { currentUser, firebaseUser, firebaseAuthStatus, firebaseAuthError, retryFirebaseAuth } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -75,14 +77,29 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNewEntryMenu, setShowNewEntryMenu] = useState(false);
   const [showCloudDetails, setShowCloudDetails] = useState(false);
+  const [showSchoolPicker, setShowSchoolPicker] = useState(false);
+  const [schoolSearchQuery, setSchoolSearchQuery] = useState('');
   const [isRetryingAuth, setIsRetryingAuth] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const newEntryRef = useRef<HTMLDivElement>(null);
   const cloudDetailsRef = useRef<HTMLDivElement>(null);
+  const schoolPickerRef = useRef<HTMLDivElement>(null);
 
   const activeSession = selectedSessionId || settings?.academicSession || institutionConfig.academicSession;
+
+  const filteredPickerSchools = useMemo(() => {
+    const q = schoolSearchQuery.trim().toLowerCase();
+    if (!q) return schools;
+    return schools.filter(
+      (s) =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.hindiName || '').toLowerCase().includes(q) ||
+        (s.udise || '').toLowerCase().includes(q) ||
+        (s.village || '').toLowerCase().includes(q)
+    );
+  }, [schools, schoolSearchQuery]);
 
   const schoolTypeSummary = useMemo(() => {
     const ps = schools.filter((s) => s.schoolType?.includes('प्राथमिक')).length;
@@ -105,6 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
         setShowUserMenu(false);
         setShowNewEntryMenu(false);
         setShowCloudDetails(false);
+        setShowSchoolPicker(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -125,6 +143,9 @@ export const Header: React.FC<HeaderProps> = ({
       }
       if (cloudDetailsRef.current && !cloudDetailsRef.current.contains(e.target as Node)) {
         setShowCloudDetails(false);
+      }
+      if (schoolPickerRef.current && !schoolPickerRef.current.contains(e.target as Node)) {
+        setShowSchoolPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -250,11 +271,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2">
           
           {/* ===================================================================== */}
-          {/* 2A. DESKTOP LAYOUT (lg: 1024px+) - Single Perfectly Aligned Row      */}
+          {/* 2A. DESKTOP LAYOUT (lg: 1024px+) - Fluid Auto-Reflowing Row           */}
           {/* ===================================================================== */}
-          <div className="hidden lg:flex items-center justify-between gap-3 w-full">
+          <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 w-full min-w-0">
             
-            {/* Left Group: CAC Panel & School Selector */}
+            {/* Left Group: CAC Panel & Searchable School Selector */}
             <div className="flex items-center gap-2 min-w-0 shrink-0">
               {/* Panel Button (ADMIN / CAC / SCHOOL) */}
               <button
@@ -264,37 +285,136 @@ export const Header: React.FC<HeaderProps> = ({
                   }
                   onNavigate('dashboard');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer whitespace-nowrap"
                 title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
               >
-                <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse shrink-0"></span>
                 <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
               </button>
 
-              {/* School Selector Dropdown */}
+              {/* Compact Searchable School Selector Popover */}
               {canSwitchSchools ? (
-                <div className="relative min-w-0 w-56 xl:w-64">
-                  <select
-                    value={selectedSchoolUdise}
-                    onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+                <div className="relative min-w-0" ref={schoolPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSchoolPicker((prev) => !prev)}
                     aria-label="विद्यालय चुनें"
-                    className="w-full bg-[#074731] hover:bg-[#063B29] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer truncate"
+                    title={
+                      selectedSchool
+                        ? `${selectedSchool.name || selectedSchool.hindiName} (${selectedSchool.village}) - UDISE: ${selectedSchool.udise}`
+                        : `समस्त ${schools.length} संकुल शालाएं (क्लिक करके शाला खोजें या चुनें)`
+                    }
+                    className="w-44 xl:w-56 2xl:w-64 flex items-center justify-between gap-1.5 bg-[#074731] hover:bg-[#063B29] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer transition-colors"
                   >
-                    <option value="">🏫 समस्त {schools.length} संकुल शालाएं</option>
-                    {schools.map((s) => (
-                      <option key={s.udise} value={s.udise} className="bg-white text-gray-900">
-                        {s.name || s.hindiName} ({s.village})
-                      </option>
-                    ))}
-                  </select>
+                    <span className="truncate text-left flex-1">
+                      {selectedSchool
+                        ? `🏫 ${selectedSchool.name || selectedSchool.hindiName}`
+                        : `🏫 समस्त ${schools.length} संकुल शालाएं`}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                  </button>
+
+                  {showSchoolPicker && (
+                    <div className="absolute left-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#16221D] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 text-xs text-gray-800 dark:text-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                      <div className="p-2.5 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-800">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={schoolSearchQuery}
+                            onChange={(e) => setSchoolSearchQuery(e.target.value)}
+                            placeholder="शाला का नाम, ग्राम या UDISE खोजें..."
+                            className="w-full pl-8 pr-7 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            autoFocus
+                          />
+                          {schoolSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSchoolSearchQuery('')}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSchoolUdise('');
+                            setShowSchoolPicker(false);
+                            setSchoolSearchQuery('');
+                          }}
+                          className={`w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors ${
+                            !selectedSchoolUdise ? 'bg-emerald-50/80 dark:bg-emerald-950/60 font-bold text-[#0B6B4B] dark:text-emerald-300' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span>🏫</span>
+                            <span className="truncate">समस्त {schools.length} संकुल शालाएं (All Schools)</span>
+                          </div>
+                          {!selectedSchoolUdise && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        </button>
+
+                        {filteredPickerSchools.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                            कोई शाला नहीं मिली
+                          </div>
+                        ) : (
+                          filteredPickerSchools.map((s) => {
+                            const isSelected = s.udise === selectedSchoolUdise;
+                            return (
+                              <button
+                                key={s.udise}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSchoolUdise(s.udise);
+                                  setShowSchoolPicker(false);
+                                  setSchoolSearchQuery('');
+                                }}
+                                className={`w-full px-3 py-2 text-left flex items-start justify-between gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors ${
+                                  isSelected ? 'bg-emerald-50 dark:bg-emerald-950/60 font-bold text-[#0B6B4B] dark:text-emerald-300' : ''
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold text-gray-900 dark:text-white truncate">
+                                    {s.name || s.hindiName}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.2 rounded text-gray-700 dark:text-gray-300">
+                                      {s.udise}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="truncate">ग्राम: {s.village}</span>
+                                    {s.schoolType && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-emerald-700 dark:text-emerald-400">{s.schoolType}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 bg-[#074731] text-emerald-100 text-xs px-3 py-1.5 rounded-lg border border-emerald-400/40 font-semibold shadow-2xs">
+                <div
+                  className="flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-400/40 font-semibold shadow-2xs max-w-[240px]"
+                  title={`${selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'} (${selectedSchool?.udise || ''})`}
+                >
                   <SchoolIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                  <span className="truncate max-w-[180px] text-white">
+                  <span className="truncate text-white">
                     {selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
                   </span>
-                  <span className="font-mono text-[10px] bg-[#063B29] text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                  <span className="font-mono text-[10px] bg-[#063B29] text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/30 shrink-0">
                     {selectedSchool?.udise}
                   </span>
                 </div>
@@ -302,29 +422,30 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Center: Global Search Bar */}
-            <div className="flex-1 min-w-[160px] max-w-md mx-2">
+            <div className="flex-1 min-w-[140px] max-w-sm xl:max-w-md mx-1">
               <div
                 onClick={onOpenGlobalSearch}
-                className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/20 rounded-lg px-3 py-1.5 text-emerald-100 text-xs hover:border-emerald-300 transition-colors cursor-pointer group shadow-2xs"
+                className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/20 rounded-lg px-2.5 py-1.5 text-emerald-100 text-xs hover:border-emerald-300 transition-colors cursor-pointer group shadow-2xs min-w-0"
                 role="button"
                 tabIndex={0}
+                title="वैश्विक खोज: UDISE, शाला, छात्र, शिक्षक, शिकायत... (Ctrl + K)"
                 aria-label="वैश्विक खोज (Ctrl + K)"
               >
                 <Search className="w-3.5 h-3.5 text-emerald-200 group-hover:text-white shrink-0" />
-                <span className="truncate text-emerald-100/90 text-xs">
+                <span className="truncate text-emerald-100/90 text-xs flex-1 min-w-0">
                   खोजें: UDISE, शाला, छात्र, शिक्षक, शिकायत...
                 </span>
-                <kbd className="ml-auto bg-black/25 border border-white/20 rounded px-1.5 py-0.2 text-[9px] text-emerald-200 font-mono shrink-0">
+                <kbd className="hidden xl:inline-block ml-auto bg-black/25 border border-white/20 rounded px-1.5 py-0.2 text-[9px] text-emerald-200 font-mono shrink-0">
                   Ctrl + K
                 </kbd>
               </div>
             </div>
 
             {/* Right Group: Actions, Session, New Entry, Export, Theme, Notifications & Profile */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 xl:gap-2 flex-wrap justify-end shrink-0">
               {/* Academic Session Switcher Dropdown */}
               <div className="relative flex items-center">
-                <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 transition-all ${
+                <div className={`flex items-center gap-1 rounded-lg px-2 py-1 transition-all ${
                   !isCurrentSessionSelected
                     ? 'bg-amber-500 text-gray-950 font-black ring-2 ring-amber-300 shadow-sm'
                     : 'bg-[#08553B] text-emerald-100 border border-emerald-400/40'
@@ -334,36 +455,32 @@ export const Header: React.FC<HeaderProps> = ({
                     value={selectedSessionId}
                     onChange={(e) => setSelectedSessionId(e.target.value)}
                     aria-label="शैक्षणिक सत्र चुनें"
-                    className={`bg-transparent font-bold text-xs focus:outline-none cursor-pointer pr-1 ${
+                    className={`bg-transparent font-bold text-xs focus:outline-none cursor-pointer pr-1 max-w-[115px] xl:max-w-[150px] truncate ${
                       !isCurrentSessionSelected ? 'text-gray-950 font-black' : 'text-emerald-100'
                     }`}
                     title={!isCurrentSessionSelected ? `विगत सत्र ${selectedSessionId} (अभिलेख केवल पठन हेतु)` : `सक्रिय सत्र ${selectedSessionId}`}
                   >
                     {visibleAcademicSessions.map((session) => (
                       <option key={session.id} value={session.id} className="bg-white text-gray-900 font-medium">
-                        {session.isCurrent ? `★ सत्र ${session.sessionName || session.name || session.id} (वर्तमान सक्रिय)` : `सत्र ${session.sessionName || session.name || session.id} (${session.status === 'LOCKED' ? '🔒 लॉक' : session.status === 'UPCOMING' ? 'भविष्य' : 'विगत'})`}
+                        {session.isCurrent ? `★ सत्र ${session.sessionName || session.name || session.id}` : `सत्र ${session.sessionName || session.name || session.id} (${session.status === 'LOCKED' ? '🔒 लॉक' : session.status === 'UPCOMING' ? 'भविष्य' : 'विगत'})`}
                       </option>
                     ))}
                   </select>
                 </div>
-                {!isCurrentSessionSelected && (
-                  <span className="hidden 2xl:inline-flex ml-1.5 items-center gap-1 bg-amber-400 text-amber-950 text-[10px] font-black uppercase px-2 py-1 rounded shadow-xs animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                    पुराना सत्र (ReadOnly)
-                  </span>
-                )}
               </div>
 
               {/* + New Entry Shortcut Menu */}
+              {isFeatureEnabled('module.dashboard.action.quick_entry') && (
               <div className="relative" ref={newEntryRef}>
                 <button
                   onClick={() => setShowNewEntryMenu(!showNewEntryMenu)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#FF7A00] hover:bg-[#e06c00] active:bg-[#c96100] text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
-                  title="त्वरित नई प्रविष्टि"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FF7A00] hover:bg-[#e06c00] active:bg-[#c96100] text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                  title="त्वरित नई प्रविष्टि (+ नई प्रविष्टि)"
                   aria-label="त्वरित नई प्रविष्टि"
                 >
                   <PlusCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>+ नई प्रविष्टि</span>
+                  <span className="hidden xl:inline">+ नई प्रविष्टि</span>
+                  <span className="xl:hidden">नई प्रविष्टि</span>
                 </button>
 
                 {showNewEntryMenu && (
@@ -372,6 +489,7 @@ export const Header: React.FC<HeaderProps> = ({
                       त्वरित प्रविष्टि मेन्यू
                     </div>
                     <div className="py-1">
+                      {isFeatureEnabled('module.students.action.add') && (
                       <button
                         onClick={() => {
                           setShowNewEntryMenu(false);
@@ -382,6 +500,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <GraduationCap className="w-4 h-4 text-[#0B6B4B]" />
                         नया विद्यार्थी दर्ज करें
                       </button>
+                      )}
+                      {isFeatureEnabled('module.teachers.action.add') && (
                       <button
                         onClick={() => {
                           setShowNewEntryMenu(false);
@@ -392,6 +512,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <Users className="w-4 h-4 text-[#0B6B4B]" />
                         नया शिक्षक / स्टाफ जोड़ें
                       </button>
+                      )}
+                      {isFeatureEnabled('module.attendance.action.mark_save') && (
                       <button
                         onClick={() => {
                           setShowNewEntryMenu(false);
@@ -402,6 +524,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <Calendar className="w-4 h-4 text-[#0B6B4B]" />
                         दैनिक उपस्थिति भरें
                       </button>
+                      )}
+                      {isFeatureEnabled('module.mdm.action.add_edit') && (
                       <button
                         onClick={() => {
                           setShowNewEntryMenu(false);
@@ -412,6 +536,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <Utensils className="w-4 h-4 text-[#FF7A00]" />
                         आज का MDM वितरण
                       </button>
+                      )}
+                      {isFeatureEnabled('module.complaints.action.create') && (
                       <button
                         onClick={() => {
                           setShowNewEntryMenu(false);
@@ -422,217 +548,223 @@ export const Header: React.FC<HeaderProps> = ({
                         <AlertTriangle className="w-4 h-4 text-red-500" />
                         शिकायत दर्ज करें
                       </button>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Cloud Database Live Sync Indicator & Diagnostics */}
-              <div className="relative" ref={cloudDetailsRef}>
-                <button
-                  onClick={() => {
-                    setShowCloudDetails((prev) => !prev);
-                    checkCloudConnectivity();
-                  }}
-                  className={`p-1.5 px-2.5 py-1.5 rounded-lg border text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
-                    connectivityState.status === 'connected'
-                      ? 'bg-emerald-900/60 border-emerald-400/40 hover:bg-emerald-900/80 text-emerald-100'
-                      : connectivityState.status === 'syncing'
-                      ? 'bg-blue-900/60 border-blue-400/40 hover:bg-blue-900/80 text-blue-100'
-                      : connectivityState.status === 'initializing'
-                      ? 'bg-amber-900/60 border-amber-400/40 hover:bg-amber-900/80 text-amber-100'
-                      : connectivityState.status === 'auth_required' || connectivityState.status === 'auth_error'
-                      ? 'bg-amber-950/70 border-amber-400/60 hover:bg-amber-900/80 text-amber-200'
-                      : connectivityState.status === 'permission_denied'
-                      ? 'bg-red-950/70 border-red-400/60 hover:bg-red-900/80 text-red-200'
-                      : connectivityState.status === 'unavailable'
-                      ? 'bg-amber-900/70 border-amber-400/50 hover:bg-amber-900/90 text-amber-200'
-                      : 'bg-gray-800/80 border-gray-600/40 hover:bg-gray-800 text-gray-200'
-                  }`}
-                  title={`${connectivityState.statusLabel} - विस्तृत स्थिति देखने के लिए क्लिक करें`}
-                  aria-label="क्लाउड डेटाबेस स्थिति"
-                >
-                  {connectivityState.status === 'connected' ? (
-                    <>
-                      <Cloud className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
-                      <span className="hidden md:inline">क्लाउड लाइव</span>
-                    </>
-                  ) : connectivityState.status === 'syncing' ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 text-blue-200 animate-spin" />
-                      <span className="hidden md:inline">सिंक जारी...</span>
-                    </>
-                  ) : connectivityState.status === 'initializing' ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 text-amber-200 animate-spin" />
-                      <span className="hidden md:inline">कनेक्टिंग...</span>
-                    </>
-                  ) : connectivityState.status === 'auth_required' ? (
-                    <>
-                      <KeyRound className="w-3.5 h-3.5 text-amber-300" />
-                      <span className="hidden md:inline">प्रमाणीकरण आवश्यक</span>
-                    </>
-                  ) : connectivityState.status === 'auth_error' ? (
-                    <>
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
-                      <span className="hidden md:inline">Auth Provider</span>
-                    </>
-                  ) : connectivityState.status === 'permission_denied' ? (
-                    <>
-                      <ShieldAlert className="w-3.5 h-3.5 text-red-300" />
-                      <span className="hidden md:inline">अनुमति त्रुटि</span>
-                    </>
-                  ) : connectivityState.status === 'unavailable' ? (
-                    <>
-                      <CloudOff className="w-3.5 h-3.5 text-amber-300" />
-                      <span className="hidden md:inline">क्लाउड अनुपलब्ध</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="hidden md:inline">नेटवर्क ऑफलाइन</span>
-                    </>
-                  )}
-                </button>
+              {/* Cloud Database Live Sync Indicator & Diagnostics (ADMIN ONLY) */}
+              {currentUser?.role === 'ADMIN' && (
+                <div className="relative" ref={cloudDetailsRef}>
+                  <button
+                    onClick={() => {
+                      setShowCloudDetails((prev) => !prev);
+                      checkCloudConnectivity();
+                    }}
+                    className={`p-1.5 px-2.5 py-1.5 rounded-lg border text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                      connectivityState.status === 'connected'
+                        ? 'bg-emerald-900/60 border-emerald-400/40 hover:bg-emerald-900/80 text-emerald-100'
+                        : connectivityState.status === 'syncing'
+                        ? 'bg-blue-900/60 border-blue-400/40 hover:bg-blue-900/80 text-blue-100'
+                        : connectivityState.status === 'initializing'
+                        ? 'bg-amber-900/60 border-amber-400/40 hover:bg-amber-900/80 text-amber-100'
+                        : connectivityState.status === 'auth_required' || connectivityState.status === 'auth_error'
+                        ? 'bg-amber-950/70 border-amber-400/60 hover:bg-amber-900/80 text-amber-200'
+                        : connectivityState.status === 'permission_denied'
+                        ? 'bg-red-950/70 border-red-400/60 hover:bg-red-900/80 text-red-200'
+                        : connectivityState.status === 'unavailable'
+                        ? 'bg-amber-900/70 border-amber-400/50 hover:bg-amber-900/90 text-amber-200'
+                        : 'bg-gray-800/80 border-gray-600/40 hover:bg-gray-800 text-gray-200'
+                    }`}
+                    title={`${connectivityState.statusLabel} - विस्तृत स्थिति देखने के लिए क्लिक करें`}
+                    aria-label="क्लाउड डेटाबेस स्थिति"
+                  >
+                    {connectivityState.status === 'connected' ? (
+                      <>
+                        <Cloud className="w-3.5 h-3.5 text-emerald-300 animate-pulse shrink-0" />
+                        <span className="hidden 2xl:inline">क्लाउड लाइव</span>
+                      </>
+                    ) : connectivityState.status === 'syncing' ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-blue-200 animate-spin shrink-0" />
+                        <span className="hidden 2xl:inline">सिंक जारी...</span>
+                      </>
+                    ) : connectivityState.status === 'initializing' ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-amber-200 animate-spin shrink-0" />
+                        <span className="hidden 2xl:inline">कनेक्टिंग...</span>
+                      </>
+                    ) : connectivityState.status === 'auth_required' ? (
+                      <>
+                        <KeyRound className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span className="hidden 2xl:inline">प्रमाणीकरण आवश्यक</span>
+                      </>
+                    ) : connectivityState.status === 'auth_error' ? (
+                      <>
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span className="hidden 2xl:inline">Auth Provider</span>
+                      </>
+                    ) : connectivityState.status === 'permission_denied' ? (
+                      <>
+                        <ShieldAlert className="w-3.5 h-3.5 text-red-300 shrink-0" />
+                        <span className="hidden 2xl:inline">अनुमति त्रुटि</span>
+                      </>
+                    ) : connectivityState.status === 'unavailable' ? (
+                      <>
+                        <CloudOff className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span className="hidden 2xl:inline">क्लाउड अनुपलब्ध</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="hidden 2xl:inline">नेटवर्क ऑफलाइन</span>
+                      </>
+                    )}
+                  </button>
 
-                {/* Granular Connectivity Diagnostic Dropdown */}
-                {showCloudDetails && (
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-3 px-4 z-50 text-gray-800 dark:text-gray-200 text-xs">
-                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center gap-2">
-                        <Cloud className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <span className="font-bold text-sm text-gray-900 dark:text-white">क्लाउड कनेक्शन स्थिति</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                        connectivityState.status === 'connected'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                          : connectivityState.status === 'offline'
-                          ? 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300'
-                          : connectivityState.status === 'permission_denied'
-                          ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300'
-                          : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
-                      }`}>
-                        {connectivityState.statusLabel}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 mb-3">
-                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
-                        <span className="text-gray-500 dark:text-gray-400">इंटरनेट कनेक्टिविटी:</span>
-                        <span className="font-medium flex items-center gap-1.5">
-                          {connectivityState.isBrowserOnline ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> ऑनलाइन (Online)
-                            </span>
-                          ) : (
-                            <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
-                              <WifiOff className="w-3.5 h-3.5" /> ऑफ़लाइन (Offline)
-                            </span>
-                          )}
+                  {/* Granular Connectivity Diagnostic Dropdown */}
+                  {showCloudDetails && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-3 px-4 z-50 text-gray-800 dark:text-gray-200 text-xs">
+                      <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2">
+                          <Cloud className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-bold text-sm text-gray-900 dark:text-white">क्लाउड कनेक्शन स्थिति</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                          connectivityState.status === 'connected'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            : connectivityState.status === 'offline'
+                            ? 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300'
+                            : connectivityState.status === 'permission_denied'
+                            ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300'
+                            : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                        }`}>
+                          {connectivityState.statusLabel}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
-                        <span className="text-gray-500 dark:text-gray-400">Firebase Auth सत्र:</span>
-                        <span className="font-medium text-right truncate max-w-[180px]">
-                          {firebaseUser ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[11px]" title={firebaseUser.uid}>
-                              {firebaseUser.uid.substring(0, 10)}...
-                            </span>
-                          ) : firebaseAuthStatus === 'error' && firebaseAuthError === 'auth/operation-not-allowed' ? (
-                            <span className="text-amber-600 dark:text-amber-400 font-medium">
-                              Provider अक्षम (Console)
-                            </span>
-                          ) : firebaseAuthStatus === 'initializing' ? (
-                            <span className="text-amber-600 dark:text-amber-400">सत्यापन जारी...</span>
-                          ) : (
-                            <span className="text-gray-500">अप्रमाणित (Not Authenticated)</span>
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
-                        <span className="text-gray-500 dark:text-gray-400">Firestore Project:</span>
-                        <span className="font-mono text-[11px] text-gray-700 dark:text-gray-300">
-                          celestial-byway-ft8c4
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
-                        <span className="text-gray-500 dark:text-gray-400">लॉगिन उपयोगकर्ता / रोल:</span>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                          {currentUser ? `${currentUser.name} (${currentUser.role})` : 'कोई नहीं'}
-                        </span>
-                      </div>
-
-                      {connectivityState.latencyMs !== undefined && (
+                      <div className="space-y-2 mb-3">
                         <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
-                          <span className="text-gray-500 dark:text-gray-400">डेटाबेस लेटेंसी:</span>
-                          <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                            {connectivityState.latencyMs} ms
+                          <span className="text-gray-500 dark:text-gray-400">इंटरनेट कनेक्टिविटी:</span>
+                          <span className="font-medium flex items-center gap-1.5">
+                            {connectivityState.isBrowserOnline ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> ऑनलाइन (Online)
+                              </span>
+                            ) : (
+                              <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                                <WifiOff className="w-3.5 h-3.5" /> ऑफ़लाइन (Offline)
+                              </span>
+                            )}
                           </span>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 mb-3 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
-                      {connectivityState.message}
-                    </div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                          <span className="text-gray-500 dark:text-gray-400">Firebase Auth सत्र:</span>
+                          <span className="font-medium text-right truncate max-w-[180px]">
+                            {firebaseUser ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[11px]" title={firebaseUser.uid}>
+                                {firebaseUser.uid.substring(0, 10)}...
+                              </span>
+                            ) : firebaseAuthStatus === 'error' && firebaseAuthError === 'auth/operation-not-allowed' ? (
+                              <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                Provider अक्षम (Console)
+                              </span>
+                            ) : firebaseAuthStatus === 'initializing' ? (
+                              <span className="text-amber-600 dark:text-amber-400">सत्यापन जारी...</span>
+                            ) : (
+                              <span className="text-gray-500">अप्रमाणित (Not Authenticated)</span>
+                            )}
+                          </span>
+                        </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={async () => {
-                          await checkCloudConnectivity();
-                        }}
-                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        जाँचें (Verify)
-                      </button>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                          <span className="text-gray-500 dark:text-gray-400">Firestore Project:</span>
+                          <span className="font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                            celestial-byway-ft8c4
+                          </span>
+                        </div>
 
-                      {(!firebaseUser || connectivityState.status === 'auth_error' || connectivityState.status === 'auth_required') && (
+                        <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                          <span className="text-gray-500 dark:text-gray-400">लॉगिन उपयोगकर्ता / रोल:</span>
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            {currentUser ? `${currentUser.name} (${currentUser.role})` : 'कोई नहीं'}
+                          </span>
+                        </div>
+
+                        {connectivityState.latencyMs !== undefined && (
+                          <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-800/60">
+                            <span className="text-gray-500 dark:text-gray-400">डेटाबेस लेटेंसी:</span>
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                              {connectivityState.latencyMs} ms
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 mb-3 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+                        {connectivityState.message}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
                         <button
-                          disabled={isRetryingAuth}
                           onClick={async () => {
-                            setIsRetryingAuth(true);
-                            try {
-                              await retryFirebaseAuth();
-                              await checkCloudConnectivity();
-                            } finally {
-                              setIsRetryingAuth(false);
-                            }
+                            await checkCloudConnectivity();
                           }}
-                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
                         >
-                          <KeyRound className="w-3.5 h-3.5" />
-                          {isRetryingAuth ? 'प्रयास जारी...' : 'Auth पुनः प्रयास'}
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          जाँचें (Verify)
                         </button>
-                      )}
 
-                      <button
-                        onClick={async () => {
-                          await triggerManualCloudSync();
-                        }}
-                        className="py-1.5 px-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-xs transition-colors"
-                        title="मैन्युअल सिंक ट्रिगर करें"
-                      >
-                        सिंक
-                      </button>
+                        {(!firebaseUser || connectivityState.status === 'auth_error' || connectivityState.status === 'auth_required') && (
+                          <button
+                            disabled={isRetryingAuth}
+                            onClick={async () => {
+                              setIsRetryingAuth(true);
+                              try {
+                                await retryFirebaseAuth();
+                                await checkCloudConnectivity();
+                              } finally {
+                                setIsRetryingAuth(false);
+                              }
+                            }}
+                            className="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            {isRetryingAuth ? 'प्रयास जारी...' : 'Auth पुनः प्रयास'}
+                          </button>
+                        )}
+
+                        <button
+                          onClick={async () => {
+                            await triggerManualCloudSync();
+                          }}
+                          className="py-1.5 px-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-xs transition-colors"
+                          title="मैन्युअल सिंक ट्रिगर करें"
+                        >
+                          सिंक
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Print / Export Direct Shortcut */}
-              <button
-                onClick={() => onNavigate('export')}
-                className="p-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                title="प्रिंट एवं डेटा निर्यात केंद्र"
-                aria-label="प्रिंट एवं डेटा निर्यात केंद्र"
-              >
-                <Printer className="w-3.5 h-3.5 text-emerald-200" />
-                <span className="hidden xl:inline">प्रिंट / एक्सपोर्ट</span>
-              </button>
+              {isFeatureEnabled('module.export') && (
+                <button
+                  onClick={() => onNavigate('export')}
+                  className="p-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                  title="प्रिंट एवं डेटा निर्यात केंद्र"
+                  aria-label="प्रिंट एवं डेटा निर्यात केंद्र"
+                >
+                  <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                  <span className="hidden xl:inline">प्रिंट / एक्सपोर्ट</span>
+                </button>
+              )}
 
               {/* Notifications Bell */}
               <div className="relative" ref={notifRef}>
@@ -651,7 +783,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 lg:w-96 bg-white dark:bg-[#16221D] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 text-xs text-gray-800 dark:text-gray-200 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 mt-2 w-80 lg:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#16221D] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 text-xs text-gray-800 dark:text-gray-200 animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                       <span className="font-bold text-sm text-gray-900 dark:text-white">
                         शासकीय सूचनाएं व आदेश
@@ -708,13 +840,13 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {theme === 'light' ? (
                   <>
-                    <Moon className="w-4 h-4 text-emerald-200" />
-                    <span className="hidden xl:inline">डार्क</span>
+                    <Moon className="w-4 h-4 text-emerald-200 shrink-0" />
+                    <span className="hidden 2xl:inline">डार्क</span>
                   </>
                 ) : (
                   <>
-                    <Sun className="w-4 h-4 text-amber-300" />
-                    <span className="hidden xl:inline">लाइट</span>
+                    <Sun className="w-4 h-4 text-amber-300 shrink-0" />
+                    <span className="hidden 2xl:inline">लाइट</span>
                   </>
                 )}
               </button>
@@ -723,27 +855,33 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 p-1 px-2 py-1 rounded-lg bg-[#074731] hover:bg-[#063B29] border border-emerald-400/30 text-white transition-colors cursor-pointer"
-                  title="उपयोगकर्ता प्रोफ़ाइल एवं मेन्यू"
+                  className="flex items-center gap-1.5 p-1 px-2 py-1 rounded-lg bg-[#074731] hover:bg-[#063B29] border border-emerald-400/30 text-white transition-colors cursor-pointer"
+                  title={`${currentUser?.name || institutionConfig.cac1.shortName} - ${
+                    currentUser?.role === 'ADMIN'
+                      ? 'व्यवस्थापक (Admin)'
+                      : currentUser?.role === 'CAC'
+                      ? 'जन शिक्षक (CAC)'
+                      : 'शाला प्रभारी (School)'
+                  }`}
                   aria-label="उपयोगकर्ता प्रोफ़ाइल"
                 >
                   {currentUser?.avatar ? (
                     <img
                       src={currentUser.avatar}
                       alt={currentUser.name}
-                      className="w-6 h-6 rounded-full object-cover border border-emerald-300 shadow-2xs"
+                      className="w-6 h-6 rounded-full object-cover border border-emerald-300 shadow-2xs shrink-0"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#FF7A00] text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                    <div className="w-6 h-6 rounded-full bg-[#FF7A00] text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
                       {currentUser?.name?.charAt(0) || 'स'}
                     </div>
                   )}
-                  <div className="text-left">
-                    <div className="text-xs font-bold leading-tight truncate max-w-[100px]">
+                  <div className="text-left min-w-0">
+                    <div className="text-xs font-bold leading-tight truncate max-w-[85px] xl:max-w-[110px]">
                       {currentUser?.name || institutionConfig.cac1.shortName}
                     </div>
-                    <div className="text-[9px] text-emerald-200 font-medium leading-none">
+                    <div className="text-[9px] text-emerald-200 font-medium leading-none truncate max-w-[85px] xl:max-w-[110px]">
                       {currentUser?.role === 'ADMIN'
                         ? 'व्यवस्थापक (Admin)'
                         : currentUser?.role === 'CAC'
@@ -755,7 +893,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#16221D] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 text-xs text-gray-800 dark:text-gray-200 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#16221D] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 text-xs text-gray-800 dark:text-gray-200 animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3">
                       {currentUser?.avatar ? (
                         <img
@@ -847,12 +985,12 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Direct Logout Button */}
               <button
                 onClick={onOpenLogoutDialog}
-                className="p-1.5 px-2.5 py-1.5 rounded-lg bg-red-700/85 hover:bg-red-700 text-white transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer"
+                className="p-1.5 px-2.5 py-1.5 rounded-lg bg-red-700/85 hover:bg-red-700 text-white transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
                 title="सत्र समाप्त व लॉगआउट करें"
                 aria-label="लॉगआउट"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">लॉगआउट</span>
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden 2xl:inline">लॉगआउट</span>
               </button>
             </div>
           </div>
@@ -860,9 +998,9 @@ export const Header: React.FC<HeaderProps> = ({
           {/* ===================================================================== */}
           {/* 2B. TABLET & MEDIUM SCREENS (sm: 640px to lg: 1023px)                 */}
           {/* ===================================================================== */}
-          <div className="hidden sm:flex lg:hidden flex-col gap-2 w-full">
+          <div className="hidden sm:flex lg:hidden flex-col gap-2 w-full min-w-0">
             {/* Tablet Row 1: Sidebar Toggle, CAC Panel, School Selector & Action Controls */}
-            <div className="flex items-center justify-between gap-2 w-full">
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full min-w-0">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <button
                   onClick={onOpenMobileSidebar}
@@ -880,10 +1018,10 @@ export const Header: React.FC<HeaderProps> = ({
                     }
                     onNavigate('dashboard');
                   }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shrink-0"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#08553B] hover:bg-[#074731] border border-emerald-400/30 text-white text-xs font-bold shrink-0 whitespace-nowrap"
                   title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#FF7A00] animate-pulse shrink-0"></span>
                   <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
                 </button>
 
@@ -892,18 +1030,26 @@ export const Header: React.FC<HeaderProps> = ({
                     <select
                       value={selectedSchoolUdise}
                       onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+                      title={
+                        selectedSchool
+                          ? `${selectedSchool.name || selectedSchool.hindiName} (${selectedSchool.village})`
+                          : `समस्त ${schools.length} शालाएं`
+                      }
                       className="w-full bg-[#074731] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2 py-1.5 truncate"
                     >
                       <option value="">🏫 समस्त {schools.length} शालाएं</option>
                       {schools.map((s) => (
                         <option key={s.udise} value={s.udise} className="bg-white text-gray-900">
-                          {s.name || s.hindiName}
+                          {s.name || s.hindiName} ({s.village})
                         </option>
                       ))}
                     </select>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-400/40 font-medium truncate max-w-[160px]">
+                  <div
+                    className="flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-400/40 font-medium truncate max-w-[160px]"
+                    title={selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
+                  >
                     <SchoolIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
                     <span className="truncate">
                       {selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
@@ -917,7 +1063,8 @@ export const Header: React.FC<HeaderProps> = ({
                     value={selectedSessionId}
                     onChange={(e) => setSelectedSessionId(e.target.value)}
                     aria-label="सत्र चुनें"
-                    className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer ${
+                    title={`शैक्षणिक सत्र: ${selectedSessionId}`}
+                    className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer max-w-[120px] truncate ${
                       !isCurrentSessionSelected
                         ? 'bg-amber-500 text-gray-950 font-black ring-1 ring-amber-300'
                         : 'bg-[#074731] text-emerald-100 border border-emerald-400/40'
@@ -934,16 +1081,28 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Tablet Quick Action Buttons */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => onNavigate('export')}
-                  className="p-1.5 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1"
-                  title="प्रिंट व एक्सपोर्ट"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                </button>
+                {isFeatureEnabled('module.dashboard.action.quick_entry') && (
+                  <button
+                    onClick={() => onNavigate('students')}
+                    className="p-1.5 px-2 py-1.5 rounded-lg bg-[#FF7A00] hover:bg-[#e06c00] text-white text-xs font-bold flex items-center gap-1 shrink-0"
+                    title="नई प्रविष्टि"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {isFeatureEnabled('module.export') && (
+                  <button
+                    onClick={() => onNavigate('export')}
+                    className="p-1.5 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1"
+                    title="प्रिंट व एक्सपोर्ट"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                )}
 
                 <button
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  onClick={() => onNavigate('notifications')}
                   className="p-1.5 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white relative"
                   title="सूचनाएं"
                 >
@@ -966,7 +1125,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => onNavigate('profile')}
                   className="p-1 px-1.5 rounded-lg bg-[#074731] border border-emerald-400/30 text-white flex items-center gap-1"
-                  title="प्रोफ़ाइल"
+                  title={`${currentUser?.name || ''} - प्रोफ़ाइल`}
                 >
                   <div className="w-6 h-6 rounded-full bg-[#FF7A00] text-white flex items-center justify-center font-bold text-xs">
                     {currentUser?.name?.charAt(0) || 'स'}
@@ -986,13 +1145,13 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Tablet Row 2: Full Width Flexible Search */}
             <div
               onClick={onOpenGlobalSearch}
-              className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/20 rounded-lg px-3 py-1.5 text-emerald-100 text-xs cursor-pointer"
+              className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/20 rounded-lg px-3 py-1.5 text-emerald-100 text-xs cursor-pointer min-w-0"
             >
-              <Search className="w-3.5 h-3.5 text-emerald-200" />
-              <span className="truncate text-emerald-100/90 text-xs">
+              <Search className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+              <span className="truncate text-emerald-100/90 text-xs flex-1 min-w-0">
                 खोजें: UDISE, शाला, छात्र, शिक्षक, शिकायत...
               </span>
-              <kbd className="ml-auto bg-black/20 border border-white/20 rounded px-1.5 py-0.2 text-[9px] text-emerald-200 font-mono">
+              <kbd className="ml-auto bg-black/20 border border-white/20 rounded px-1.5 py-0.2 text-[9px] text-emerald-200 font-mono shrink-0">
                 खोजें 🔍
               </kbd>
             </div>
@@ -1001,9 +1160,9 @@ export const Header: React.FC<HeaderProps> = ({
           {/* ===================================================================== */}
           {/* 2C. MOBILE LAYOUT (< 640px) - Multi-Tier Clean, Non-Overlapping Grid */}
           {/* ===================================================================== */}
-          <div className="flex sm:hidden flex-col gap-2 w-full">
+          <div className="flex sm:hidden flex-col gap-2 w-full min-w-0">
             {/* Mobile Row 1: Menu Toggle, Brand / CAC Panel & Top Actions */}
-            <div className="flex items-center justify-between gap-2 w-full">
+            <div className="flex items-center justify-between gap-1.5 w-full min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <button
                   onClick={onOpenMobileSidebar}
@@ -1021,23 +1180,35 @@ export const Header: React.FC<HeaderProps> = ({
                     }
                     onNavigate('dashboard');
                   }}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#08553B] border border-emerald-400/30 text-white text-[11px] font-bold shrink-0"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#08553B] border border-emerald-400/30 text-white text-[11px] font-bold shrink-0 whitespace-nowrap"
                   title={currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A00] animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A00] animate-pulse shrink-0"></span>
                   <span>{currentUser?.role === 'ADMIN' ? 'Admin Panel' : currentUser?.role === 'SCHOOL' ? 'School Panel' : 'CAC Panel'}</span>
                 </button>
               </div>
 
-              {/* Mobile Right Controls: Notifications, Theme & Profile */}
+              {/* Mobile Right Controls: New Entry, Print, Notifications, Theme & Profile */}
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => onNavigate('export')}
-                  className="p-1.5 rounded-lg bg-white/10 text-white"
-                  title="प्रिंट व एक्सपोर्ट"
-                >
-                  <Printer className="w-4 h-4" />
-                </button>
+                {isFeatureEnabled('module.dashboard.action.quick_entry') && (
+                  <button
+                    onClick={() => onNavigate('students')}
+                    className="p-1.5 rounded-lg bg-[#FF7A00] text-white"
+                    title="नई प्रविष्टि"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </button>
+                )}
+
+                {isFeatureEnabled('module.export') && (
+                  <button
+                    onClick={() => onNavigate('export')}
+                    className="p-1.5 rounded-lg bg-white/10 text-white"
+                    title="प्रिंट व एक्सपोर्ट"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                )}
 
                 <button
                   onClick={() => onNavigate('notifications')}
@@ -1063,7 +1234,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => onNavigate('profile')}
                   className="p-0.5 rounded-full ring-1 ring-emerald-300"
-                  title="मेरी प्रोफ़ाइल"
+                  title={`${currentUser?.name || ''} - मेरी प्रोफ़ाइल`}
                 >
                   <div className="w-6 h-6 rounded-full bg-[#FF7A00] text-white flex items-center justify-center font-bold text-[10px]">
                     {currentUser?.name?.charAt(0) || 'स'}
@@ -1073,12 +1244,17 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Mobile Row 2: School Selector & Academic Session Switcher */}
-            <div className="w-full flex items-center gap-1.5">
+            <div className="w-full flex items-center gap-1.5 min-w-0">
               {canSwitchSchools ? (
                 <div className="flex-1 min-w-0">
                   <select
                     value={selectedSchoolUdise}
                     onChange={(e) => setSelectedSchoolUdise(e.target.value)}
+                    title={
+                      selectedSchool
+                        ? `${selectedSchool.name || selectedSchool.hindiName} (${selectedSchool.village})`
+                        : `समस्त ${schools.length} संकुल शालाएं`
+                    }
                     className="w-full bg-[#074731] text-emerald-100 font-semibold text-xs border border-emerald-400/40 rounded-lg px-2 py-1.5 truncate"
                   >
                     <option value="">🏫 समस्त {schools.length} संकुल शालाएं</option>
@@ -1089,7 +1265,15 @@ export const Header: React.FC<HeaderProps> = ({
                     ))}
                   </select>
                 </div>
-              ) : null}
+              ) : (
+                <div
+                  className="flex-1 min-w-0 flex items-center gap-1.5 bg-[#074731] text-emerald-100 text-xs px-2 py-1.5 rounded-lg border border-emerald-400/40 font-semibold truncate"
+                  title={selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}
+                >
+                  <SchoolIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                  <span className="truncate">{selectedSchool?.name || selectedSchool?.hindiName || 'मेरा विद्यालय'}</span>
+                </div>
+              )}
 
               {/* Mobile Academic Session Switcher */}
               <div className="shrink-0">
@@ -1097,7 +1281,8 @@ export const Header: React.FC<HeaderProps> = ({
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
                   aria-label="सत्र चुनें"
-                  className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer ${
+                  title={`सत्र ${selectedSessionId}`}
+                  className={`text-xs font-bold rounded-lg px-2 py-1.5 cursor-pointer max-w-[110px] truncate ${
                     !isCurrentSessionSelected
                       ? 'bg-amber-500 text-gray-950 font-black ring-1 ring-amber-300'
                       : 'bg-[#074731] text-emerald-100 border border-emerald-400/40'
@@ -1115,10 +1300,10 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile Row 3: Full Width Interactive Search Trigger */}
             <div
               onClick={onOpenGlobalSearch}
-              className="w-full flex items-center gap-2 bg-white/10 active:bg-white/20 border border-white/20 rounded-lg px-3 py-1.5 text-emerald-100 text-xs cursor-pointer"
+              className="w-full flex items-center gap-2 bg-white/10 active:bg-white/20 border border-white/20 rounded-lg px-3 py-1.5 text-emerald-100 text-xs cursor-pointer min-w-0"
             >
               <Search className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
-              <span className="truncate text-emerald-100/90 text-xs">
+              <span className="truncate text-emerald-100/90 text-xs flex-1 min-w-0">
                 खोजें: UDISE, शाला, छात्र, शिक्षक, शिकायत...
               </span>
             </div>
@@ -1129,18 +1314,21 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 3. OFFICIAL SCHOOL / CLUSTER CONTEXT RIBBON                              */}
         {/* ========================================================================= */}
         <div className="w-full bg-[#08553B] dark:bg-[#0E231B] border-t border-emerald-500/30 dark:border-emerald-800/80 px-3 sm:px-4 md:px-6 py-2 text-white transition-colors">
-          <div className="max-w-7xl mx-auto w-full">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
             {selectedSchool ? (
               <>
                 {/* 3A. SINGLE SCHOOL MODE - DESKTOP (lg: 1024px+) Layout */}
-                <div className="hidden lg:flex items-center justify-between gap-3 text-xs">
+                <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 text-xs">
                   {/* Left: School Name & UDISE */}
                   <div className="flex items-center gap-2 min-w-0 shrink-0">
                     <div className="w-6 h-6 rounded-lg bg-emerald-700/60 border border-emerald-400/40 flex items-center justify-center text-xs shrink-0">
                       🏫
                     </div>
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-extrabold text-white text-sm tracking-tight truncate max-w-[260px] xl:max-w-[320px]">
+                      <span
+                        className="font-extrabold text-white text-sm tracking-tight truncate max-w-[240px] xl:max-w-[320px]"
+                        title={selectedSchool.name || selectedSchool.hindiName}
+                      >
                         {selectedSchool.name || selectedSchool.hindiName}
                       </span>
                       <span className="font-mono text-[10px] font-bold bg-[#063B29] dark:bg-[#0A1813] text-emerald-200 px-1.5 py-0.5 rounded border border-emerald-400/40 shrink-0">
@@ -1155,7 +1343,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   {/* Center: Location Details in Horizontal Sequence */}
-                  <div className="flex items-center gap-2.5 text-emerald-100/90 text-xs min-w-0 flex-1 justify-center">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-emerald-100/90 text-xs min-w-0 flex-1 justify-center">
                     <span className="flex items-center gap-1 shrink-0">
                       <span className="text-emerald-400 font-medium">ग्राम:</span>
                       <strong className="text-white">{selectedSchool.village}</strong>
@@ -1178,7 +1366,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {selectedSchool.principalName && (
                       <>
                         <span className="text-emerald-500/60">•</span>
-                        <span className="flex items-center gap-1 truncate max-w-[160px]">
+                        <span className="flex items-center gap-1 truncate max-w-[160px]" title={selectedSchool.principalName}>
                           <span className="text-emerald-400 font-medium">HM:</span>
                           <strong className="text-emerald-200 truncate">{selectedSchool.principalName}</strong>
                         </span>
@@ -1206,7 +1394,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       <span className="text-sm shrink-0">🏫</span>
-                      <h3 className="font-extrabold text-white text-xs sm:text-sm truncate">
+                      <h3 className="font-extrabold text-white text-xs sm:text-sm truncate" title={selectedSchool.name || selectedSchool.hindiName}>
                         {selectedSchool.name || selectedSchool.hindiName}
                       </h3>
                       <span className="font-mono text-[10px] font-bold bg-[#063B29] text-emerald-200 px-1.5 py-0.2 rounded shrink-0">
@@ -1243,7 +1431,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <>
                 {/* 3C. CAC ALL SCHOOL MODE - DESKTOP Layout */}
-                <div className="hidden lg:flex items-center justify-between gap-3 text-xs">
+                <div className="hidden lg:flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-6 h-6 rounded-lg bg-emerald-700/60 border border-emerald-400/40 flex items-center justify-center text-xs shrink-0">
                       🏫
@@ -1259,7 +1447,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-emerald-100/90 text-xs min-w-0 flex-1 justify-center">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-emerald-100/90 text-xs min-w-0 flex-1 justify-center">
                     <span className="flex items-center gap-1 shrink-0">
                       <span className="text-emerald-400 font-medium">संकुल:</span>
                       <strong className="text-white">{institutionConfig.sankulName}</strong>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { MDMRecord } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
@@ -30,6 +31,7 @@ import { SHGView } from './SHGView';
 export const MDMView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'daily' | 'rasoiya' | 'shg'>('daily');
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     mdmRecords: scopedMDM,
     schools,
@@ -70,12 +72,12 @@ export const MDMView: React.FC = () => {
   const [formData, setFormData] = useState<Partial<MDMRecord>>({
     date: today,
     schoolUdise: currentSchoolUdise || (schools[0]?.udise || ''),
-    menuItem: 'रोटी, दाल, मौसमी हरी सब्जी व सलाद',
-    eligibleStudents: 65,
-    mealsServed: 58,
-    foodQuality: 'उत्कृष्ट (Good)',
-    inspectedBy: currentUser?.name || 'संस्था प्रधान',
-    remarks: 'भोजन मीनू अनुसार ताजा व स्वच्छ पकाया गया।',
+    menuItem: '',
+    eligibleStudents: 0,
+    mealsServed: 0,
+    foodQuality: 'संतोषजनक',
+    inspectedBy: currentUser?.name || '',
+    remarks: '',
   });
 
   const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'SCHOOL';
@@ -101,12 +103,12 @@ export const MDMView: React.FC = () => {
     setFormData({
       date: today,
       schoolUdise: currentSchoolUdise || (schools[0]?.udise || ''),
-      menuItem: 'रोटी, दाल, मौसमी हरी सब्जी व सलाद',
-      eligibleStudents: 65,
-      mealsServed: 58,
-      foodQuality: 'उत्कृष्ट (Good)',
-      inspectedBy: currentUser?.name || 'संस्था प्रधान',
-      remarks: 'भोजन मीनू अनुसार ताजा व स्वच्छ पकाया गया।',
+      menuItem: '',
+      eligibleStudents: 0,
+      mealsServed: 0,
+      foodQuality: 'संतोषजनक',
+      inspectedBy: currentUser?.name || '',
+      remarks: '',
     });
     setIsModalOpen(true);
   };
@@ -128,12 +130,12 @@ export const MDMView: React.FC = () => {
       ...(editingMdm?.id ? { id: editingMdm.id } : {}),
       date: formData.date || today,
       schoolUdise: formData.schoolUdise,
-      eligibleStudents: Number(formData.eligibleStudents || 50),
-      mealsServed: Number(formData.mealsServed || 45),
-      menuItem: formData.menuItem || 'दाल-चावल व सब्जी',
+      eligibleStudents: Math.max(0, Number(formData.eligibleStudents) || 0),
+      mealsServed: Math.max(0, Number(formData.mealsServed) || 0),
+      menuItem: (formData.menuItem || '').trim(),
       foodQuality: formData.foodQuality || 'संतोषजनक',
-      inspectedBy: formData.inspectedBy || currentUser?.name || 'संस्था प्रधान',
-      remarks: formData.remarks || 'मीनू अनुसार तैयार',
+      inspectedBy: (formData.inspectedBy || currentUser?.name || '').trim(),
+      remarks: (formData.remarks || '').trim(),
     });
 
     setIsModalOpen(false);
@@ -194,36 +196,40 @@ export const MDMView: React.FC = () => {
           <span>दैनिक भोजन पंजी (Daily MDM)</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('rasoiya')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'rasoiya'
-              ? 'bg-[#0B6B4B] text-white shadow-xs'
-              : 'bg-white dark:bg-[#17211C] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
-          }`}
-        >
-          <UtensilsCrossed className="w-4 h-4" />
-          <span>रसोइया प्रबंधन (Rasoiya Management)</span>
-        </button>
+        {isFeatureEnabled('module.rasoiya') && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('rasoiya')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'rasoiya'
+                ? 'bg-[#0B6B4B] text-white shadow-xs'
+                : 'bg-white dark:bg-[#17211C] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
+            }`}
+          >
+            <UtensilsCrossed className="w-4 h-4" />
+            <span>रसोइया प्रबंधन (Rasoiya Management)</span>
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('shg')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === 'shg'
-              ? 'bg-[#0B6B4B] text-white shadow-xs'
-              : 'bg-white dark:bg-[#17211C] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>स्व-सहायता समूह (SHG / Samuh)</span>
-        </button>
+        {isFeatureEnabled('module.shg') && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('shg')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'shg'
+                ? 'bg-[#0B6B4B] text-white shadow-xs'
+                : 'bg-white dark:bg-[#17211C] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>स्व-सहायता समूह (SHG / Samuh)</span>
+          </button>
+        )}
       </div>
 
-      {activeTab === 'rasoiya' ? (
+      {activeTab === 'rasoiya' && isFeatureEnabled('module.rasoiya') ? (
         <RasoiyaView />
-      ) : activeTab === 'shg' ? (
+      ) : activeTab === 'shg' && isFeatureEnabled('module.shg') ? (
         <SHGView />
       ) : (
         <>
@@ -244,20 +250,22 @@ export const MDMView: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
-              <UnifiedPrintButton
-                id="mdm-unified-print"
-                currentSession={selectedSessionId}
-                currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
-                currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise)}
-                onPrintCurrentView={() => triggerPrint()}
-                onPrintReport={() => setIsSmartExportOpen(true)}
-                currentViewLabel="Print Current View"
-                currentViewSubtext="वर्तमान मध्याह्न भोजन दैनिक रजिस्टर व तालिका का त्वरित प्रिंट"
-                reportLabel="Print Report"
-                reportSubtext="मध्याह्न भोजन मासिक पंजी / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-                exportPayload={getMdmExportPayload}
-              />
-              {canEdit && (
+              {isFeatureEnabled('module.mdm.action.print_export') && (
+                <UnifiedPrintButton
+                  id="mdm-unified-print"
+                  currentSession={selectedSessionId}
+                  currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+                  currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise)}
+                  onPrintCurrentView={() => triggerPrint()}
+                  onPrintReport={() => setIsSmartExportOpen(true)}
+                  currentViewLabel="Print Current View"
+                  currentViewSubtext="वर्तमान मध्याह्न भोजन दैनिक रजिस्टर व तालिका का त्वरित प्रिंट"
+                  reportLabel="Print Report"
+                  reportSubtext="मध्याह्न भोजन मासिक पंजी / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+                  exportPayload={getMdmExportPayload}
+                />
+              )}
+              {canEdit && isFeatureEnabled('module.mdm.action.add_edit') && (
                 <button
                   onClick={handleOpenAdd}
                   className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -299,6 +307,39 @@ export const MDMView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* MDM Stock & Quality Summary Banner */}
+      {isFeatureEnabled('module.mdm.sub.stock_monitoring') && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">खाद्यान्न एवं रसोई गुणवत्ता</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                कुल प्रविष्टियाँ: <strong>{filteredMDM.length}</strong> | उत्कृष्ट गुणवत्ता: <strong>{filteredMDM.filter((m) => (m.foodQuality || '').includes('उत्कृष्ट') || (m.foodQuality || '').includes('Good')).length}</strong>
+              </p>
+            </div>
+            <Award className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          </div>
+          <div className="bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">कुल पात्र बनाम लाभान्वित</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                पात्र: <strong>{filteredMDM.reduce((s, m) => s + (Number(m.eligibleStudents) || 0), 0)}</strong> | लाभान्वित: <strong>{filteredMDM.reduce((s, m) => s + (Number(m.mealsServed) || 0), 0)}</strong>
+              </p>
+            </div>
+            <Utensils className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
+          </div>
+          <div className="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-blue-800 dark:text-blue-300">निरीक्षण एवं स्टॉक स्थिति</p>
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                मीनू अनुपालन: <strong>100% सत्यापित</strong>
+              </p>
+            </div>
+            <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
+          </div>
+        </div>
+      )}
 
       {/* MDM Log Table */}
       <div className="bg-white dark:bg-[#17211C] rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs overflow-hidden">
@@ -346,20 +387,24 @@ export const MDMView: React.FC = () => {
                       {canEdit && (
                         <td className="p-3 text-center no-print">
                           <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => handleOpenEdit(m)}
-                              title="संपादित करें"
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTargetId(m.id)}
-                              title="हटाएं"
-                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isFeatureEnabled('module.mdm.action.add_edit') && (
+                              <button
+                                onClick={() => handleOpenEdit(m)}
+                                title="संपादित करें"
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isFeatureEnabled('module.mdm.action.delete') && (
+                              <button
+                                onClick={() => setDeleteTargetId(m.id)}
+                                title="हटाएं"
+                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}

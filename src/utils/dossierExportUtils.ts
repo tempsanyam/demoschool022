@@ -233,7 +233,7 @@ export function exportDossierToExcel(data: DossierDataPayload): void {
     m.wheatStockKg || 0,
     m.riceStockKg || 0,
     m.kitchenHygiene || 'संतोषजनक',
-    m.shgName || 'माँ शारदा स्व सहायता समूह'
+    m.shgName || '-'
   ]);
   const sheet6Data = [
     ...formatHeader('अनुभाग 6 - मध्याह्न भोजन (MDM) वितरण रजिस्टर'),

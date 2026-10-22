@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
+import { enforceRuntimeFeatureAccess } from '../../config/featureControlRegistry';
 import { DocumentCategory, DocumentItem } from '../../types';
 import { institutionConfig } from '../../config/institutionConfig';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
@@ -46,6 +48,7 @@ export const DocumentsView: React.FC = () => {
     selectedSessionId,
   } = useData();
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -53,6 +56,7 @@ export const DocumentsView: React.FC = () => {
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [previewBinary, setPreviewBinary] = useState<StoredDocumentBinary | null>(null);
   const [isLoadingBinary, setIsLoadingBinary] = useState(false);
+  const [actionNotice, setActionNotice] = useState<{ type: 'error' | 'info' | 'success'; message: string } | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -112,17 +116,23 @@ export const DocumentsView: React.FC = () => {
       return;
     }
     setIsLoadingBinary(true);
-    getDocumentBinary(previewDoc.id)
+    getDocumentBinary(
+      previewDoc.id,
+      previewDoc.schoolUdise,
+      currentUser?.role,
+      currentUser?.assignedSchoolUdise
+    )
       .then((bin) => {
         setPreviewBinary(bin);
       })
       .catch((err) => {
         console.warn('Binary preview load error:', err);
+        setPreviewBinary(null);
       })
       .finally(() => {
         setIsLoadingBinary(false);
       });
-  }, [previewDoc]);
+  }, [previewDoc, currentUser]);
 
   // Handle File Chosen (via file picker or drop)
   const handleFileChosen = (file: File) => {
@@ -236,8 +246,8 @@ export const DocumentsView: React.FC = () => {
       // 2. Generate unique Document ID
       const newDocId = `DOC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-      // 3. Save actual binary into IndexedDB
-      await saveDocumentBinary(newDocId, selectedFile, dataUrl);
+      // 3. Save actual binary into IndexedDB with UDISE scoping
+      await saveDocumentBinary(newDocId, selectedFile, dataUrl, effectiveSchoolUdise);
 
       // 4. Save metadata into DataContext state & localStorage
       addDocument({
@@ -280,55 +290,80 @@ export const DocumentsView: React.FC = () => {
 
   // Download Handler (Real Binary Download)
   const handleDownload = async (doc: DocumentItem) => {
+    setActionNotice(null);
+    const fcCheck = enforceRuntimeFeatureAccess('module.documents.action.download', currentUser?.role, 'दस्तावेज डाउनलोड करना (downloadDocument)');
+    if (!fcCheck.allowed) {
+      setActionNotice({ type: 'error', message: fcCheck.message });
+      return;
+    }
+
     // School security check
     if (isSchoolUser) {
       const userUdise = currentUser?.assignedSchoolUdise;
       if (doc.schoolUdise && doc.schoolUdise !== 'ALL' && doc.schoolUdise !== userUdise) {
-        alert('ACCESS_DENIED: आप केवल अपने विद्यालय के दस्तावेज ही डाउनलोड कर सकते हैं।');
+        setActionNotice({
+          type: 'error',
+          message: 'ACCESS_DENIED: आप केवल अपने विद्यालय के दस्तावेज ही डाउनलोड कर सकते हैं।',
+        });
         return;
       }
     }
 
     try {
-      // 1. Check IndexedDB / memory
-      const binary = await getDocumentBinary(doc.id);
+      // 1. Check IndexedDB / memory with strict role & UDISE verification
+      const binary = await getDocumentBinary(
+        doc.id,
+        doc.schoolUdise,
+        currentUser?.role,
+        currentUser?.assignedSchoolUdise
+      );
       if (binary && binary.dataUrl) {
         const ext = binary.fileName.split('.').pop() || doc.fileType.toLowerCase();
         const safeName = doc.fileName || `${doc.title.replace(/[/\\?%*:|"<>]/g, '_')}.${ext}`;
-        downloadFile(binary.dataUrl, safeName, binary.mimeType);
+        downloadFile(binary.dataUrl, safeName, binary.mimeType, currentUser?.role);
         return;
       }
 
       // 2. Check doc.fileData
       if (doc.fileData) {
         const safeName = doc.fileName || `${doc.title.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
-        downloadFile(doc.fileData, safeName, doc.mimeType || 'application/pdf');
+        downloadFile(doc.fileData, safeName, doc.mimeType || 'application/pdf', currentUser?.role);
         return;
       }
 
-      // 3. Fallback for seed mock data: institutional record text file
-      const textContent = `${institutionConfig.institutionName} (${institutionConfig.block}, ${institutionConfig.district}) - शैक्षिक एवं प्रशासनिक प्रबंधन प्रणाली\n\nशासकीय डिजिटल अभिलेखागार रिकॉर्ड:\n----------------------------------------\nदस्तावेज शीर्षक: ${doc.title}\nक्रमांक: ${doc.documentNumber || 'लागू नहीं'}\nश्रेणी: ${getCategoryBadgeLabel(doc.category)}\nसंबद्ध विद्यालय यूडाइस: ${doc.schoolUdise || 'समस्त संकुल'}\nशैक्षणिक सत्र: ${doc.sessionId || selectedSessionId}\nदिनांक: ${doc.date}\nअपलोडकर्ता: ${doc.uploadedBy}\nप्रारूप: ${doc.fileType}\nआकार: ${doc.fileSize}\n\nविवरण:\n${doc.description || 'कोई अतिरिक्त विवरण दर्ज नहीं है।'}\n\n----------------------------------------\nयह ${institutionConfig.institutionName} का आधिकारिक डिजिटल अभिलेखागार रिकॉर्ड है।`;
+      // 3. Fallback for cloud metadata-only or seed records without local IndexedDB binary
+      const storageNote = doc.hasStoredBinary
+        ? 'नोट: इस दस्तावेज़ का मेटाडेटा क्लाउड (Firestore) से सिंक है, परंतु मूल बाइनरी फाइल अपलोड करने वाले डिवाइस के स्थानीय IndexedDB में सुरक्षित है।'
+        : 'यह आधिकारिक डिजिटल अभिलेखागार मेटाडेटा प्रमाणिक प्रतिलिपि है।';
+      const textContent = `${institutionConfig.institutionName} (${institutionConfig.block}, ${institutionConfig.district}) - शैक्षिक एवं प्रशासनिक प्रबंधन प्रणाली\n\nशासकीय डिजिटल अभिलेखागार रिकॉर्ड:\n----------------------------------------\nदस्तावेज शीर्षक: ${doc.title}\nक्रमांक: ${doc.documentNumber || 'लागू नहीं'}\nश्रेणी: ${getCategoryBadgeLabel(doc.category)}\nसंबद्ध विद्यालय यूडाइस: ${doc.schoolUdise || 'समस्त संकुल'}\nशैक्षणिक सत्र: ${doc.sessionId || selectedSessionId}\nदिनांक: ${doc.date}\nअपलोडकर्ता: ${doc.uploadedBy}\nप्रारूप: ${doc.fileType}\nआकार: ${doc.fileSize}\n\nविवरण:\n${doc.description || 'कोई अतिरिक्त विवरण दर्ज नहीं है।'}\n\n----------------------------------------\n${storageNote}`;
       const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${doc.title.replace(/[/\\?%*:|"<>]/g, '_')}.txt`;
+      a.download = `${doc.title.replace(/[/\\?%*:|"<>]/g, '_')}_Metadata_Record.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download error:', err);
-      alert('दस्तावेज डाउनलोड करने में त्रुटि हुई।');
+      setActionNotice({
+        type: 'error',
+        message: err?.message || 'दस्तावेज डाउनलोड करने में त्रुटि हुई।',
+      });
     }
   };
 
   // Delete Handler with Authorization Check
   const handleDelete = (doc: DocumentItem) => {
+    setActionNotice(null);
     if (isSchoolUser) {
       const userUdise = currentUser?.assignedSchoolUdise;
       if (doc.schoolUdise !== userUdise) {
-        alert('ACCESS_DENIED: आप केवल अपने विद्यालय के दस्तावेज ही हटा सकते हैं।');
+        setActionNotice({
+          type: 'error',
+          message: 'ACCESS_DENIED: आप केवल अपने विद्यालय के दस्तावेज ही हटा सकते हैं।',
+        });
         return;
       }
     }
@@ -422,26 +457,52 @@ export const DocumentsView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="documents-unified-print"
-            onPrintCurrentView={() => window.print()}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="दस्तावेज अभिलेखागार सूची व स्थिति तालिका का त्वरित प्रिंट"
-            exportPayload={getDocumentsExportPayload}
-          />
-          <button
-            id="open-upload-modal-btn"
-            onClick={() => {
-              handleClearSelectedFile();
-              setIsUploadModalOpen(true);
-            }}
-            className="flex items-center gap-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            नया दस्तावेज अपलोड करें
-          </button>
+          {isFeatureEnabled('module.documents.action.print_export') && (
+            <UnifiedPrintButton
+              id="documents-unified-print"
+              onPrintCurrentView={() => window.print()}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="दस्तावेज अभिलेखागार सूची व स्थिति तालिका का त्वरित प्रिंट"
+              exportPayload={getDocumentsExportPayload}
+            />
+          )}
+          {isFeatureEnabled('module.documents.action.upload') && (
+            <button
+              id="open-upload-modal-btn"
+              onClick={() => {
+                handleClearSelectedFile();
+                setIsUploadModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              नया दस्तावेज अपलोड करें
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Action / Security Feedback Banner */}
+      {actionNotice && (
+        <div
+          className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs font-semibold animate-in fade-in ${
+            actionNotice.type === 'error'
+              ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+              : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{actionNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setActionNotice(null)}
+            className="text-gray-500 hover:text-gray-800 dark:hover:text-white px-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-col sm:flex-row gap-3">
@@ -558,16 +619,18 @@ export const DocumentsView: React.FC = () => {
                     अवलोकन (View)
                   </button>
 
-                  <button
-                    id={`download-doc-btn-${doc.id}`}
-                    onClick={() => handleDownload(doc)}
-                    className="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                    title="डाउनलोड करें"
-                  >
-                    <Download className="w-4 h-4 text-[#FF7A00]" />
-                  </button>
+                  {isFeatureEnabled('module.documents.action.download') && (
+                    <button
+                      id={`download-doc-btn-${doc.id}`}
+                      onClick={() => handleDownload(doc)}
+                      className="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                      title="डाउनलोड करें"
+                    >
+                      <Download className="w-4 h-4 text-[#FF7A00]" />
+                    </button>
+                  )}
 
-                  {canDelete && (
+                  {canDelete && isFeatureEnabled('module.documents.action.delete') && (
                     <button
                       id={`delete-doc-btn-${doc.id}`}
                       onClick={() => handleDelete(doc)}
@@ -662,16 +725,11 @@ export const DocumentsView: React.FC = () => {
                       />
                       <div className="p-2 bg-gray-200 dark:bg-gray-800 text-center text-xs">
                         <button
-                          onClick={() => {
-                            const win = window.open();
-                            if (win) {
-                              win.document.write(`<iframe src="${previewBinary.dataUrl}" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline"
+                          onClick={() => handleDownload(previewDoc)}
+                          className="inline-flex items-center gap-1 text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          पूर्ण स्क्रीन में खोलें
+                          मूल PDF फाइल डाउनलोड करें
                         </button>
                       </div>
                     </div>
@@ -697,12 +755,16 @@ export const DocumentsView: React.FC = () => {
                   )
                 ) : (
                   <div className="p-8 text-center space-y-2 text-gray-500">
-                    <HardDrive className="w-8 h-8 mx-auto text-gray-400" />
-                    <p className="text-xs font-semibold">
-                      डिजिटल रिकॉर्ड सुरक्षित है।
+                    <HardDrive className="w-8 h-8 mx-auto text-amber-500" />
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                      {previewDoc.hasStoredBinary
+                        ? 'मेटाडेटा क्लाउड से सिंक है • मूल बाइनरी अपलोडर डिवाइस के IndexedDB में सुरक्षित है'
+                        : 'डिजिटल अभिलेखागार मेटाडेटा रिकॉर्ड सुरक्षित है'}
                     </p>
-                    <p className="text-[11px] text-gray-400">
-                      प्रशासनिक रिकॉर्ड कॉपी डाउनलोड करने हेतु नीचे दिए बटन का उपयोग करें।
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                      {previewDoc.hasStoredBinary
+                        ? 'Firebase Storage की अनुपस्थिति में दस्तावेज़ मेटाडेटा Firestore में सिंक होता है और 25 MB तक की बाइनरी फाइल स्थानीय ब्राउज़र IndexedDB में रहती है। आप नीचे दिए बटन से प्रमाणिक मेटाडेटा रिकॉर्ड कॉपी डाउनलोड कर सकते हैं।'
+                        : 'प्रशासनिक मेटाडेटा रिकॉर्ड कॉपी डाउनलोड करने हेतु नीचे दिए बटन का उपयोग करें।'}
                     </p>
                   </div>
                 )}

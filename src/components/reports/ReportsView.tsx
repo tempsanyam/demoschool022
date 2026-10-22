@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { institutionConfig } from '../../config/institutionConfig';
 import {
   exportToExcel,
@@ -54,6 +55,7 @@ import { syncAuditLogToCloud } from '../../services/cloudDatabaseService';
 
 export const ReportsView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const allDataContext = useData();
   const {
     schools,
@@ -357,61 +359,71 @@ export const ReportsView: React.FC = () => {
 
         {/* Global Export & Print Actions */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-            title="वर्तमान दृश्य का प्रिंट"
-          >
-            <Printer className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            <span>Print View</span>
-          </button>
+          {isFeatureEnabled('module.reports.action.print') && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title="वर्तमान दृश्य का प्रिंट"
+            >
+              <Printer className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              <span>Print View</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleDownloadPDF}
-            disabled={isPdfLoading}
-            className="px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
-            title="आधिकारिक A4 PDF डाउनलोड"
-          >
-            <Download className="w-4 h-4 text-red-600" />
-            <span>{isPdfLoading ? 'तैयार हो रहा है...' : 'PDF'}</span>
-          </button>
+          {isFeatureEnabled('module.reports.action.pdf') && (
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={isPdfLoading}
+              className="px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
+              title="आधिकारिक A4 PDF डाउनलोड"
+            >
+              <Download className="w-4 h-4 text-red-600" />
+              <span>{isPdfLoading ? 'तैयार हो रहा है...' : 'PDF'}</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-            title="Microsoft Excel (.xlsx) निर्यात"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-            <span>Excel (.xlsx)</span>
-          </button>
+          {isFeatureEnabled('module.reports.action.excel') && (
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title="Microsoft Excel (.xlsx) निर्यात"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+              <span>Excel (.xlsx)</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-            title="CSV (UTF-8 BOM) निर्यात"
-          >
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>CSV</span>
-          </button>
+          {isFeatureEnabled('module.reports.action.csv') && (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title="CSV (UTF-8 BOM) निर्यात"
+            >
+              <FileText className="w-4 h-4 text-blue-600" />
+              <span>CSV</span>
+            </button>
+          )}
 
-          <UnifiedPrintButton
-            id="reports-unified-print-center"
-            currentSession={filters.sessionId}
-            currentSchoolName={currentSchoolInfo?.name}
-            currentUdise={currentSchoolInfo?.udise}
-            previewContainerRef={reportPreviewRef}
-            onPrintCurrentView={handlePrint}
-            onPrintReport={() => setIsExportModalOpen(true)}
-            currentViewLabel="स्मार्ट प्रिंट"
-            currentViewSubtext="वर्तमान प्रतिवेदन का A4 मुद्रण"
-            reportLabel="सार्वभौमिक निर्यात केंद्र"
-            reportSubtext="संकुल डेटा व प्रिंट प्रबंधन"
-            exportPayload={() => currentExportPayload}
-          />
+          {(isFeatureEnabled('module.reports.action.print_export') && (isFeatureEnabled('module.reports.action.print') || isFeatureEnabled('module.reports.action.pdf') || isFeatureEnabled('module.reports.action.excel'))) && (
+            <UnifiedPrintButton
+              id="reports-unified-print-center"
+              currentSession={filters.sessionId}
+              currentSchoolName={currentSchoolInfo?.name}
+              currentUdise={currentSchoolInfo?.udise}
+              previewContainerRef={reportPreviewRef}
+              onPrintCurrentView={handlePrint}
+              onPrintReport={() => setIsExportModalOpen(true)}
+              currentViewLabel="स्मार्ट प्रिंट"
+              currentViewSubtext="वर्तमान प्रतिवेदन का A4 मुद्रण"
+              reportLabel="सार्वभौमिक निर्यात केंद्र"
+              reportSubtext="संकुल डेटा व प्रिंट प्रबंधन"
+              exportPayload={() => currentExportPayload}
+            />
+          )}
         </div>
       </div>
 
@@ -744,18 +756,20 @@ export const ReportsView: React.FC = () => {
                 <span>आधिकारिक प्रपत्र दृश्य (Printable Form)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setViewTab('ANALYTICS')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
-                  viewTab === 'ANALYTICS'
-                    ? 'bg-[#0B6B4B] text-white shadow-xs'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
-              >
-                <PieChart className="w-3.5 h-3.5" />
-                <span>विश्लेषणात्मक सारांश (Analytical Center)</span>
-              </button>
+              {isFeatureEnabled('module.reports.sub.analytical_center') && (
+                <button
+                  type="button"
+                  onClick={() => setViewTab('ANALYTICS')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                    viewTab === 'ANALYTICS'
+                      ? 'bg-[#0B6B4B] text-white shadow-xs'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <PieChart className="w-3.5 h-3.5" />
+                  <span>विश्लेषणात्मक सारांश (Analytical Center)</span>
+                </button>
+              )}
             </div>
 
             <div className="text-[11px] text-gray-400 hidden sm:block">

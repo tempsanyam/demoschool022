@@ -204,6 +204,8 @@ export interface LiteracyExamResult {
  */
 export interface SupportingInstitution {
   id: string;
+  sessionId?: string;
+  academicYear?: string;
   schoolId?: string;
   schoolUdise: string;
   schoolName?: string;

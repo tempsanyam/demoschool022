@@ -52,7 +52,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       return;
     }
     if (!cleanId) {
-      setErrorMessage('कृपया यूज़रनेम या यू-डायस कोड दर्ज करें (Username required)');
+      setErrorMessage('कृपया यूज़रनेम दर्ज करें (Username required)');
+      return;
+    }
+    if (/^\d{11}$/.test(cleanId)) {
+      setErrorMessage('शाला (UDISE) लॉगिन सुविधा उपलब्ध नहीं है। केवल मुख्य व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) अधिकृत हैं।');
       return;
     }
     if (!cleanPass) {
@@ -63,8 +67,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     // Short delay for authentication feedback
-    setTimeout(() => {
-      const res = login(cleanId, cleanPass);
+    setTimeout(async () => {
+      const res = await login(cleanId, cleanPass);
       setLoading(false);
 
       if (res.success) {
@@ -143,7 +147,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <div className="mt-3 inline-flex items-center gap-1.5 bg-black/25 text-emerald-200 border border-emerald-400/30 text-[11px] font-bold px-3 py-1 rounded-full">
                 <span>सत्र {institutionConfig.academicSession}</span>
                 <span>•</span>
-                <span>{activeSchools.length || institutionConfig.totalSchoolsCount} संकुल शालाएं</span>
+                <span>{activeSchools.length > 0 ? `${activeSchools.length} संकुल शालाएं` : 'प्रशासकीय निगरानी पोर्टल'}</span>
               </div>
             </div>
 
@@ -151,10 +155,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <div className="bg-[#EAF6F0] dark:bg-[#0C1E17] border-b border-[#DDE7E2] dark:border-[#263930] px-6 py-2.5 text-center">
               <div className="text-xs font-bold text-[#0B6B4B] dark:text-emerald-300 flex items-center justify-center gap-1.5">
                 <Shield className="w-4 h-4 text-[#0B6B4B] dark:text-emerald-400" />
-                <span>पोर्टल में लॉगिन करें (Secure Login Portal)</span>
+                <span>प्रशासकीय लॉगिन पोर्टल (Admin & CAC Secure Login)</span>
               </div>
               <p className="text-[10.5px] text-gray-600 dark:text-gray-400 mt-0.5">
-                अधिकृत यूज़रनेम अथवा 11-अंकीय यू-डायस कोड द्वारा प्रवेश करें।
+                केवल मुख्य व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) अधिकृत हैं।
               </p>
             </div>
 
@@ -180,13 +184,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               )}
 
               <form onSubmit={handleLogin} className="space-y-4">
-                {/* 1. Username / UDISE Code Field */}
+                {/* 1. Username Field */}
                 <div>
                   <label
                     htmlFor="login-identifier-input"
                     className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    यूज़रनेम / यू-डायस कोड <span className="text-gray-400 font-normal">(Username / UDISE Code)</span>
+                    यूज़रनेम <span className="text-gray-400 font-normal">(Admin / CAC Username)</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
@@ -197,7 +201,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="यूज़रनेम या 11-अंकीय UDISE कोड दर्ज करें"
+                      placeholder="यूज़रनेम दर्ज करें (Admin / CAC 1 / CAC 2)"
                       disabled={loading}
                       autoFocus
                       autoComplete="username"
@@ -278,7 +282,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   <span>अधिकृत लॉगिन दायरा (Authorized Logins Only):</span>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-[10.5px]">
-                  इस शासकीय पोर्टल पर केवल <strong>व्यवस्थापक (Admin)</strong>, <strong>2 जन शिक्षक (CAC)</strong>, एवं संकुल की <strong>अधिकृत प्राथमिक/माध्यमिक शालाओं (UDISE)</strong> का लॉगिन मान्य है। अन्य कोई बाहरी लॉगिन अनुमत नहीं है।
+                  इस शासकीय पोर्टल पर केवल <strong>मुख्य व्यवस्थापक (संयम जैन - Admin)</strong> एवं <strong>2 जन शिक्षक (संजय कुमार जैन - CAC 1, सन्मति कुमार जैन - CAC 2)</strong> का लॉगिन मान्य है। शाला स्तर का लॉगिन बंद किया गया है।
                 </p>
               </div>
 

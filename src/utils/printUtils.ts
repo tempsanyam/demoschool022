@@ -13,6 +13,7 @@
 
 import { institutionConfig } from '../config/institutionConfig';
 import { ExportDataPayload, ExportOptions } from './exportUtils';
+import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
 import {
   DocumentStyle,
   PrintReportStyle,
@@ -20,6 +21,48 @@ import {
   toCanonicalDocumentStyle,
   DOCUMENT_STYLES,
 } from './documentStyle';
+
+function getCurrentUserRoleForPrint(): 'ADMIN' | 'CAC' | 'SCHOOL' | undefined {
+  try {
+    const raw = localStorage.getItem('jsk_malguwa_current_user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed?.role;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
+export function resolvePrintFeatureKey(titleOrType?: string): string {
+  const t = (titleOrType || '').toLowerCase();
+  if (t.includes('डैशबोर्ड') || t.includes('dashboard')) return 'module.dashboard.action.print_summary';
+  if (t.includes('विद्यालय') || t.includes('शाला') || t.includes('school')) return 'module.schools.action.print_export';
+  if (t.includes('विद्यार्थी') || t.includes('छात्र') || t.includes('student')) return 'module.students.action.print_export';
+  if (t.includes('शिक्षक') || t.includes('स्टाफ') || t.includes('staff') || t.includes('teacher')) return 'module.teachers.action.print_export';
+  if (t.includes('उपस्थिति') || t.includes('attendance')) return 'module.attendance.action.print_export';
+  if (t.includes('सुविधा') || t.includes('facility')) return 'module.facilities.action.print_export';
+  if (t.includes('रसोइया') || t.includes('rasoiya') || t.includes('cook')) return 'module.rasoiya.action.print_export';
+  if (t.includes('समूह') || t.includes('shg')) return 'module.shg.action.print_export';
+  if (t.includes('मध्याह्न') || t.includes('mdm') || t.includes('poshan')) return 'module.mdm.action.print_export';
+  if (t.includes('शासकीय कार्य') || t.includes('work')) return 'module.work.action.print_export';
+  if (t.includes('शिकायत') || t.includes('complaint')) return 'module.complaints.action.print_export';
+  if (t.includes('दस्तावेज') || t.includes('दस्तावेज़') || t.includes('document')) return 'module.documents.action.print_export';
+  if (t.includes('असाक्षर') || t.includes('शिक्षार्थी') || t.includes('learner') || t.includes('illiterate')) return 'module.literacy-learners.action.print_export';
+  if (t.includes('अक्षर साथी') || t.includes('स्वयंसेवक') || t.includes('volunteer') || t.includes('akshar')) return 'module.literacy-volunteers.action.print_export';
+  if (t.includes('परीक्षा') || t.includes('flnat') || t.includes('exam')) return 'module.literacy-exams.action.print_export';
+  if (t.includes('सहयोगी संस्था') || t.includes('partner') || t.includes('institution')) return 'module.literacy-partners.action.print_export';
+  if (t.includes('साक्षरता पंजी') || t.includes('सर्वे') || t.includes('literacy-register')) return 'module.literacy-register.action.print_export';
+  if (t.includes('साक्षरता समेकित') || t.includes('literacy-report')) return 'module.literacy-reports.action.print_export';
+  if (t.includes('साक्षरता') || t.includes('literacy')) return 'module.literacy.action.print_export';
+  if (t.includes('यूज़र') || t.includes('उपयोगकर्ता') || t.includes('user')) return 'module.users.action.export';
+  if (t.includes('ऑडिट') || t.includes('audit')) return 'module.audit.action.export';
+  if (t.includes('प्रोफाइल') || t.includes('प्रोफ़ाइल') || t.includes('profile')) return 'module.profile.action.print_export';
+  if (t.includes('आधिकारिक') || t.includes('official-print')) return 'module.export.action.official_print';
+  if (t.includes('कस्टम एक्सपोर्ट') || t.includes('export-center')) return 'module.export.action.csv_excel';
+  return 'module.reports.action.print_export';
+}
 
 export interface PrintDocumentOptions extends ExportOptions {
   orientation?: 'portrait' | 'landscape';
@@ -386,6 +429,18 @@ export async function printReport(
   payload: ExportDataPayload,
   options: PrintDocumentOptions = {}
 ): Promise<void> {
+  const role = (payload.userRole as 'ADMIN' | 'CAC' | 'SCHOOL' | undefined) || getCurrentUserRoleForPrint();
+  const featureKey = resolvePrintFeatureKey(payload.reportType || payload.title || payload.fileName);
+  const fcCheck = enforceRuntimeFeatureAccess(featureKey, role, `प्रिंट रिपोर्ट (${payload.title || 'Print'})`);
+  if (!fcCheck.allowed) {
+    throw new Error(`[FEATURE_DISABLED: ${featureKey}] ${fcCheck.message}`);
+  }
+  if (featureKey === 'module.reports.action.print_export') {
+    const directPrintCheck = enforceRuntimeFeatureAccess('module.reports.action.print', role, `सीधा प्रिंट (${payload.title || 'Print'})`);
+    if (!directPrintCheck.allowed) {
+      throw new Error(`[FEATURE_DISABLED: module.reports.action.print] ${directPrintCheck.message}`);
+    }
+  }
   const orientation = options.orientation || payload.orientation || (payload.headers.length > 7 ? 'landscape' : 'portrait');
   const canonicalStyle = toCanonicalDocumentStyle(
     options.documentStyle || options.reportStyle || getDocumentStyle()
@@ -444,6 +499,13 @@ export async function printElement(
   const options: PrintElementOptions = typeof orientationOrOptions === 'string'
     ? { orientation: orientationOrOptions, onAfterPrint: onAfterPrintCallback }
     : { ...orientationOrOptions, onAfterPrint: orientationOrOptions?.onAfterPrint || onAfterPrintCallback };
+
+  const role = getCurrentUserRoleForPrint();
+  const featureKey = resolvePrintFeatureKey(options.title || element.id || document.title);
+  const fcCheck = enforceRuntimeFeatureAccess(featureKey, role, `प्रिंट दस्तावेज़ (${options.title || 'Print Element'})`);
+  if (!fcCheck.allowed) {
+    throw new Error(`[FEATURE_DISABLED: ${featureKey}] ${fcCheck.message}`);
+  }
 
   const orientation = options.orientation || 'portrait';
   const canonicalStyle = toCanonicalDocumentStyle(

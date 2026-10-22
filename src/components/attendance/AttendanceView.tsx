@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
+import { FeatureGuard } from '../common/FeatureGuard';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { triggerPrint } from '../../utils/printUtils';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
@@ -31,6 +33,7 @@ type ViewMode = 'DAILY' | 'HISTORY' | 'MONITORING';
 
 export const AttendanceView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled, getFeatureEvaluation } = useFeatureControl();
   const {
     attendance: scopedAttendance,
     students: scopedStudents,
@@ -201,19 +204,21 @@ export const AttendanceView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="attendance-unified-print"
-            currentSession={selectedSessionId}
-            currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
-            currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise)}
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="वर्तमान दैनिक उपस्थिति तालिका का त्वरित प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="दैनिक व मासिक उपस्थिति / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-            exportPayload={getAttendanceExportPayload}
-          />
+          {isFeatureEnabled('module.attendance.action.print_export') && (
+            <UnifiedPrintButton
+              id="attendance-unified-print"
+              currentSession={selectedSessionId}
+              currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+              currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolUdise === 'ALL' ? undefined : selectedSchoolUdise)}
+              onPrintCurrentView={() => triggerPrint()}
+              onPrintReport={() => setIsSmartExportOpen(true)}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="वर्तमान दैनिक उपस्थिति तालिका का त्वरित प्रिंट"
+              reportLabel="Print Report"
+              reportSubtext="दैनिक व मासिक उपस्थिति / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+              exportPayload={getAttendanceExportPayload}
+            />
+          )}
         </div>
       </div>
 
@@ -227,67 +232,73 @@ export const AttendanceView: React.FC = () => {
           </span>
 
           {/* Student Tab */}
-          <button
-            id="tab-attendance-student"
-            type="button"
-            onClick={() => {
-              setActiveCategory('STUDENT');
-              setViewMode('DAILY');
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewMode === 'DAILY' && activeCategory === 'STUDENT'
-                ? 'bg-[#0B6B4B] text-white shadow-sm'
-                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" />
-            <span>विद्यार्थी</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
-              {studentCount}
-            </span>
-          </button>
+          {isFeatureEnabled('module.attendance.sub.student_attendance') && (
+            <button
+              id="tab-attendance-student"
+              type="button"
+              onClick={() => {
+                setActiveCategory('STUDENT');
+                setViewMode('DAILY');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                viewMode === 'DAILY' && activeCategory === 'STUDENT'
+                  ? 'bg-[#0B6B4B] text-white shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>विद्यार्थी</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+                {studentCount}
+              </span>
+            </button>
+          )}
 
           {/* Teacher & Staff Tab */}
-          <button
-            id="tab-attendance-staff"
-            type="button"
-            onClick={() => {
-              setActiveCategory('STAFF');
-              setViewMode('DAILY');
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewMode === 'DAILY' && activeCategory === 'STAFF'
-                ? 'bg-[#0B6B4B] text-white shadow-sm'
-                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>शिक्षक एवं स्टाफ</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
-              {staffCount}
-            </span>
-          </button>
+          {isFeatureEnabled('module.attendance.sub.staff_attendance') && (
+            <button
+              id="tab-attendance-staff"
+              type="button"
+              onClick={() => {
+                setActiveCategory('STAFF');
+                setViewMode('DAILY');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                viewMode === 'DAILY' && activeCategory === 'STAFF'
+                  ? 'bg-[#0B6B4B] text-white shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>शिक्षक एवं स्टाफ</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+                {staffCount}
+              </span>
+            </button>
+          )}
 
           {/* Rasoiya Tab */}
-          <button
-            id="tab-attendance-rasoiya"
-            type="button"
-            onClick={() => {
-              setActiveCategory('RASOIYA');
-              setViewMode('DAILY');
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewMode === 'DAILY' && activeCategory === 'RASOIYA'
-                ? 'bg-[#0B6B4B] text-white shadow-sm'
-                : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
-            }`}
-          >
-            <Utensils className="w-4 h-4" />
-            <span>रसोइया</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
-              {rasoiyaCount}
-            </span>
-          </button>
+          {isFeatureEnabled('module.attendance.sub.rasoiya_attendance') && (
+            <button
+              id="tab-attendance-rasoiya"
+              type="button"
+              onClick={() => {
+                setActiveCategory('RASOIYA');
+                setViewMode('DAILY');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                viewMode === 'DAILY' && activeCategory === 'RASOIYA'
+                  ? 'bg-[#0B6B4B] text-white shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700'
+              }`}
+            >
+              <Utensils className="w-4 h-4" />
+              <span>रसोइया</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-black/20 font-mono">
+                {rasoiyaCount}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* View Mode Toggle: Daily Entry vs CAC Monitoring vs History & Monthly */}
@@ -305,33 +316,36 @@ export const AttendanceView: React.FC = () => {
             <span>दैनिक प्रविष्टि</span>
           </button>
 
-          {(currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN') && (
+          {(currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN') &&
+            isFeatureEnabled('module.attendance.sub.cac_monitoring') && (
+              <button
+                type="button"
+                onClick={() => setViewMode('MONITORING')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                  viewMode === 'MONITORING'
+                    ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                <span>संकुल मॉनिटरिंग</span>
+              </button>
+            )}
+
+          {isFeatureEnabled('module.attendance.sub.monthly_register') && (
             <button
               type="button"
-              onClick={() => setViewMode('MONITORING')}
+              onClick={() => setViewMode('HISTORY')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                viewMode === 'MONITORING'
+                viewMode === 'HISTORY'
                   ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
               }`}
             >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              <span>संकुल मॉनिटरिंग</span>
+              <History className="w-3.5 h-3.5" />
+              <span>इतिहास व रिपोर्ट</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => setViewMode('HISTORY')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-              viewMode === 'HISTORY'
-                ? 'bg-white dark:bg-[#17211C] text-[#0B6B4B] dark:text-emerald-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>इतिहास व रिपोर्ट</span>
-          </button>
         </div>
       </div>
 
@@ -379,23 +393,29 @@ export const AttendanceView: React.FC = () => {
           </div>
 
           {viewMode === 'HISTORY' ? (
-            <AttendanceHistoryTab selectedSchoolUdise={selectedSchoolUdise} />
+            <FeatureGuard featureKey="module.attendance.sub.monthly_register" mode="banner">
+              <AttendanceHistoryTab selectedSchoolUdise={selectedSchoolUdise} />
+            </FeatureGuard>
           ) : activeCategory === 'STAFF' ? (
-            <StaffAttendanceTab
-              selectedDate={selectedDate}
-              selectedSchoolUdise={selectedSchoolUdise}
-            />
+            <FeatureGuard featureKey="module.attendance.sub.staff_attendance" mode="banner">
+              <StaffAttendanceTab
+                selectedDate={selectedDate}
+                selectedSchoolUdise={selectedSchoolUdise}
+              />
+            </FeatureGuard>
           ) : activeCategory === 'RASOIYA' ? (
             <RasoiyaAttendanceTab
               selectedDate={selectedDate}
               selectedSchoolUdise={selectedSchoolUdise}
             />
           ) : (
-            <StudentAttendanceTab
-              selectedDate={selectedDate}
-              selectedSchoolUdise={selectedSchoolUdise}
-              onOpenQuickModal={() => setIsModalOpen(true)}
-            />
+            <FeatureGuard featureKey="module.attendance.sub.student_attendance" mode="banner">
+              <StudentAttendanceTab
+                selectedDate={selectedDate}
+                selectedSchoolUdise={selectedSchoolUdise}
+                onOpenQuickModal={() => setIsModalOpen(true)}
+              />
+            </FeatureGuard>
           )}
         </>
       )}

@@ -84,7 +84,7 @@ import {
   composeStaffForSession,
   computeSchoolAcademicHistory,
 } from '../utils/sessionManager';
-import { deleteDocumentBinary } from '../utils/documentStorage';
+import { deleteDocumentBinary, clearAllDocumentBinaries } from '../utils/documentStorage';
 import {
   runControlledSchoolMasterMigration,
   getMigrationReport,
@@ -93,6 +93,19 @@ import {
 import { CLUSTER_37_SCHOOLS } from '../data/clusterSchoolsData';
 import { safeSetItem, safeSetJSON, safeGetItem, safeGetJSON } from '../utils/safeStorage';
 import { useAuth } from './AuthContext';
+import {
+  isLegacyFakeStudent,
+  isLegacyFakeEnrollment,
+  isLegacyFakeStaff,
+  isLegacyFakeStaffPosting,
+  isLegacyFakeAttendance,
+  isLegacyFakeMDM,
+  isLegacyFakeRasoiya,
+  isLegacyFakeSHG,
+  isLegacyFakeGovernmentWork,
+  isLegacyFakeComplaint,
+} from '../utils/legacyPurgeHelpers';
+import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
 import {
   syncSchoolToCloud,
   archiveSchoolInCloud,
@@ -119,10 +132,38 @@ import {
   syncRasoiyaToCloud,
   deleteRasoiyaFromCloud,
   subscribeRasoiyaFromCloud,
+  syncSHGToCloud,
+  deleteSHGFromCloud,
+  subscribeSHGsFromCloud,
+  syncLiteracyRegisterToCloud,
+  deleteLiteracyRegisterFromCloud,
+  subscribeLiteracyRegistersFromCloud,
+  syncIlliteratePersonToCloud,
+  deleteIlliteratePersonFromCloud,
+  subscribeIlliteratePersonsFromCloud,
+  syncAksharSathiToCloud,
+  deleteAksharSathiFromCloud,
+  subscribeAksharSathisFromCloud,
+  syncExamCycleToCloud,
+  deleteExamCycleFromCloud,
+  subscribeExamCyclesFromCloud,
+  syncLiteracyExamResultToCloud,
+  deleteLiteracyExamResultFromCloud,
+  subscribeLiteracyExamResultsFromCloud,
+  syncSupportingInstitutionToCloud,
+  deleteSupportingInstitutionFromCloud,
+  subscribeSupportingInstitutionsFromCloud,
+  syncNotificationToCloud,
+  deleteNotificationFromCloud,
+  subscribeNotificationsFromCloud,
+  syncDocumentToCloud,
+  deleteDocumentFromCloud,
+  subscribeDocumentsFromCloud,
   syncGovernmentWorkToCloud,
   deleteGovernmentWorkFromCloud,
   subscribeGovernmentWorkFromCloud,
   syncComplaintToCloud,
+  deleteComplaintFromCloud,
   subscribeComplaintsFromCloud,
   syncFacilityToCloud,
   subscribeFacilitiesFromCloud,
@@ -131,6 +172,11 @@ import {
   syncAuditLogToCloud,
   subscribeAuditLogsFromCloud,
   uploadInitialDatasetToFirestore,
+  purgeAllOperationalCloudCollections,
+  purgeAllCloudSchools,
+  executePhase2LocalToFirestoreMigration,
+  preparePhase2LocalToFirestoreMigration,
+  Phase2LocalToFirestoreMigrationReport,
   verifyCloudConnectivity,
   CloudConnectivityResult,
 } from '../services/cloudDatabaseService';
@@ -376,6 +422,7 @@ interface DataContextType {
 
   addNotification: (notif: Omit<NotificationItem, 'id'>) => void;
   markNotificationAsRead: (notifId: string) => void;
+  deleteNotification: (notifId: string) => void;
 
   addDocument: (doc: Omit<DocumentItem, 'id'> & { id?: string }) => DocumentItem;
   deleteDocument: (id: string) => void;
@@ -414,7 +461,33 @@ interface DataContextType {
   bulkImportSupportingInstitutions: (items: Partial<SupportingInstitution>[], mode: DuplicateHandlingMode) => { added: number; updated: number; skipped: number };
 
   updateSettings: (settings: Partial<AppSettings>) => void;
-  logActivity: (action: AuditAction, module: string, details: string, meta?: { recordId?: string; recordName?: string; schoolUdise?: string; oldValue?: any; newValue?: any }) => void;
+  logActivity: (
+    action: AuditAction,
+    module: string,
+    details: string,
+    meta?: {
+      recordId?: string;
+      recordName?: string;
+      schoolUdise?: string;
+      schoolName?: string;
+      session?: string;
+      sessionId?: string;
+      oldValue?: any;
+      newValue?: any;
+      before?: any;
+      after?: any;
+      reason?: string;
+      entityType?: string;
+      entityId?: string;
+      featureKey?: string;
+      controlType?: 'PERMANENT' | 'TEMPORARY' | 'REACTIVATION' | 'DURATION_EXTENDED' | 'BULK_RESET';
+      targetRole?: 'CAC' | 'SCHOOL' | 'BOTH' | 'ALL_ROLES';
+      startTime?: string | null;
+      endTime?: string | null;
+      adminUid?: string;
+    }
+  ) => void;
+  addAuditLog: (entry: Partial<AuditLog> & { action: AuditAction; module: string; description?: string; details?: string }) => void;
   resetToSampleData: () => void;
 
   // School Master Migration & Audit
@@ -424,18 +497,16 @@ interface DataContextType {
 
 /**
  * Validates and sanitizes the schools collection.
- * Ensures that canonical schools are active and valid, and preserves any newly added
- * authorized schools dynamically while filtering out corrupted records.
+/**
+ * Validates and sanitizes the schools collection.
+ * Cleared of all default schools per user directive; only preserves user-added authorized schools.
  */
 export const sanitizeCanonicalSchools = (rawSchools: School[]): School[] => {
-  const canonicalMap = new Map<string, School>();
-  CLUSTER_37_SCHOOLS.forEach((s) => canonicalMap.set(s.udise, s));
-
   if (!Array.isArray(rawSchools) || rawSchools.length === 0) {
-    return CLUSTER_37_SCHOOLS;
+    return [];
   }
 
-  // Preserve all valid schools (canonical + dynamically added authorized schools)
+  // Preserve all valid dynamically added authorized schools
   const result: School[] = [];
   const seenUdises = new Set<string>();
 
@@ -443,36 +514,14 @@ export const sanitizeCanonicalSchools = (rawSchools: School[]): School[] => {
     if (!s || !s.udise || seenUdises.has(s.udise)) return;
     seenUdises.add(s.udise);
 
-    const canon = canonicalMap.get(s.udise);
-    if (canon) {
-      result.push({
-        ...canon,
-        ...s,
-        status: s.status || canon.status || 'ACTIVE',
-        isDeleted: s.isDeleted ?? false,
-        deletedAt: s.deletedAt ?? null,
-        deletedBy: s.deletedBy ?? null,
-        archiveReason: s.archiveReason ?? null,
-      });
-    } else {
-      // Dynamically added authorized school
-      result.push({
-        ...s,
-        status: s.status || 'ACTIVE',
-        isDeleted: s.isDeleted ?? false,
-        deletedAt: s.deletedAt ?? null,
-        deletedBy: s.deletedBy ?? null,
-        archiveReason: s.archiveReason ?? null,
-      });
-    }
-  });
-
-  // Ensure any missing canonical schools are added
-  CLUSTER_37_SCHOOLS.forEach((canon) => {
-    if (!seenUdises.has(canon.udise)) {
-      result.push(canon);
-      seenUdises.add(canon.udise);
-    }
+    result.push({
+      ...s,
+      status: s.status || 'ACTIVE',
+      isDeleted: s.isDeleted ?? false,
+      deletedAt: s.deletedAt ?? null,
+      deletedBy: s.deletedBy ?? null,
+      archiveReason: s.archiveReason ?? null,
+    });
   });
 
   return result;
@@ -484,95 +533,59 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { currentUser, firebaseUser, firebaseAuthStatus, firebaseAuthError, retryFirebaseAuth } = useAuth();
 
   const DB_VERSION_KEY = 'jsk_db_version';
-  const CURRENT_DB_VERSION = 'v2026_tikamgarh_baldeogarh_malguwa_v11_canonical37_unified';
+  const CURRENT_DB_VERSION = 'v2026_tikamgarh_baldeogarh_malguwa_v25_all_schools_purged_completely';
 
   // Primary state collections with persistent localStorage storage
   const [schools, setSchools] = useState<School[]>(() => {
     const dbVer = localStorage.getItem(DB_VERSION_KEY);
     const saved = localStorage.getItem('jsk_schools');
 
-    // Fresh initialization when no previous data exists
-    if (!saved) {
-      const sanitized = sanitizeCanonicalSchools(initialSchools);
+    // Fresh initialization or upgrade to clean database version:
+    // Purges all confirmed fake/demo data and all default schools per user directive
+    if (!saved || dbVer !== CURRENT_DB_VERSION) {
+      clearAllDocumentBinaries().catch(() => {});
+      purgeAllOperationalCloudCollections().catch(() => {});
+      purgeAllCloudSchools().catch(() => {});
       safeSetItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
-      safeSetJSON('jsk_schools', sanitized);
-      safeSetJSON('jsk_students', initialStudents);
-      safeSetJSON('jsk_staff', initialStaff);
-      safeSetJSON('jsk_facilities', initialFacilities);
-      safeSetJSON('jsk_attendance', initialAttendance);
-      safeSetJSON('jsk_mdm', initialMDM);
-      safeSetJSON('jsk_work', initialGovernmentWork);
-      safeSetJSON('jsk_notifications', initialNotifications, 30);
-      safeSetJSON('jsk_complaints', initialComplaints);
-      safeSetJSON('jsk_documents', initialDocuments);
+      safeSetJSON('jsk_schools', []);
+      safeSetJSON('jsk_students', []);
+      safeSetJSON('jsk_staff', []);
+      safeSetJSON('jsk_facilities', []);
+      safeSetJSON('jsk_attendance', []);
+      safeSetJSON('jsk_mdm', []);
+      safeSetJSON('jsk_work', []);
+      safeSetJSON('jsk_notifications', []);
+      safeSetJSON('jsk_complaints', []);
+      safeSetJSON('jsk_documents', []);
       safeSetJSON('jsk_audit_logs', initialAuditLogs, 50);
       safeSetJSON('jsk_settings', initialSettings);
       safeSetJSON('jsk_academic_sessions', INITIAL_ACADEMIC_SESSIONS);
 
-      const { masters: sMasters, enrollments: sEnrollments } = buildInitialMastersAndEnrollments(initialStudents);
-      safeSetJSON('jsk_student_masters', sMasters);
-      safeSetJSON('jsk_student_academic_records', sEnrollments);
+      safeSetJSON('jsk_student_masters', []);
+      safeSetJSON('jsk_student_academic_records', []);
+      safeSetJSON('jsk_student_transfers', []);
 
-      const { masters: stfMasters, postings: stfPostings } = buildInitialStaffMastersAndPostings(initialStaff);
-      safeSetJSON('jsk_staff_masters', stfMasters);
-      safeSetJSON('jsk_staff_postings', stfPostings);
+      safeSetJSON('jsk_staff_masters', []);
+      safeSetJSON('jsk_staff_postings', []);
 
-      safeSetJSON('jsk_literacy_registers', initialLiteracyRegisters);
-      safeSetJSON('jsk_literacy_illiterates', initialIlliteratePersons);
-      safeSetJSON('jsk_literacy_volunteers', initialAksharSathis);
+      safeSetJSON('jsk_literacy_registers', []);
+      safeSetJSON('jsk_literacy_illiterates', []);
+      safeSetJSON('jsk_literacy_volunteers', []);
       safeSetJSON('jsk_literacy_exam_cycles', initialExamCycles);
-      safeSetJSON('jsk_literacy_exam_results', initialLiteracyExamResults);
-      safeSetJSON('jsk_literacy_institutions', initialSupportingInstitutions);
-      safeSetJSON('jsk_rasoiya', initialRasoiya);
-      safeSetJSON('jsk_shgs', initialSHGs);
-      return sanitized;
-    }
-
-    // Controlled Migration when DB version changes: NEVER blind overwrite!
-    if (dbVer !== CURRENT_DB_VERSION) {
-      try {
-        const existingSchools: School[] = JSON.parse(saved);
-        const existingStudents: Student[] = JSON.parse(localStorage.getItem('jsk_students') || '[]');
-        const existingStaff: Staff[] = JSON.parse(localStorage.getItem('jsk_staff') || '[]');
-        const existingFacilities: PhysicalFacility[] = JSON.parse(localStorage.getItem('jsk_facilities') || '[]');
-
-        const { migratedSchools, migratedFacilities } = runControlledSchoolMasterMigration(
-          existingSchools,
-          existingStudents,
-          existingStaff,
-          existingFacilities
-        );
-
-        const sanitizedSchools = sanitizeCanonicalSchools(migratedSchools);
-
-        // Ensure baseline facilities for newly added schools if missing
-        const existingFacUdises = new Set(migratedFacilities.map((f) => f.schoolUdise));
-        const missingFac = initialFacilities.filter((f) => !existingFacUdises.has(f.schoolUdise));
-        const finalFacilities = [...migratedFacilities, ...missingFac];
-
-        safeSetItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
-        safeSetJSON('jsk_schools', sanitizedSchools);
-        safeSetJSON('jsk_facilities', finalFacilities);
-        return sanitizedSchools;
-      } catch (err) {
-        console.warn('Controlled migration execution error:', err);
-        const fallback = sanitizeCanonicalSchools(initialSchools);
-        safeSetJSON('jsk_schools', fallback);
-        return fallback;
-      }
+      safeSetJSON('jsk_literacy_exam_results', []);
+      safeSetJSON('jsk_literacy_institutions', []);
+      safeSetJSON('jsk_rasoiya', []);
+      safeSetJSON('jsk_shgs', []);
+      return [];
     }
 
     try {
       const parsed = JSON.parse(saved);
-      const sanitized = sanitizeCanonicalSchools(Array.isArray(parsed) && parsed.length > 0 ? parsed : initialSchools);
-      if (Array.isArray(parsed) && parsed.length !== sanitized.length) {
-        safeSetJSON('jsk_schools', sanitized);
-      }
+      const sanitized = sanitizeCanonicalSchools(Array.isArray(parsed) ? parsed : []);
       return sanitized;
     } catch {
-      const fallback = sanitizeCanonicalSchools(initialSchools);
-      safeSetJSON('jsk_schools', fallback);
-      return fallback;
+      safeSetJSON('jsk_schools', []);
+      return [];
     }
   });
 
@@ -612,59 +625,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Student Permanent Master & Academic Enrollment Records
   const [studentMasters, setStudentMasters] = useState<StudentMaster[]>(() => {
-    const { masters: defaultMasters } = buildInitialMastersAndEnrollments(initialStudents);
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_student_masters');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Ensure special 2018 students (Shivam & Ragini) exist
-          const missing = defaultMasters.filter((dm) => !parsed.some((p: any) => p.id === dm.id));
-          // Also update PS KACHHIYAT 2026 students names if they had generic names
-          const updated = parsed.map((p: any) => {
-            const match = defaultMasters.find((dm) => dm.id === p.id);
-            if (match && match.id.includes('10702')) {
-              return { ...p, name: match.name, fatherName: match.fatherName, motherName: match.motherName, gender: match.gender, category: match.category };
-            }
-            return p;
-          });
-          const merged = missing.length > 0 ? [...updated, ...missing] : updated;
-          return merged;
-        }
+        if (Array.isArray(parsed)) return parsed.filter((m) => !isLegacyFakeStudent(m));
       } catch (e) {
         console.error('Failed to parse student masters', e);
       }
     }
-    return defaultMasters;
+    return [];
   });
 
   const [studentAcademicRecords, setStudentAcademicRecords] = useState<StudentAcademicRecord[]>(() => {
-    const { enrollments: defaultEnrollments } = buildInitialMastersAndEnrollments(initialStudents);
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_student_academic_records');
     if (saved) {
       try {
-        let parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Purge any 2018-19 enrollments for PS KACHHIYAT 2026 students
-          parsed = parsed.filter((e: any) => {
-            if (e.schoolUdise === '23080110702' && e.sessionId === '2018-19') {
-              return e.studentId === 'STU-10702-18-01' || e.studentId === 'STU-10702-18-02';
-            }
-            return true;
-          });
-          const missing = defaultEnrollments.filter((de) => !parsed.some((p: any) => p.id === de.id));
-          const merged = missing.length > 0 ? [...parsed, ...missing] : parsed;
-          safeSetJSON('jsk_student_academic_records', merged);
-          return merged;
-        }
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((r) => !isLegacyFakeEnrollment(r));
       } catch (e) {
         console.error('Failed to parse student academic records', e);
       }
     }
-    return defaultEnrollments;
+    return [];
   });
 
   const [studentTransfers, setStudentTransfers] = useState<StudentTransferRecord[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_student_transfers');
     if (saved) {
       try {
@@ -691,46 +683,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Staff Permanent Master & Postings
   const [staffMasters, setStaffMasters] = useState<StaffMaster[]>(() => {
-    const { masters: defaultMasters } = buildInitialStaffMastersAndPostings(initialStaff);
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_staff_masters');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = defaultMasters.filter((dm) => !parsed.some((p: any) => p.id === dm.id));
-          return missing.length > 0 ? [...parsed, ...missing] : parsed;
-        }
+        if (Array.isArray(parsed)) return parsed.filter((s) => !isLegacyFakeStaff(s));
       } catch (e) {
         console.error('Failed to parse staff masters', e);
       }
     }
-    return defaultMasters;
+    return [];
   });
 
   const [staffPostings, setStaffPostings] = useState<StaffPosting[]>(() => {
-    const { postings: defaultPostings } = buildInitialStaffMastersAndPostings(initialStaff);
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_staff_postings');
     if (saved) {
       try {
-        let parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Purge any 2018-19 postings for PS KACHHIYAT except Ram Sahay and Sangeeta Rajput
-          parsed = parsed.filter((p: any) => {
-            if (p.schoolUdise === '23080110702' && p.sessionId === '2018-19') {
-              return p.staffId === 'STF-10702-1' || p.staffId === 'STF-10702-18-02';
-            }
-            return true;
-          });
-          const missing = defaultPostings.filter((dp) => !parsed.some((p: any) => p.id === dp.id));
-          const merged = missing.length > 0 ? [...parsed, ...missing] : parsed;
-          safeSetJSON('jsk_staff_postings', merged);
-          return merged;
-        }
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((p) => !isLegacyFakeStaffPosting(p));
       } catch (e) {
         console.error('Failed to parse staff postings', e);
       }
     }
-    return defaultPostings;
+    return [];
   });
 
   const [promotionRules, setPromotionRules] = useState<PromotionRuleMapping[]>(() => {
@@ -785,85 +764,62 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [staffMasters, staffPostings, selectedSessionId]);
 
   const [facilities, setFacilities] = useState<PhysicalFacility[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_facilities');
-    return saved ? JSON.parse(saved) : initialFacilities;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_attendance');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const has2025 = parsed.some((a: any) => a.sessionId === '2025-26');
-          const has2024 = parsed.some((a: any) => a.sessionId === '2024-25');
-          const has2018 = parsed.some((a: any) => a.sessionId === '2018-19');
-          const missing = initialAttendance.filter((ia) => !parsed.some((p: any) => p.id === ia.id));
-          if (!has2025 || !has2024 || !has2018 || missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_attendance', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse attendance', e);
       }
     }
-    return initialAttendance;
+    return [];
   });
 
   const [mdmRecords, setMdmRecords] = useState<MDMRecord[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_mdm');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const has2025 = parsed.some((m: any) => m.sessionId === '2025-26');
-          const has2024 = parsed.some((m: any) => m.sessionId === '2024-25');
-          const has2018 = parsed.some((m: any) => m.sessionId === '2018-19');
-          const missing = initialMDM.filter((im) => !parsed.some((p: any) => p.id === im.id));
-          if (!has2025 || !has2024 || !has2018 || missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_mdm', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse mdm', e);
       }
     }
-    return initialMDM;
+    return [];
   });
 
   const [governmentWork, setGovernmentWork] = useState<GovernmentWork[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_work');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const has2025 = parsed.some((w: any) => w.sessionId === '2025-26');
-          const has2024 = parsed.some((w: any) => w.sessionId === '2024-25');
-          const has2018 = parsed.some((w: any) => w.sessionId === '2018-19');
-          const missing = initialGovernmentWork.filter((iw) => !parsed.some((p: any) => p.id === iw.id));
-          if (!has2025 || !has2024 || !has2018 || missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_work', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse work', e);
       }
     }
-    return initialGovernmentWork;
+    return [];
   });
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_notifications');
-    return saved ? JSON.parse(saved) : initialNotifications;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const ensureComplaintModel = (c: any): Complaint => {
@@ -960,45 +916,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const [complaints, setComplaints] = useState<Complaint[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_complaints');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialComplaints.filter((ic) => !parsed.some((p: any) => p.id === ic.id));
-          const list = missing.length > 0 ? [...parsed, ...missing] : parsed;
-          const sanitized = list.map(ensureComplaintModel);
-          safeSetJSON('jsk_complaints', sanitized);
-          return sanitized;
-        }
+        if (Array.isArray(parsed)) return parsed.map(ensureComplaintModel);
       } catch (e) {
         console.error('Failed to parse complaints', e);
       }
     }
-    const sanitized = initialComplaints.map(ensureComplaintModel);
-    safeSetJSON('jsk_complaints', sanitized);
-    return sanitized;
+    return [];
   });
 
   const [documents, setDocuments] = useState<DocumentItem[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_documents');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialDocuments.filter((idoc) => !parsed.some((p: any) => p.id === idoc.id));
-          if (missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_documents', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse documents', e);
       }
     }
-    return initialDocuments;
+    return [];
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
@@ -1029,8 +973,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryItem[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_upload_history');
-    return saved ? JSON.parse(saved) : initialUploadHistory;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -1039,103 +985,79 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [rasoiya, setRasoiya] = useState<Rasoiya[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_rasoiya');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialRasoiya.filter((ir) => !parsed.some((p: any) => p.id === ir.id));
-          if (missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_rasoiya', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse rasoiya', e);
       }
     }
-    return initialRasoiya;
+    return [];
   });
 
   const [shgs, setShgs] = useState<SHG[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_shgs');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialSHGs.filter((is) => !parsed.some((p: any) => p.id === is.id));
-          if (missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_shgs', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse shgs', e);
       }
     }
-    return initialSHGs;
+    return [];
   });
 
   // Navbharat Literacy Program state collections
   const [literacyRegisters, setLiteracyRegisters] = useState<LiteracyRegister[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_literacy_registers');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse literacy registers', e);
       }
     }
-    return initialLiteracyRegisters;
+    return [];
   });
 
   const [illiteratePersons, setIlliteratePersons] = useState<IlliteratePerson[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_literacy_illiterates');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialIlliteratePersons.filter((ip) => !parsed.some((p: any) => p.id === ip.id));
-          if (missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_literacy_illiterates', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse illiterate persons', e);
       }
     }
-    return initialIlliteratePersons;
+    return [];
   });
 
   const [aksharSathis, setAksharSathis] = useState<AksharSathi[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_literacy_volunteers');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missing = initialAksharSathis.filter((ia) => !parsed.some((p: any) => p.id === ia.id));
-          if (missing.length > 0) {
-            const merged = [...parsed, ...missing];
-            safeSetJSON('jsk_literacy_volunteers', merged);
-            return merged;
-          }
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse akshar sathis', e);
       }
     }
-    return initialAksharSathis;
+    return [];
   });
 
   const [examCycles, setExamCycles] = useState<ExamCycle[]>(() => {
@@ -1209,26 +1131,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const [literacyExamResults, setLiteracyExamResults] = useState<LiteracyExamResult[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_literacy_exam_results');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const normalized = parsed.map(normalizeExamResultRecord);
-          const existingIds = new Set(normalized.map((r: any) => r.id));
-          const missing = initialLiteracyExamResults.filter((r) => !existingIds.has(r.id)).map(normalizeExamResultRecord);
-          return missing.length > 0 ? [...normalized, ...missing] : normalized;
-        }
+        if (Array.isArray(parsed)) return parsed.map(normalizeExamResultRecord);
       } catch (e) {
         console.error('Failed to parse literacy exam results', e);
       }
     }
-    return initialLiteracyExamResults.map(normalizeExamResultRecord);
+    return [];
   });
 
   const [supportingInstitutions, setSupportingInstitutions] = useState<SupportingInstitution[]>(() => {
+    const dbVer = localStorage.getItem(DB_VERSION_KEY);
+    if (dbVer !== CURRENT_DB_VERSION) return [];
     const saved = localStorage.getItem('jsk_literacy_institutions');
-    return saved ? JSON.parse(saved) : initialSupportingInstitutions;
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Selected School UDISE for CAC filter
@@ -1481,12 +1402,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubs: (() => void)[] = [];
     setCloudSyncStatus('syncing');
 
+    // CRITICAL: For SCHOOL role, pass assignedSchoolUdise so all school-scoped collection listeners
+    // execute query(collection(db, path), where('schoolUdise', '==', listenerScopeUdise))
+    // instead of unfiltered collection-wide reads that Firestore Rules would reject with permission-denied.
+    const listenerScopeUdise =
+      currentUser?.role === 'SCHOOL' ? (currentUser.assignedSchoolUdise || undefined) : undefined;
+
     try {
       // 1. Schools Listener
       const unsubSchools = subscribeSchoolsFromCloud(
         (cloudSchools) => {
-          if (Array.isArray(cloudSchools) && cloudSchools.length > 0) {
-            setSchools(sanitizeCanonicalSchools(cloudSchools));
+          if (Array.isArray(cloudSchools)) {
+            // Check for legacy default schools in cloud and purge them if present
+            const legacyUdises = new Set(CLUSTER_37_SCHOOLS.map((s) => s.udise));
+            const legacyInCloud = cloudSchools.filter((s) => legacyUdises.has(s.udise));
+            if (legacyInCloud.length > 0) {
+              purgeAllCloudSchools().catch(() => {});
+            }
+            const cleanSchools = cloudSchools.filter((s) => !legacyUdises.has(s.udise));
+            setSchools(sanitizeCanonicalSchools(cleanSchools));
+            safeSetJSON('jsk_schools', cleanSchools);
             handleListenerSuccess();
           }
         },
@@ -1497,8 +1432,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 2. Student Masters Listener
       const unsubStudentMasters = subscribeStudentMastersFromCloud(
         (cloudMasters) => {
-          if (Array.isArray(cloudMasters) && cloudMasters.length > 0) {
-            setStudentMasters(cloudMasters);
+          if (Array.isArray(cloudMasters)) {
+            const fakeMasters = cloudMasters.filter(isLegacyFakeStudent);
+            if (fakeMasters.length > 0) {
+              fakeMasters.forEach((m) => {
+                deleteStudentMasterFromCloud(m.id).catch(() => {});
+              });
+            }
+            const cleanMasters = cloudMasters.filter((m) => !isLegacyFakeStudent(m));
+            setStudentMasters(cleanMasters);
+            safeSetJSON('jsk_student_masters', cleanMasters);
             handleListenerSuccess();
           }
         },
@@ -1506,23 +1449,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       unsubs.push(unsubStudentMasters);
 
-      // 3. Student Enrollments Listener
+      // 3. Student Enrollments Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubEnrollments = subscribeStudentEnrollmentsFromCloud(
         (cloudEnrollments) => {
-          if (Array.isArray(cloudEnrollments) && cloudEnrollments.length > 0) {
-            setStudentAcademicRecords(cloudEnrollments);
+          if (Array.isArray(cloudEnrollments)) {
+            const fakeEnrollments = cloudEnrollments.filter(isLegacyFakeEnrollment);
+            if (fakeEnrollments.length > 0) {
+              fakeEnrollments.forEach((e) => {
+                deleteStudentEnrollmentFromCloud(e.id).catch(() => {});
+              });
+            }
+            const cleanEnrollments = cloudEnrollments.filter((e) => !isLegacyFakeEnrollment(e));
+            setStudentAcademicRecords((prev) => {
+              if (!listenerScopeUdise) return cleanEnrollments;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeEnrollment(r));
+              return [...others, ...cleanEnrollments];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'studentAcademicRecords')
+        (err) => handleListenerError(err, 'studentAcademicRecords'),
+        listenerScopeUdise
       );
       unsubs.push(unsubEnrollments);
 
       // 4. Staff Masters Listener
       const unsubStaffMasters = subscribeStaffMastersFromCloud(
         (cloudStaffMasters) => {
-          if (Array.isArray(cloudStaffMasters) && cloudStaffMasters.length > 0) {
-            setStaffMasters(cloudStaffMasters);
+          if (Array.isArray(cloudStaffMasters)) {
+            const fakeStaff = cloudStaffMasters.filter(isLegacyFakeStaff);
+            if (fakeStaff.length > 0) {
+              fakeStaff.forEach((s) => {
+                deleteStaffMasterFromCloud(s.id).catch(() => {});
+              });
+            }
+            const cleanStaff = cloudStaffMasters.filter((s) => !isLegacyFakeStaff(s));
+            setStaffMasters(cleanStaff);
+            safeSetJSON('jsk_staff_masters', cleanStaff);
             handleListenerSuccess();
           }
         },
@@ -1530,75 +1493,293 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       unsubs.push(unsubStaffMasters);
 
-      // 5. Staff Postings Listener
+      // 5. Staff Postings Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubStaffPostings = subscribeStaffPostingsFromCloud(
         (cloudPostings) => {
-          if (Array.isArray(cloudPostings) && cloudPostings.length > 0) {
-            setStaffPostings(cloudPostings);
+          if (Array.isArray(cloudPostings)) {
+            const fakePostings = cloudPostings.filter(isLegacyFakeStaffPosting);
+            if (fakePostings.length > 0) {
+              fakePostings.forEach((p) => {
+                deleteStaffPostingFromCloud(p.id).catch(() => {});
+              });
+            }
+            const cleanPostings = cloudPostings.filter((p) => !isLegacyFakeStaffPosting(p));
+            setStaffPostings((prev) => {
+              if (!listenerScopeUdise) return cleanPostings;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeStaffPosting(r));
+              return [...others, ...cleanPostings];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'staffPostings')
+        (err) => handleListenerError(err, 'staffPostings'),
+        listenerScopeUdise
       );
       unsubs.push(unsubStaffPostings);
 
-      // 6. Attendance Listener
+      // 6. Attendance Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubAttendance = subscribeAttendanceFromCloud(
         (cloudAttendance) => {
-          if (Array.isArray(cloudAttendance) && cloudAttendance.length > 0) {
-            setAttendance(cloudAttendance);
+          if (Array.isArray(cloudAttendance)) {
+            const cleanAttendance = cloudAttendance.filter((a) => !isLegacyFakeAttendance(a));
+            setAttendance((prev) => {
+              if (!listenerScopeUdise) return cleanAttendance;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeAttendance(r));
+              return [...others, ...cleanAttendance];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'attendance')
+        (err) => handleListenerError(err, 'attendance'),
+        listenerScopeUdise
       );
       unsubs.push(unsubAttendance);
 
-      // 7. MDM Listener
+      // 7. MDM Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubMDM = subscribeMDMFromCloud(
         (cloudMDM) => {
-          if (Array.isArray(cloudMDM) && cloudMDM.length > 0) {
-            setMdmRecords(cloudMDM);
+          if (Array.isArray(cloudMDM)) {
+            const fakeMDM = cloudMDM.filter(isLegacyFakeMDM);
+            if (fakeMDM.length > 0) {
+              fakeMDM.forEach((m) => {
+                deleteMDMFromCloud(m.id).catch(() => {});
+              });
+            }
+            const cleanMDM = cloudMDM.filter((m) => !isLegacyFakeMDM(m));
+            setMdmRecords((prev) => {
+              if (!listenerScopeUdise) return cleanMDM;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeMDM(r));
+              return [...others, ...cleanMDM];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'mdmRecords')
+        (err) => handleListenerError(err, 'mdmRecords'),
+        listenerScopeUdise
       );
       unsubs.push(unsubMDM);
 
-      // 8. Rasoiya Listener
+      // 8. Rasoiya Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubRasoiya = subscribeRasoiyaFromCloud(
         (cloudRasoiya) => {
-          if (Array.isArray(cloudRasoiya) && cloudRasoiya.length > 0) {
-            setRasoiya(cloudRasoiya);
+          if (Array.isArray(cloudRasoiya)) {
+            const fakeRasoiya = cloudRasoiya.filter(isLegacyFakeRasoiya);
+            if (fakeRasoiya.length > 0) {
+              fakeRasoiya.forEach((r) => {
+                deleteRasoiyaFromCloud(r.id).catch(() => {});
+              });
+            }
+            const cleanRasoiya = cloudRasoiya.filter((r) => !isLegacyFakeRasoiya(r));
+            setRasoiya((prev) => {
+              if (!listenerScopeUdise) return cleanRasoiya;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeRasoiya(r));
+              return [...others, ...cleanRasoiya];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'rasoiya')
+        (err) => handleListenerError(err, 'rasoiya'),
+        listenerScopeUdise
       );
       unsubs.push(unsubRasoiya);
 
-      // 9. Government Work Listener
-      const unsubWork = subscribeGovernmentWorkFromCloud(
-        (cloudWork) => {
-          if (Array.isArray(cloudWork) && cloudWork.length > 0) {
-            setGovernmentWork(cloudWork);
+      // 8b. SHG (Self-Help Groups) Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubSHGs = subscribeSHGsFromCloud(
+        (cloudSHGs) => {
+          if (Array.isArray(cloudSHGs)) {
+            const fakeSHGs = cloudSHGs.filter(isLegacyFakeSHG);
+            if (fakeSHGs.length > 0) {
+              fakeSHGs.forEach((s) => {
+                deleteSHGFromCloud(s.id).catch(() => {});
+              });
+            }
+            const cleanSHGs = cloudSHGs.filter((s) => !isLegacyFakeSHG(s));
+            setShgs((prev) => {
+              if (!listenerScopeUdise) return cleanSHGs;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise && !isLegacyFakeSHG(r));
+              return [...others, ...cleanSHGs];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'governmentWork')
+        (err) => handleListenerError(err, 'shgs'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubSHGs);
+
+      // 8c. ULLAS Literacy Registers Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubLiteracyRegisters = subscribeLiteracyRegistersFromCloud(
+        (cloudRegs) => {
+          if (Array.isArray(cloudRegs) && cloudRegs.length > 0) {
+            setLiteracyRegisters((prev) => {
+              if (!listenerScopeUdise) return cloudRegs;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise);
+              return [...others, ...cloudRegs];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'literacyRegisters'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubLiteracyRegisters);
+
+      // 8d. ULLAS Illiterate Persons Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubIlliterates = subscribeIlliteratePersonsFromCloud(
+        (cloudIlliterates) => {
+          if (Array.isArray(cloudIlliterates) && cloudIlliterates.length > 0) {
+            setIlliteratePersons((prev) => {
+              if (!listenerScopeUdise) return cloudIlliterates;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise);
+              return [...others, ...cloudIlliterates];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'illiteratePersons'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubIlliterates);
+
+      // 8e. ULLAS Akshar Sathis Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubAksharSathis = subscribeAksharSathisFromCloud(
+        (cloudVolunteers) => {
+          if (Array.isArray(cloudVolunteers) && cloudVolunteers.length > 0) {
+            setAksharSathis((prev) => {
+              if (!listenerScopeUdise) return cloudVolunteers;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise);
+              return [...others, ...cloudVolunteers];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'aksharSathis'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubAksharSathis);
+
+      // 8f. ULLAS Exam Cycles Listener
+      const unsubExamCycles = subscribeExamCyclesFromCloud(
+        (cloudCycles) => {
+          if (Array.isArray(cloudCycles) && cloudCycles.length > 0) {
+            setExamCycles(cloudCycles);
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'examCycles')
+      );
+      unsubs.push(unsubExamCycles);
+
+      // 8g. ULLAS Literacy Exam Results Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubExamResults = subscribeLiteracyExamResultsFromCloud(
+        (cloudResults) => {
+          if (Array.isArray(cloudResults) && cloudResults.length > 0) {
+            const normalized = cloudResults.map(normalizeExamResultRecord);
+            setLiteracyExamResults((prev) => {
+              if (!listenerScopeUdise) return normalized;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise);
+              return [...others, ...normalized];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'literacyExamResults'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubExamResults);
+
+      // 8h. ULLAS Supporting Institutions Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubInstitutions = subscribeSupportingInstitutionsFromCloud(
+        (cloudInstitutions) => {
+          if (Array.isArray(cloudInstitutions) && cloudInstitutions.length > 0) {
+            setSupportingInstitutions((prev) => {
+              if (!listenerScopeUdise) return cloudInstitutions;
+              const others = prev.filter((r) => r.schoolUdise !== listenerScopeUdise);
+              return [...others, ...cloudInstitutions];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'supportingInstitutions'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubInstitutions);
+
+      // 8i. Cluster Notifications Listener (Scoped for SCHOOL role)
+      const unsubNotifications = subscribeNotificationsFromCloud(
+        (cloudNotifs) => {
+          if (Array.isArray(cloudNotifs) && cloudNotifs.length > 0) {
+            setNotifications(cloudNotifs);
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'notifications'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubNotifications);
+
+      // 8j. Documents Metadata Listener (Scoped by [schoolUdise, 'ALL'] for SCHOOL role)
+      const unsubDocuments = subscribeDocumentsFromCloud(
+        (cloudDocs) => {
+          if (Array.isArray(cloudDocs) && cloudDocs.length > 0) {
+            setDocuments((prev) => {
+              if (!listenerScopeUdise) return cloudDocs;
+              const others = prev.filter((d) => d.schoolUdise !== listenerScopeUdise && d.schoolUdise !== 'ALL');
+              return [...others, ...cloudDocs];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'documents'),
+        listenerScopeUdise
+      );
+      unsubs.push(unsubDocuments);
+
+      // 9. Government Work Listener (Scoped by schoolUdise for SCHOOL role)
+      const unsubWork = subscribeGovernmentWorkFromCloud(
+        (cloudWork) => {
+          if (Array.isArray(cloudWork)) {
+            const fakeWork = cloudWork.filter(isLegacyFakeGovernmentWork);
+            if (fakeWork.length > 0) {
+              fakeWork.forEach((w) => {
+                deleteGovernmentWorkFromCloud(w.id).catch(() => {});
+              });
+            }
+            const cleanWork = cloudWork.filter((w) => !isLegacyFakeGovernmentWork(w));
+            setGovernmentWork((prev) => {
+              if (!listenerScopeUdise) return cleanWork;
+              const others = prev.filter((w) => w.schoolUdise !== listenerScopeUdise && !isLegacyFakeGovernmentWork(w));
+              return [...others, ...cleanWork];
+            });
+            handleListenerSuccess();
+          }
+        },
+        (err) => handleListenerError(err, 'governmentWork'),
+        listenerScopeUdise
       );
       unsubs.push(unsubWork);
 
-      // 10. Complaints Listener
+      // 10. Complaints Listener (Scoped by schoolUdise for SCHOOL role)
       const unsubComplaints = subscribeComplaintsFromCloud(
         (cloudComplaints) => {
-          if (Array.isArray(cloudComplaints) && cloudComplaints.length > 0) {
-            setComplaints(cloudComplaints);
+          if (Array.isArray(cloudComplaints)) {
+            const fakeComplaints = cloudComplaints.filter(isLegacyFakeComplaint);
+            if (fakeComplaints.length > 0) {
+              fakeComplaints.forEach((c) => {
+                deleteComplaintFromCloud(c.id).catch(() => {});
+              });
+            }
+            const cleanComplaints = cloudComplaints.filter((c) => !isLegacyFakeComplaint(c));
+            setComplaints((prev) => {
+              if (!listenerScopeUdise) return cleanComplaints;
+              const others = prev.filter((c) => c.schoolUdise !== listenerScopeUdise && !isLegacyFakeComplaint(c));
+              return [...others, ...cleanComplaints];
+            });
             handleListenerSuccess();
           }
         },
-        (err) => handleListenerError(err, 'complaints')
+        (err) => handleListenerError(err, 'complaints'),
+        listenerScopeUdise
       );
       unsubs.push(unsubComplaints);
 
@@ -1653,16 +1834,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
     };
-  }, [firebaseUser, firebaseAuthStatus, firebaseAuthError, isBrowserOnline]);
+  }, [firebaseUser, firebaseAuthStatus, firebaseAuthError, isBrowserOnline, currentUser?.role, currentUser?.assignedSchoolUdise]);
 
-  // Initial Seed to Cloud if database is fresh
+  // Initial Seed & Idempotent Phase 2 Migration to Cloud
   useEffect(() => {
+    if (!firebaseUser) return;
     if (isInitialCloudSyncDoneRef.current) return;
     isInitialCloudSyncDoneRef.current = true;
 
-    // Check if cloud sync marker exists
+    // 1. Run idempotent Phase 2 Local-to-Firestore migration (Backup + Dry-Run + Deduplication + Sync)
+    executePhase2LocalToFirestoreMigration(
+      {
+        shgs,
+        literacyRegisters,
+        illiteratePersons,
+        aksharSathis,
+        examCycles,
+        literacyExamResults,
+        supportingInstitutions,
+        notifications,
+        documents,
+      },
+      { sessionId: selectedSessionId }
+    ).catch((err) => {
+      console.warn('Phase 2 local-to-Firestore migration notice:', err);
+    });
+
+    // 2. Check if initial full cloud sync marker exists
     const cloudSyncDone = localStorage.getItem('jsk_cloud_seed_done');
-    if (!cloudSyncDone && schools.length > 0) {
+    if (!cloudSyncDone && schools.length > 0 && (currentUser?.role === 'ADMIN' || currentUser?.role === 'CAC')) {
       setCloudSyncStatus('syncing');
       uploadInitialDatasetToFirestore({
         schools,
@@ -1676,6 +1876,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         complaints,
         facilities,
         rasoiya,
+        shgs,
+        literacyRegisters,
+        illiteratePersons,
+        aksharSathis,
+        examCycles,
+        literacyExamResults,
+        supportingInstitutions,
+        notifications,
+        documents,
         academicSessions,
       }).then((res) => {
         if (res.success) {
@@ -1688,7 +1897,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Initial cloud seed attempt notice:', e);
       });
     }
-  }, [schools, studentMasters, studentAcademicRecords, staffMasters, staffPostings, attendance, mdmRecords, governmentWork, complaints, facilities, rasoiya, academicSessions]);
+  }, [
+    firebaseUser,
+    currentUser?.role,
+    selectedSessionId,
+  ]);
 
   // Manual Trigger to sync current state to Cloud
   const triggerManualCloudSync = async (): Promise<{ success: boolean; count: number }> => {
@@ -1706,6 +1919,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         complaints,
         facilities,
         rasoiya,
+        shgs,
+        literacyRegisters,
+        illiteratePersons,
+        aksharSathis,
+        examCycles,
+        literacyExamResults,
+        supportingInstitutions,
+        notifications,
+        documents,
         academicSessions,
       });
       if (res.success) {
@@ -1734,12 +1956,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { safeSetJSON('jsk_staff_postings', staffPostings); }, [staffPostings]);
   useEffect(() => { safeSetJSON('jsk_promotion_rules', promotionRules); }, [promotionRules]);
 
-  // Integrity check: Ensure schools collection does not contain invalid/corrupted records
+  // Integrity check: Ensure schools collection is an array
   useEffect(() => {
-    if (!Array.isArray(schools) || schools.length === 0) {
-      const sanitized = sanitizeCanonicalSchools(schools);
-      setSchools(sanitized);
-      safeSetJSON('jsk_schools', sanitized);
+    if (!Array.isArray(schools)) {
+      setSchools([]);
     }
   }, [schools]);
 
@@ -2025,6 +2245,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reason?: string;
       entityType?: string;
       entityId?: string;
+      featureKey?: string;
+      controlType?: string;
+      targetRole?: string;
+      startTime?: string | null;
+      endTime?: string | null;
+      adminUid?: string;
     }
   ) => {
     const now = new Date();
@@ -2049,11 +2275,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       recordName: meta?.recordName,
       schoolUdise: effectiveUdise,
       schoolName: targetSchool?.hindiName || targetSchool?.name || meta?.schoolName || effectiveUdise,
-      oldValue: meta?.oldValue ? (typeof meta.oldValue === 'string' ? meta.oldValue : JSON.stringify(meta.oldValue)) : undefined,
-      newValue: meta?.newValue ? (typeof meta.newValue === 'string' ? meta.newValue : JSON.stringify(meta.newValue)) : undefined,
+      oldValue: meta?.oldValue !== undefined ? (typeof meta.oldValue === 'string' ? meta.oldValue : JSON.stringify(meta.oldValue)) : undefined,
+      newValue: meta?.newValue !== undefined ? (typeof meta.newValue === 'string' ? meta.newValue : JSON.stringify(meta.newValue)) : undefined,
       before: meta?.before !== undefined ? meta.before : meta?.oldValue,
       after: meta?.after !== undefined ? meta.after : meta?.newValue,
       reason: meta?.reason,
+      featureKey: meta?.featureKey,
+      controlType: meta?.controlType,
+      targetRole: meta?.targetRole,
+      startTime: meta?.startTime,
+      endTime: meta?.endTime,
+      adminUid: meta?.adminUid,
       details,
       ip: '192.168.1.100',
     };
@@ -2062,6 +2294,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Cloud Database Persistence
     syncAuditLogToCloud(newLog).catch((e) => console.warn('Cloud sync audit log error:', e));
+  };
+
+  const addAuditLog = (entry: Partial<AuditLog> & { action: AuditAction; module: string; description?: string; details?: string; session?: string }) => {
+    logActivity(entry.action, entry.module, entry.description || entry.details || '', {
+      recordId: entry.recordId || entry.entityId,
+      recordName: entry.recordName,
+      schoolUdise: entry.schoolUdise,
+      session: entry.session,
+      sessionId: entry.sessionId,
+      oldValue: entry.oldValue ?? entry.before,
+      newValue: entry.newValue ?? entry.after,
+      before: entry.before ?? entry.oldValue,
+      after: entry.after ?? entry.newValue,
+      reason: entry.reason,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      featureKey: entry.featureKey,
+      controlType: entry.controlType,
+      targetRole: entry.targetRole,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      adminUid: entry.adminUid,
+    });
+  };
+
+  const assertFeatureEnabled = (featureKey: string, operationLabel: string): boolean => {
+    const check = enforceRuntimeFeatureAccess(featureKey, currentUser?.role, operationLabel);
+    if (!check.allowed) {
+      logActivity(
+        'SECURITY_ALERT',
+        'FeatureControlGateway',
+        `अनाधिकृत कार्रवाई अवरुद्ध (Feature Disabled): '${operationLabel}' (${featureKey}) वर्तमान में ${currentUser?.role} भूमिका के लिए निष्क्रिय है। कारण: ${check.message}`,
+        {
+          recordId: featureKey,
+          recordName: operationLabel,
+          featureKey,
+          reason: check.message,
+        }
+      );
+      throw new Error(`[FEATURE_DISABLED: ${featureKey}] ${check.message}`);
+    }
+    return true;
   };
 
   // Purely dynamic calculated statistics
@@ -2338,6 +2612,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // CRUD Implementations with Strict Role Security & Logging
   const addSchool = (school: School) => {
+    assertFeatureEnabled('module.schools.action.add', 'विद्यालय जोड़ना (addSchool)');
     if (isSchoolUser) {
       assertSchoolAccess(school.udise, 'addSchool');
       return;
@@ -2389,6 +2664,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSchool = (school: School, oldUdise?: string) => {
+    assertFeatureEnabled('module.schools.action.edit', 'विद्यालय संपादन (updateSchool)');
     const originalUdise = oldUdise || school.udise;
     const old = schools.find((s) => s.udise === originalUdise);
 
@@ -2516,6 +2792,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const archiveSchool = async (udise: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const check = enforceRuntimeFeatureAccess('module.schools.action.edit', currentUser?.role, 'विद्यालय निष्क्रिय करना (archiveSchool)');
+    if (!check.allowed) {
+      return { success: false, message: check.message };
+    }
+    const vaultCheck = enforceRuntimeFeatureAccess('module.schools.sub.archive_vault', currentUser?.role, 'आर्काइव शाला वॉल्ट (archiveSchool)');
+    if (!vaultCheck.allowed) {
+      return { success: false, message: vaultCheck.message };
+    }
     if (isSchoolUser) {
       assertSchoolAccess(udise, 'archiveSchool');
       return { success: false, message: 'विद्यालय उपयोगकर्ता को विद्यालय आर्काइव करने की अनुमति नहीं है।' };
@@ -2569,6 +2853,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const restoreSchool = async (udise: string): Promise<{ success: boolean; message: string }> => {
+    const check = enforceRuntimeFeatureAccess('module.schools.action.edit', currentUser?.role, 'विद्यालय रिस्टोर करना (restoreSchool)');
+    if (!check.allowed) {
+      return { success: false, message: check.message };
+    }
+    const vaultCheck = enforceRuntimeFeatureAccess('module.schools.sub.archive_vault', currentUser?.role, 'आर्काइव शाला वॉल्ट (restoreSchool)');
+    if (!vaultCheck.allowed) {
+      return { success: false, message: vaultCheck.message };
+    }
     if (isSchoolUser) {
       assertSchoolAccess(udise, 'restoreSchool');
       return { success: false, message: 'विद्यालय उपयोगकर्ता को विद्यालय रिस्टोर करने की अनुमति नहीं है।' };
@@ -2626,6 +2918,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     udise: string,
     customNewPassword?: string
   ): Promise<{ success: boolean; message: string; generatedPassword?: string }> => {
+    const check = enforceRuntimeFeatureAccess('module.schools.action.edit', currentUser?.role, 'विद्यालय पासवर्ड रीसेट (resetSchoolPassword)');
+    if (!check.allowed) {
+      return { success: false, message: check.message };
+    }
     if (isSchoolUser) {
       return { success: false, message: 'विद्यालय उपयोगकर्ता को पासवर्ड रीसेट करने की अनुमति नहीं है।' };
     }
@@ -2664,6 +2960,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addStudent = (studentData: Omit<Student, 'id'>) => {
+    assertFeatureEnabled('module.students.action.add', 'नया विद्यार्थी जोड़ना (addStudent)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (studentData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
     const targetSession = studentData.sessionId || studentData.session || selectedSessionId;
     assertSessionModifiable(targetSession, 'addStudent');
@@ -2763,6 +3060,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateStudent = (student: Student) => {
+    assertFeatureEnabled('module.students.action.edit', 'विद्यार्थी विवरण संपादन (updateStudent)');
     const targetSession = student.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'updateStudent');
 
@@ -2883,6 +3181,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteStudent = (id: string) => {
+    assertFeatureEnabled('module.students.action.delete', 'विद्यार्थी हटाना (deleteStudent)');
     assertSessionModifiable(selectedSessionId, 'deleteStudent');
     const target = students.find((s) => s.id === id);
     if (!target) return;
@@ -2911,6 +3210,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addStaff = (staffData: Omit<Staff, 'id'>) => {
+    assertFeatureEnabled('module.teachers.action.add', 'नया शिक्षक/स्टाफ जोड़ना (addStaff)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (staffData.assignedSchoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
     const targetSession = staffData.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'addStaff');
@@ -2974,6 +3274,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateStaff = (stf: Staff) => {
+    assertFeatureEnabled('module.teachers.action.edit', 'स्टाफ विवरण संपादन (updateStaff)');
     const targetSession = stf.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'updateStaff');
 
@@ -3087,6 +3388,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteStaff = (id: string) => {
+    assertFeatureEnabled('module.teachers.action.delete', 'स्टाफ हटाना (deleteStaff)');
     assertSessionModifiable(selectedSessionId, 'deleteStaff');
     const target = staff.find((s) => s.id === id);
     if (!target) return;
@@ -3114,6 +3416,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addRasoiya = (data: Omit<Rasoiya, 'id'>): Rasoiya => {
+    assertFeatureEnabled('module.rasoiya.action.add', 'रसोइया जोड़ना (addRasoiya)');
     const targetSession = data.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'addRasoiya');
 
@@ -3148,6 +3451,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateRasoiya = (data: Rasoiya) => {
+    assertFeatureEnabled('module.rasoiya.action.edit', 'रसोइया संपादन (updateRasoiya)');
     const old = rasoiya.find((r) => r.id === data.id);
     const targetSession = data.sessionId || old?.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'updateRasoiya');
@@ -3184,6 +3488,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteRasoiya = (id: string) => {
+    assertFeatureEnabled('module.rasoiya.action.delete', 'रसोइया हटाना (deleteRasoiya)');
     const target = rasoiya.find((r) => r.id === id);
     if (!target) return;
     assertSchoolAccess(target.schoolUdise, 'deleteRasoiya');
@@ -3203,6 +3508,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addSHG = (data: Omit<SHG, 'id'>): SHG => {
+    assertFeatureEnabled('module.shg.action.add', 'स्व-सहायता समूह जोड़ना (addSHG)');
     const targetSession = data.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'addSHG');
 
@@ -3225,6 +3531,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setShgs((prev) => [newSHG, ...prev]);
 
+    // Cloud Database Persistence
+    syncSHGToCloud(newSHG).catch((e) => console.warn('Cloud sync SHG error:', e));
+
     logActivity('CREATE', 'MDM', `नया स्व-सहायता समूह जोड़ा गया: ${newSHG.name} (${newSHG.schoolName}, सत्र: ${targetSession})`, {
       recordId: newId,
       recordName: newSHG.name,
@@ -3235,6 +3544,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSHG = (data: SHG) => {
+    assertFeatureEnabled('module.shg.action.edit', 'स्व-सहायता समूह संपादन (updateSHG)');
     const old = shgs.find((s) => s.id === data.id);
     const targetSession = data.sessionId || old?.sessionId || selectedSessionId;
     assertSessionModifiable(targetSession, 'updateSHG');
@@ -3258,6 +3568,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setShgs((prev) => prev.map((s) => (s.id === data.id ? updated : s)));
 
+    // Cloud Database Persistence
+    syncSHGToCloud(updated).catch((e) => console.warn('Cloud sync update SHG error:', e));
+
     logActivity('UPDATE', 'MDM', `स्व-सहायता समूह विवरण संशोधित किया गया: ${updated.name} (सत्र: ${targetSession})`, {
       recordId: data.id,
       recordName: updated.name,
@@ -3268,12 +3581,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteSHG = (id: string) => {
+    assertFeatureEnabled('module.shg.action.delete', 'स्व-सहायता समूह हटाना (deleteSHG)');
     const target = shgs.find((s) => s.id === id);
     if (!target) return;
     assertSchoolAccess(target.schoolUdise, 'deleteSHG');
     assertSessionModifiable(target.sessionId || selectedSessionId, 'deleteSHG');
 
     setShgs((prev) => prev.filter((s) => s.id !== id));
+
+    // Cloud Database Persistence
+    deleteSHGFromCloud(id).catch((e) => console.warn('Cloud delete SHG error:', e));
 
     logActivity('DELETE', 'MDM', `स्व-सहायता समूह रिकॉर्ड हटाया गया: ${target.name} (${target.schoolName})`, {
       recordId: id,
@@ -3284,6 +3601,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateFacility = (fac: PhysicalFacility) => {
+    assertFeatureEnabled('module.facilities.action.update', 'भौतिक सुविधा अद्यतन (updateFacility)');
     assertSessionModifiable(selectedSessionId, 'updateFacility');
     if (isSchoolUser && fac.schoolUdise) {
       assertSchoolAccess(fac.schoolUdise, 'updateFacility');
@@ -3314,6 +3632,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markAttendance = (attData: Omit<AttendanceRecord, 'id' | 'markedAt'>) => {
+    assertFeatureEnabled('module.attendance.action.mark_save', 'उपस्थिति दर्ज करना (markAttendance)');
     assertSessionModifiable(attData.sessionId || selectedSessionId, 'markAttendance');
     if (isSchoolUser && attData.schoolUdise) {
       assertSchoolAccess(attData.schoolUdise, 'markAttendance');
@@ -3353,6 +3672,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markAttendanceBatch = (records: Omit<AttendanceRecord, 'id' | 'markedAt'>[]) => {
+    assertFeatureEnabled('module.attendance.action.mark_save', 'थोक उपस्थिति दर्ज करना (markAttendanceBatch)');
     if (!records || records.length === 0) return;
     const now = new Date();
     const createdList: AttendanceRecord[] = records.map((attData, index) => {
@@ -3395,6 +3715,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const saveMDMRecord = (mdmData: Omit<MDMRecord, 'id'> & { id?: string }) => {
+    assertFeatureEnabled('module.mdm.action.add_edit', 'मध्याह्न भोजन प्रविष्टि (saveMDMRecord)');
     assertSessionModifiable(mdmData.sessionId || selectedSessionId, 'saveMDMRecord');
     if (isSchoolUser && mdmData.schoolUdise) {
       assertSchoolAccess(mdmData.schoolUdise, 'saveMDMRecord');
@@ -3425,6 +3746,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteMDMRecord = (id: string) => {
+    assertFeatureEnabled('module.mdm.action.delete', 'मध्याह्न भोजन रिकॉर्ड हटाना (deleteMDMRecord)');
     const record = mdmRecords.find((m) => m.id === id);
     if (!record) return;
     assertSessionModifiable(record.sessionId || selectedSessionId, 'deleteMDMRecord');
@@ -3440,6 +3762,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addGovernmentWork = (workData: Omit<GovernmentWork, 'id'>) => {
+    assertFeatureEnabled('module.work.action.add', 'नया शासकीय कार्य जोड़ना (addGovernmentWork)');
     assertSessionModifiable(workData.sessionId || selectedSessionId, 'addGovernmentWork');
     if (isSchoolUser && workData.schoolUdise) {
       assertSchoolAccess(workData.schoolUdise, 'addGovernmentWork');
@@ -3465,6 +3788,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateGovernmentWork = (work: GovernmentWork) => {
+    assertFeatureEnabled('module.work.action.edit', 'शासकीय कार्य संपादन (updateGovernmentWork)');
+    assertFeatureEnabled('module.work.action.update_status', 'शासकीय कार्य अद्यतन (updateGovernmentWork)');
     assertSessionModifiable(work.sessionId || selectedSessionId, 'updateGovernmentWork');
     const old = governmentWork.find((w) => w.id === work.id);
     if (old) {
@@ -3489,6 +3814,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteGovernmentWork = (id: string) => {
+    assertFeatureEnabled('module.work.action.delete', 'शासकीय कार्य हटाना (deleteGovernmentWork)');
     const target = governmentWork.find((w) => w.id === id);
     if (!target) return;
     assertSessionModifiable(target.sessionId || selectedSessionId, 'deleteGovernmentWork');
@@ -3508,6 +3834,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addComplaint = (compData: Omit<Complaint, 'id' | 'complaintId'>) => {
+    assertFeatureEnabled('module.complaints.action.create', 'नई शिकायत दर्ज करना (addComplaint)');
     if (isSchoolUser && compData.schoolUdise) {
       assertSchoolAccess(compData.schoolUdise, 'addComplaint');
     }
@@ -3566,6 +3893,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateComplaint = (comp: Complaint) => {
+    assertFeatureEnabled('module.complaints.action.edit', 'शिकायत विवरण संपादन (updateComplaint)');
     const old = complaints.find((c) => c.id === comp.id);
     if (!old) return;
     if (isSchoolUser) {
@@ -3643,6 +3971,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       forwardedRemarks?: string;
     }
   ): Complaint => {
+    assertFeatureEnabled('module.complaints.action.resolve', 'शिकायत निराकरण (resolveComplaint)');
     const target = complaints.find((c) => c.id === complaintIdOrId || c.complaintId === complaintIdOrId);
     if (!target) {
       throw new Error('शिकायत रिकॉर्ड प्राप्त नहीं हुआ');
@@ -3711,6 +4040,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setComplaints((prev) => prev.map((c) => (c.id === target.id ? updated : c)));
 
+    // Cloud Database Persistence
+    syncComplaintToCloud(updated).catch((e) => console.warn('Cloud sync resolve complaint error:', e));
+
     // Audit Log entry with User, Role, Complaint ID, School UDISE, Action, Date/Time, Previous Status, New Status, Remark
     logActivity('UPDATE', 'Complaints', `शिकायत का निराकरण दर्ज किया गया: ${target.complaintId || target.id} (स्थिति: ${prevStatus} ➔ ${updated.status}) - ${resolverName} (${resolverRole})`, {
       recordId: target.id,
@@ -3741,6 +4073,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       closeRemark?: string;
     }
   ): Complaint => {
+    assertFeatureEnabled('module.complaints.action.close', 'शिकायत बंद करना (closeComplaint)');
     const target = complaints.find((c) => c.id === complaintIdOrId || c.complaintId === complaintIdOrId);
     if (!target) {
       throw new Error('शिकायत रिकॉर्ड प्राप्त नहीं हुआ');
@@ -3801,6 +4134,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setComplaints((prev) => prev.map((c) => (c.id === target.id ? updated : c)));
 
+    // Cloud Database Persistence
+    syncComplaintToCloud(updated).catch((e) => console.warn('Cloud sync close complaint error:', e));
+
     logActivity('UPDATE', 'Complaints', `शिकायत बंद की गई (Closed): ${target.complaintId || target.id} (स्थिति: ${prevStatus} ➔ CLOSED) - ${closerName}`, {
       recordId: target.id,
       recordName: target.subject || target.title,
@@ -3827,6 +4163,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     reopenReason: string,
     reopenDate?: string
   ): Complaint => {
+    assertFeatureEnabled('module.complaints.action.reopen', 'शिकायत पुनः खोलना (reopenComplaint)');
     const target = complaints.find((c) => c.id === complaintIdOrId || c.complaintId === complaintIdOrId);
     if (!target) {
       throw new Error('शिकायत रिकॉर्ड प्राप्त नहीं हुआ');
@@ -3894,6 +4231,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setComplaints((prev) => prev.map((c) => (c.id === target.id ? updated : c)));
 
+    // Cloud Database Persistence
+    syncComplaintToCloud(updated).catch((e) => console.warn('Cloud sync reopen complaint error:', e));
+
     // Audit Log entry with User, Role, Complaint ID, School UDISE, Action, Date/Time, Previous Status, New Status, Remark
     logActivity('UPDATE', 'Complaints', `शिकायत पुनः खोली गई (Re-opened): ${target.complaintId || target.id} (स्थिति: ${prevStatus} ➔ REOPENED) - कारण: ${reopenReason.trim()}`, {
       recordId: target.id,
@@ -3921,6 +4261,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newStatus: ComplaintStatus,
     remark?: string
   ): Complaint => {
+    assertFeatureEnabled('module.complaints.action.edit', 'शिकायत स्थिति अद्यतन (updateComplaintStatus)');
     const target = complaints.find((c) => c.id === complaintIdOrId || c.complaintId === complaintIdOrId);
     if (!target) {
       throw new Error('शिकायत रिकॉर्ड प्राप्त नहीं हुआ');
@@ -3975,6 +4316,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setComplaints((prev) => prev.map((c) => (c.id === target.id ? updated : c)));
 
+    // Cloud Database Persistence
+    syncComplaintToCloud(updated).catch((e) => console.warn('Cloud sync update complaint status error:', e));
+
     logActivity('UPDATE', 'Complaints', `शिकायत स्थिति बदली गई: ${target.complaintId || target.id} (${prevStatus} ➔ ${newStatus})`, {
       recordId: target.id,
       recordName: target.subject || target.title,
@@ -3996,6 +4340,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteComplaint = (id: string) => {
+    assertFeatureEnabled('module.complaints.action.delete', 'शिकायत हटाना (deleteComplaint)');
     const target = complaints.find((c) => c.id === id);
     if (!target) return;
     if (isSchoolUser) {
@@ -4011,6 +4356,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setComplaints((prev) => prev.filter((c) => c.id !== id));
+
+    // Cloud Database Persistence
+    deleteComplaintFromCloud(id).catch((e) => console.warn('Cloud delete complaint error:', e));
+
     logActivity('DELETE', 'Complaints', `शिकायत रिकॉर्ड हटाया गया: ${target.complaintId || target.id} - ${target.subject || target.title}`, {
       recordId: id,
       recordName: target.subject || target.title,
@@ -4027,12 +4376,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addNotification = (notifData: Omit<NotificationItem, 'id'>) => {
+    assertFeatureEnabled('module.notifications.action.create', 'नई सूचना जारी करना (addNotification)');
+    if (isSchoolUser) {
+      throw new Error('[ACCESS_DENIED] केवल ADMIN या CAC को संकुल सूचना/आदेश जारी करने की अनुमति है।');
+    }
+    const now = new Date().toISOString();
     const newNotif: NotificationItem = {
       ...notifData,
       id: `NOTIF-${Date.now().toString().slice(-5)}`,
-      readBy: [],
+      sessionId: notifData.sessionId || selectedSessionId,
+      readBy: notifData.readBy || [],
+      createdAt: notifData.createdAt || now,
+      updatedAt: now,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+
+    // Cloud Database Persistence
+    syncNotificationToCloud(newNotif).catch((e) => console.warn('Cloud sync notification error:', e));
+
     logActivity('CREATE', 'Notifications', `नया संकुल नोटिस/आदेश जारी किया गया: ${newNotif.title}`, {
       recordId: newNotif.id,
       recordName: newNotif.title,
@@ -4041,18 +4402,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markNotificationAsRead = (notifId: string) => {
+    assertFeatureEnabled('module.notifications.action.mark_read', 'सूचना पठित चिह्नित करना (markNotificationAsRead)');
     if (!currentUser) return;
     setNotifications((prev) =>
       prev.map((n) => {
         if (n.id === notifId && !n.readBy.includes(currentUser.id)) {
-          return { ...n, readBy: [...n.readBy, currentUser.id] };
+          const updated: NotificationItem = {
+            ...n,
+            readBy: [...n.readBy, currentUser.id],
+            updatedAt: new Date().toISOString(),
+          };
+          syncNotificationToCloud(updated).catch((e) => console.warn('Cloud sync markNotificationAsRead error:', e));
+          return updated;
         }
         return n;
       })
     );
   };
 
+  const deleteNotification = (notifId: string) => {
+    assertFeatureEnabled('module.notifications.action.delete', 'सूचना हटाना (deleteNotification)');
+    if (isSchoolUser) {
+      throw new Error('[ACCESS_DENIED] केवल ADMIN या CAC को संकुल सूचना/आदेश हटाने की अनुमति है।');
+    }
+    const target = notifications.find((n) => n.id === notifId);
+    if (!target) return;
+    setNotifications((prev) => prev.filter((n) => n.id !== notifId));
+
+    // Cloud Database Persistence
+    deleteNotificationFromCloud(notifId).catch((e) => console.warn('Cloud delete notification error:', e));
+
+    logActivity('DELETE', 'Notifications', `संकुल सूचना/आदेश हटाया गया: ${target.title}`, {
+      recordId: notifId,
+      recordName: target.title,
+      oldValue: target,
+    });
+  };
+
   const addDocument = (docData: Omit<DocumentItem, 'id'> & { id?: string }): DocumentItem => {
+    assertFeatureEnabled('module.documents.action.upload', 'दस्तावेज़ अपलोड करना (addDocument)');
     if (isSchoolUser) {
       if (docData.schoolUdise && docData.schoolUdise !== currentSchoolUdise && docData.schoolUdise !== 'ALL') {
         assertSchoolAccess(docData.schoolUdise, 'addDocument');
@@ -4067,6 +4455,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: docData.id || `DOC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     };
     setDocuments((prev) => [newDoc, ...prev]);
+
+    // Cloud Database Persistence
+    syncDocumentToCloud(newDoc).catch((e) => console.warn('Cloud sync document error:', e));
+
     logActivity('UPLOAD', 'Documents', `नया दस्तावेज अपलोड किया गया: ${newDoc.title} (${newDoc.fileType})`, {
       recordId: newDoc.id,
       recordName: newDoc.title,
@@ -4077,6 +4469,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteDocument = (id: string) => {
+    assertFeatureEnabled('module.documents.action.delete', 'दस्तावेज़ हटाना (deleteDocument)');
     const target = documents.find((d) => d.id === id);
     if (!target) return;
     if (isSchoolUser) {
@@ -4086,6 +4479,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     deleteDocumentBinary(id).catch((e) => console.warn('Failed to delete binary from IndexedDB:', e));
+    deleteDocumentFromCloud(id).catch((e) => console.warn('Cloud delete document error:', e));
     logActivity('DELETE', 'Documents', `दस्तावेज हटाया गया: ${target?.title || id}`, {
       recordId: id,
       recordName: target?.title,
@@ -4102,6 +4496,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportSchools = (items: School[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'विद्यालय बल्क अपलोड (bulkImportSchools)');
     if (currentUser?.role !== 'ADMIN') {
       logActivity('SECURITY_ALERT', 'Schools', `अनधिकृत विद्यालय मास्टर आयात प्रयास अस्वीकृत: केवल ADMIN को विद्यालय मास्टर आयात करने की अनुमति है।`);
       return { added: 0, updated: 0, skipped: items.length };
@@ -4141,6 +4536,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportStudents = (items: Student[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'विद्यार्थी बल्क अपलोड (bulkImportStudents)');
     const targetSession = selectedSessionId;
     assertSessionModifiable(targetSession, 'bulkImportStudents');
 
@@ -4268,6 +4664,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportStaff = (items: Staff[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'स्टाफ बल्क अपलोड (bulkImportStaff)');
     const targetSession = selectedSessionId;
     assertSessionModifiable(targetSession, 'bulkImportStaff');
 
@@ -4390,6 +4787,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportFacilities = (items: PhysicalFacility[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'सुविधाएं बल्क अपलोड (bulkImportFacilities)');
     assertSessionModifiable(selectedSessionId, 'bulkImportFacilities');
     let added = 0;
     let updated = 0;
@@ -4440,6 +4838,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportAttendance = (items: AttendanceRecord[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'उपस्थिति बल्क अपलोड (bulkImportAttendance)');
     assertSessionModifiable(selectedSessionId, 'bulkImportAttendance');
     let added = 0;
     let updated = 0;
@@ -4497,6 +4896,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportMDM = (items: MDMRecord[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'एमडीएम बल्क अपलोड (bulkImportMDM)');
     assertSessionModifiable(selectedSessionId, 'bulkImportMDM');
     let added = 0;
     let updated = 0;
@@ -4548,6 +4948,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportComplaints = (items: Complaint[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'शिकायत बल्क अपलोड (bulkImportComplaints)');
     let added = 0;
     let updated = 0;
     let skipped = 0;
@@ -4600,6 +5001,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportGovernmentWork = (items: GovernmentWork[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'शासकीय कार्य बल्क अपलोड (bulkImportGovernmentWork)');
     assertSessionModifiable(selectedSessionId, 'bulkImportGovernmentWork');
     let added = 0;
     let updated = 0;
@@ -4655,6 +5057,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSettings = (newSettings: Partial<AppSettings>) => {
+    assertFeatureEnabled('module.settings', 'सामान्य सेटिंग्स सहेजना (updateSettings)');
     setSettings((prev) => {
       const next = { ...prev, ...newSettings };
       logActivity('UPDATE', 'Settings', 'संकुल एवं सिस्टम सेटिंग्स अद्यतन की गई।');
@@ -4666,6 +5069,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Navbharat Literacy Module CRUD Handlers
   // ----------------------------------------------------
   const saveLiteracyRegister = (regData: Omit<LiteracyRegister, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
+    assertFeatureEnabled('module.literacy-register.action.edit', 'साक्षरता पंजी प्रबंधन (saveLiteracyRegister)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (regData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
     assertSchoolAccess(targetUdise, 'saveLiteracyRegister');
 
@@ -4682,6 +5086,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       let updatedList: LiteracyRegister[];
+      let savedRecord: LiteracyRegister;
       if (existingIdx >= 0) {
         const updatedReg: LiteracyRegister = {
           ...prev[existingIdx],
@@ -4692,6 +5097,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           schoolName: schoolObj?.name || regData.schoolName || prev[existingIdx].schoolName,
           updatedAt: now,
         };
+        savedRecord = updatedReg;
         updatedList = [...prev];
         updatedList[existingIdx] = updatedReg;
         logActivity('UPDATE', 'Literacy', `साक्षरता पंजी अद्यतन: ${updatedReg.schoolName} (${targetUdise}) [सत्र: ${targetSessionId}]`, {
@@ -4711,6 +5117,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: now,
           updatedAt: now,
         };
+        savedRecord = newReg;
         updatedList = [newReg, ...prev];
         logActivity('CREATE', 'Literacy', `नई साक्षरता पंजी दर्ज: ${newReg.schoolName} (${targetUdise}) [सत्र: ${targetSessionId}]`, {
           recordId: newReg.id,
@@ -4719,6 +5126,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           newValue: newReg,
         });
       }
+
+      // Cloud Database Persistence
+      syncLiteracyRegisterToCloud(savedRecord).catch((e) => console.warn('Cloud sync literacy register error:', e));
 
       try {
         safeSetJSON('jsk_literacy_registers', updatedList);
@@ -4730,6 +5140,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteLiteracyRegister = (id: string) => {
+    assertFeatureEnabled('module.literacy-register.action.delete', 'साक्षरता पंजी हटाना (deleteLiteracyRegister)');
     const reg = literacyRegisters.find((r) => r.id === id);
     if (!reg) return;
 
@@ -4747,6 +5158,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updated;
     });
 
+    // Cloud Database Persistence
+    deleteLiteracyRegisterFromCloud(id).catch((e) => console.warn('Cloud delete literacy register error:', e));
+
     logActivity('DELETE', 'Literacy', `साक्षरता पंजी हटाई गई: ${reg.schoolName} (${reg.schoolUdise}) [सत्र: ${targetSessionId}]`, {
       recordId: reg.id,
       recordName: reg.schoolName,
@@ -4755,18 +5169,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addIlliteratePerson = (personData: Omit<IlliteratePerson, 'id' | 'createdAt' | 'updatedAt'>) => {
+    assertFeatureEnabled('module.literacy-learners.action.add', 'असाक्षर शिक्षार्थी जोड़ना (addIlliteratePerson)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (personData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
+    if (isSchoolUser && personData.schoolUdise) {
+      assertSchoolAccess(personData.schoolUdise, 'addIlliteratePerson');
+    }
+    const targetSessionId = personData.sessionId || personData.academicYear || selectedSessionId;
     const schoolObj = schools.find((s) => s.udise === targetUdise);
     const now = new Date().toISOString();
     const newPerson: IlliteratePerson = {
       ...personData,
       id: `ILLIT-${targetUdise.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
       schoolUdise: targetUdise,
       schoolName: schoolObj?.name || personData.schoolName || 'शासकीय प्राथमिक शाला',
       createdAt: now,
       updatedAt: now,
     };
     setIlliteratePersons((prev) => [newPerson, ...prev]);
+
+    // Cloud Database Persistence
+    syncIlliteratePersonToCloud(newPerson).catch((e) => console.warn('Cloud sync illiterate person error:', e));
+
     logActivity('CREATE', 'Literacy', `असाक्षर व्यक्ति पंजीकृत: ${newPerson.name} (${newPerson.gender}, ${newPerson.age} वर्ष)`, {
       recordId: newPerson.id,
       recordName: newPerson.name,
@@ -4776,10 +5201,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateIlliteratePerson = (person: IlliteratePerson) => {
+    assertFeatureEnabled('module.literacy-learners.action.edit', 'असाक्षर शिक्षार्थी सुधारना (updateIlliteratePerson)');
+    const old = illiteratePersons.find((p) => p.id === person.id);
+    if (old) {
+      assertSchoolAccess(old.schoolUdise, 'updateIlliteratePerson:old');
+    }
+    if (isSchoolUser && person.schoolUdise && person.schoolUdise !== currentSchoolUdise) {
+      assertSchoolAccess(person.schoolUdise, 'updateIlliteratePerson:new');
+    }
     const targetUdise = isSchoolUser ? currentSchoolUdise : person.schoolUdise;
+    const targetSessionId = person.sessionId || person.academicYear || old?.sessionId || selectedSessionId;
     const now = new Date().toISOString();
-    const sanitizedPerson = { ...person, schoolUdise: targetUdise, updatedAt: now };
+    const sanitizedPerson: IlliteratePerson = {
+      ...person,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
+      schoolUdise: targetUdise,
+      updatedAt: now,
+    };
     setIlliteratePersons((prev) => prev.map((p) => (p.id === sanitizedPerson.id ? sanitizedPerson : p)));
+
+    // Cloud Database Persistence
+    syncIlliteratePersonToCloud(sanitizedPerson).catch((e) => console.warn('Cloud sync update illiterate person error:', e));
+
     logActivity('UPDATE', 'Literacy', `असाक्षर व्यक्ति विवरण अद्यतन: ${sanitizedPerson.name}`, {
       recordId: sanitizedPerson.id,
       recordName: sanitizedPerson.name,
@@ -4789,12 +5233,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteIlliteratePerson = (id: string) => {
+    assertFeatureEnabled('module.literacy-learners.action.delete', 'असाक्षर शिक्षार्थी हटाना (deleteIlliteratePerson)');
     const target = illiteratePersons.find((p) => p.id === id);
     if (!target) return;
     if (isSchoolUser) {
       assertSchoolAccess(target.schoolUdise, 'deleteIlliteratePerson');
     }
     setIlliteratePersons((prev) => prev.filter((p) => p.id !== id));
+
+    // Cloud Database Persistence
+    deleteIlliteratePersonFromCloud(id).catch((e) => console.warn('Cloud delete illiterate person error:', e));
+
     logActivity('DELETE', 'Literacy', `असाक्षर व्यक्ति हटाया गया: ${target.name}`, {
       recordId: id,
       recordName: target.name,
@@ -4804,18 +5253,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addAksharSathi = (volunteerData: Omit<AksharSathi, 'id' | 'createdAt' | 'updatedAt'>) => {
+    assertFeatureEnabled('module.literacy-volunteers.action.add', 'अक्षर साथी जोड़ना (addAksharSathi)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (volunteerData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
+    if (isSchoolUser && volunteerData.schoolUdise) {
+      assertSchoolAccess(volunteerData.schoolUdise, 'addAksharSathi');
+    }
+    const targetSessionId = volunteerData.sessionId || volunteerData.academicYear || selectedSessionId;
     const schoolObj = schools.find((s) => s.udise === targetUdise);
     const now = new Date().toISOString();
     const newVolunteer: AksharSathi = {
       ...volunteerData,
       id: `VOL-${targetUdise.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
       schoolUdise: targetUdise,
       schoolName: schoolObj?.name || volunteerData.schoolName || 'शासकीय प्राथमिक शाला',
       createdAt: now,
       updatedAt: now,
     };
     setAksharSathis((prev) => [newVolunteer, ...prev]);
+
+    // Cloud Database Persistence
+    syncAksharSathiToCloud(newVolunteer).catch((e) => console.warn('Cloud sync akshar sathi error:', e));
+
     logActivity('CREATE', 'Literacy', `अक्षर साथी पंजीकृत: ${newVolunteer.name} (मो: ${newVolunteer.mobileNumber})`, {
       recordId: newVolunteer.id,
       recordName: newVolunteer.name,
@@ -4825,10 +5285,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateAksharSathi = (volunteer: AksharSathi) => {
+    assertFeatureEnabled('module.literacy-volunteers.action.edit', 'अक्षर साथी विवरण संपादन (updateAksharSathi)');
+    const old = aksharSathis.find((v) => v.id === volunteer.id);
+    if (old) {
+      assertSchoolAccess(old.schoolUdise, 'updateAksharSathi:old');
+    }
+    if (isSchoolUser && volunteer.schoolUdise && volunteer.schoolUdise !== currentSchoolUdise) {
+      assertSchoolAccess(volunteer.schoolUdise, 'updateAksharSathi:new');
+    }
     const targetUdise = isSchoolUser ? currentSchoolUdise : volunteer.schoolUdise;
+    const targetSessionId = volunteer.sessionId || volunteer.academicYear || old?.sessionId || selectedSessionId;
     const now = new Date().toISOString();
-    const sanitizedVolunteer = { ...volunteer, schoolUdise: targetUdise, updatedAt: now };
+    const sanitizedVolunteer: AksharSathi = {
+      ...volunteer,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
+      schoolUdise: targetUdise,
+      updatedAt: now,
+    };
     setAksharSathis((prev) => prev.map((v) => (v.id === sanitizedVolunteer.id ? sanitizedVolunteer : v)));
+
+    // Cloud Database Persistence
+    syncAksharSathiToCloud(sanitizedVolunteer).catch((e) => console.warn('Cloud sync update akshar sathi error:', e));
+
     logActivity('UPDATE', 'Literacy', `अक्षर साथी विवरण अद्यतन: ${sanitizedVolunteer.name}`, {
       recordId: sanitizedVolunteer.id,
       recordName: sanitizedVolunteer.name,
@@ -4838,12 +5317,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteAksharSathi = (id: string) => {
+    assertFeatureEnabled('module.literacy-volunteers.action.delete', 'अक्षर साथी हटाना (deleteAksharSathi)');
     const target = aksharSathis.find((v) => v.id === id);
     if (!target) return;
     if (isSchoolUser) {
       assertSchoolAccess(target.schoolUdise, 'deleteAksharSathi');
     }
     setAksharSathis((prev) => prev.filter((v) => v.id !== id));
+
+    // Cloud Database Persistence
+    deleteAksharSathiFromCloud(id).catch((e) => console.warn('Cloud delete akshar sathi error:', e));
+
     logActivity('DELETE', 'Literacy', `अक्षर साथी रिकॉर्ड हटाया गया: ${target.name}`, {
       recordId: id,
       recordName: target.name,
@@ -4853,6 +5337,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addExamCycle = (cycleData: Omit<ExamCycle, 'id' | 'createdAt' | 'updatedAt'>) => {
+    assertFeatureEnabled('module.literacy-exams.action.add_edit', 'साक्षरता परीक्षा साइकिल जोड़ना (addExamCycle)');
     const now = new Date().toISOString();
     const newCycle: ExamCycle = {
       ...cycleData,
@@ -4861,6 +5346,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: now,
     };
     setExamCycles((prev) => [...prev, newCycle]);
+
+    // Cloud Database Persistence
+    syncExamCycleToCloud(newCycle).catch((e) => console.warn('Cloud sync exam cycle error:', e));
+
     logActivity('CREATE', 'Literacy', `नई परीक्षा सत्र/साइकिल जोड़ी गई: ${newCycle.examName} (${newCycle.examDate})`, {
       recordId: newCycle.id,
       recordName: newCycle.examName,
@@ -4869,6 +5358,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const saveLiteracyExamResult = (resultData: Omit<LiteracyExamResult, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
+    assertFeatureEnabled('module.literacy-exams.action.add_edit', 'साक्षरता परीक्षा परिणाम प्रबंधन (saveLiteracyExamResult)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (resultData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
     assertSchoolAccess(targetUdise, 'saveLiteracyExamResult');
 
@@ -4941,6 +5431,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         const updatedList = [...prev];
         updatedList[existingIdx] = updated;
+
+        // Cloud Database Persistence
+        syncLiteracyExamResultToCloud(updated).catch((e) => console.warn('Cloud sync update literacy exam result error:', e));
+
         logActivity('LITERACY_EXAM_RESULT_UPDATED' as AuditAction, 'Literacy', `साक्षरता परीक्षा परिणाम संकलन अद्यतन: ${updated.schoolName} - ${updated.examName}`, {
           recordId: updated.id,
           recordName: updated.examName,
@@ -4986,6 +5480,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdBy: currentUser?.name || 'User',
           updatedBy: currentUser?.name || 'User',
         };
+
+        // Cloud Database Persistence
+        syncLiteracyExamResultToCloud(newResult).catch((e) => console.warn('Cloud sync new literacy exam result error:', e));
+
         logActivity('LITERACY_EXAM_RESULT_CREATED' as AuditAction, 'Literacy', `साक्षरता परीक्षा परिणाम संकलन दर्ज: ${newResult.schoolName} - ${newResult.examName}`, {
           recordId: newResult.id,
           recordName: newResult.examName,
@@ -4999,6 +5497,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteLiteracyExamResult = (id: string) => {
+    assertFeatureEnabled('module.literacy-exams.action.delete', 'साक्षरता परीक्षा परिणाम हटाना (deleteLiteracyExamResult)');
     const target = literacyExamResults.find((r) => r.id === id);
     if (!target) return;
     
@@ -5007,6 +5506,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     assertSessionModifiable(recSession, 'deleteLiteracyExamResult');
 
     setLiteracyExamResults((prev) => prev.filter((r) => r.id !== id));
+
+    // Cloud Database Persistence
+    deleteLiteracyExamResultFromCloud(id).catch((e) => console.warn('Cloud delete literacy exam result error:', e));
+
     logActivity('LITERACY_EXAM_RESULT_DELETED' as AuditAction, 'Literacy', `साक्षरता परीक्षा परिणाम हटाया गया: ${target.schoolName} - ${target.examName}`, {
       recordId: id,
       recordName: target.examName,
@@ -5017,18 +5520,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addSupportingInstitution = (partnerData: Omit<SupportingInstitution, 'id' | 'createdAt' | 'updatedAt'>) => {
+    assertFeatureEnabled('module.literacy-partners.action.add', 'सहयोगी संस्था जोड़ना (addSupportingInstitution)');
     const targetUdise = isSchoolUser ? currentSchoolUdise : (partnerData.schoolUdise || selectedSchoolUdise || schools[0]?.udise || '');
+    if (isSchoolUser && partnerData.schoolUdise) {
+      assertSchoolAccess(partnerData.schoolUdise, 'addSupportingInstitution');
+    }
+    const targetSessionId = partnerData.sessionId || partnerData.academicYear || selectedSessionId;
     const schoolObj = schools.find((s) => s.udise === targetUdise);
     const now = new Date().toISOString();
     const newPartner: SupportingInstitution = {
       ...partnerData,
       id: `PART-${targetUdise.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
       schoolUdise: targetUdise,
       schoolName: schoolObj?.name || partnerData.schoolName || 'शासकीय प्राथमिक शाला',
       createdAt: now,
       updatedAt: now,
     };
     setSupportingInstitutions((prev) => [newPartner, ...prev]);
+
+    // Cloud Database Persistence
+    syncSupportingInstitutionToCloud(newPartner).catch((e) => console.warn('Cloud sync supporting institution error:', e));
+
     logActivity('CREATE', 'Literacy', `सहयोगी संस्था / विभाग जोड़ा गया: ${newPartner.institutionName} (${newPartner.contactPersonName})`, {
       recordId: newPartner.id,
       recordName: newPartner.institutionName,
@@ -5038,10 +5552,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSupportingInstitution = (partner: SupportingInstitution) => {
+    assertFeatureEnabled('module.literacy-partners.action.edit', 'सहयोगी संस्था विवरण सुधारना (updateSupportingInstitution)');
+    const old = supportingInstitutions.find((p) => p.id === partner.id);
+    if (old) {
+      assertSchoolAccess(old.schoolUdise, 'updateSupportingInstitution:old');
+    }
+    if (isSchoolUser && partner.schoolUdise && partner.schoolUdise !== currentSchoolUdise) {
+      assertSchoolAccess(partner.schoolUdise, 'updateSupportingInstitution:new');
+    }
     const targetUdise = isSchoolUser ? currentSchoolUdise : partner.schoolUdise;
+    const targetSessionId = partner.sessionId || partner.academicYear || old?.sessionId || selectedSessionId;
     const now = new Date().toISOString();
-    const sanitizedPartner = { ...partner, schoolUdise: targetUdise, updatedAt: now };
+    const sanitizedPartner: SupportingInstitution = {
+      ...partner,
+      sessionId: targetSessionId,
+      academicYear: targetSessionId,
+      schoolUdise: targetUdise,
+      updatedAt: now,
+    };
     setSupportingInstitutions((prev) => prev.map((p) => (p.id === sanitizedPartner.id ? sanitizedPartner : p)));
+
+    // Cloud Database Persistence
+    syncSupportingInstitutionToCloud(sanitizedPartner).catch((e) => console.warn('Cloud sync update supporting institution error:', e));
+
     logActivity('UPDATE', 'Literacy', `सहयोगी संस्था विवरण अद्यतन: ${sanitizedPartner.institutionName}`, {
       recordId: sanitizedPartner.id,
       recordName: sanitizedPartner.institutionName,
@@ -5051,12 +5584,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteSupportingInstitution = (id: string) => {
+    assertFeatureEnabled('module.literacy-partners.action.delete', 'सहयोगी संस्था हटाना (deleteSupportingInstitution)');
     const target = supportingInstitutions.find((p) => p.id === id);
     if (!target) return;
     if (isSchoolUser) {
       assertSchoolAccess(target.schoolUdise, 'deleteSupportingInstitution');
     }
     setSupportingInstitutions((prev) => prev.filter((p) => p.id !== id));
+
+    // Cloud Database Persistence
+    deleteSupportingInstitutionFromCloud(id).catch((e) => console.warn('Cloud delete supporting institution error:', e));
+
     logActivity('DELETE', 'Literacy', `सहयोगी संस्था हटाई गई: ${target.institutionName}`, {
       recordId: id,
       recordName: target.institutionName,
@@ -5066,6 +5604,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportLiteracyLearners = (items: Partial<IlliteratePerson>[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'असाक्षर शिक्षार्थी बल्क अपलोड (bulkImportLiteracyLearners)');
+    assertFeatureEnabled('module.literacy-learners.action.add', 'असाक्षर शिक्षार्थी जोड़ना (bulkImportLiteracyLearners)');
     let added = 0;
     let updated = 0;
     let skipped = 0;
@@ -5091,7 +5631,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (existingIdx >= 0) {
           if (mode === 'UPDATE_EXISTING') {
-            currentList[existingIdx] = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            const updatedRecord = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            currentList[existingIdx] = updatedRecord;
+            syncIlliteratePersonToCloud(updatedRecord).catch((e) => console.warn('Cloud sync bulk update learner error:', e));
             updated++;
           } else {
             skipped++;
@@ -5099,18 +5641,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const newLearner: IlliteratePerson = {
             id: item.id || `ILLIT-${cleanUdise.slice(-4)}-${Date.now().toString().slice(-4)}${idx}`,
+            sessionId: item.sessionId || item.academicYear || selectedSessionId,
+            academicYear: item.academicYear || item.sessionId || selectedSessionId,
             schoolUdise: cleanUdise,
             schoolName: item.schoolName || schools.find(s => s.udise === cleanUdise)?.name || 'शासकीय प्राथमिक शाला',
             name: item.name || 'असाक्षर व्यक्ति',
             fatherOrHusbandName: item.fatherOrHusbandName || '',
             motherName: item.motherName || '',
             maritalStatus: item.maritalStatus || 'विवाहित',
-            dob: item.dob || '1985-01-01',
-            age: Number(item.age) || 40,
+            dob: item.dob || '',
+            age: Number(item.age) || 0,
             gender: item.gender || 'महिला',
             category: item.category || 'OBC',
             disability: item.disability || 'लागू नहीं',
-            mobileNumber: item.mobileNumber || '9876543210',
+            mobileNumber: item.mobileNumber || '',
             samagraId: item.samagraId || '',
             aadhaarNumber: item.aadhaarNumber || '',
             address: item.address || '',
@@ -5122,6 +5666,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updatedAt: new Date().toISOString(),
           };
           currentList.push(newLearner);
+          syncIlliteratePersonToCloud(newLearner).catch((e) => console.warn('Cloud sync bulk add learner error:', e));
           added++;
         }
       });
@@ -5132,6 +5677,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportAksharSathis = (items: Partial<AksharSathi>[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'अक्षर साथी बल्क अपलोड (bulkImportAksharSathis)');
+    assertFeatureEnabled('module.literacy-volunteers.action.add', 'अक्षर साथी जोड़ना (bulkImportAksharSathis)');
     let added = 0;
     let updated = 0;
     let skipped = 0;
@@ -5156,7 +5703,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (existingIdx >= 0) {
           if (mode === 'UPDATE_EXISTING') {
-            currentList[existingIdx] = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            const updatedRecord = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            currentList[existingIdx] = updatedRecord;
+            syncAksharSathiToCloud(updatedRecord).catch((e) => console.warn('Cloud sync bulk update volunteer error:', e));
             updated++;
           } else {
             skipped++;
@@ -5164,13 +5713,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const newVol: AksharSathi = {
             id: item.id || `VOL-${cleanUdise.slice(-4)}-${Date.now().toString().slice(-4)}${idx}`,
+            sessionId: item.sessionId || item.academicYear || selectedSessionId,
+            academicYear: item.academicYear || item.sessionId || selectedSessionId,
             schoolUdise: cleanUdise,
             schoolName: item.schoolName || schools.find(s => s.udise === cleanUdise)?.name || 'शासकीय प्राथमिक शाला',
             name: item.name || 'अक्षर साथी',
             fatherOrHusbandName: item.fatherOrHusbandName || '',
-            mobileNumber: item.mobileNumber || '9876543210',
-            dob: item.dob || '1998-05-15',
-            age: Number(item.age) || 27,
+            mobileNumber: item.mobileNumber || '',
+            dob: item.dob || '',
+            age: Number(item.age) || 0,
             educationalQualification: item.educationalQualification || '12वीं',
             institutionName: item.institutionName || 'शासकीय विद्यालय',
             teachingPlace: item.teachingPlace || 'विद्यालय भवन',
@@ -5181,6 +5732,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updatedAt: new Date().toISOString(),
           };
           currentList.push(newVol);
+          syncAksharSathiToCloud(newVol).catch((e) => console.warn('Cloud sync bulk add volunteer error:', e));
           added++;
         }
       });
@@ -5191,19 +5743,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportExamResults = (items: Partial<LiteracyExamResult>[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'परीक्षा परिणाम बल्क अपलोड (bulkImportExamResults)');
+    assertFeatureEnabled('module.literacy-exams.action.add_edit', 'साक्षरता परीक्षा परिणाम प्रबंधन (bulkImportExamResults)');
     let added = 0;
     let updated = 0;
     let skipped = 0;
     setLiteracyExamResults((prev) => {
       let currentList = [...prev];
       items.forEach((item, idx) => {
-        const cleanUdise = item.schoolUdise?.trim() || schools[0]?.udise || '';
+        let cleanUdise = item.schoolUdise?.trim() || schools[0]?.udise || '';
+        if (isSchoolUser) {
+          cleanUdise = currentSchoolUdise;
+        }
         const cycleId = item.examCycleId || 'CYCLE-2023-MAR19';
 
         const existingIdx = currentList.findIndex((r) => r.schoolUdise === cleanUdise && r.examCycleId === cycleId);
         if (existingIdx >= 0) {
           if (mode === 'UPDATE_EXISTING') {
-            currentList[existingIdx] = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            const updatedRecord = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            currentList[existingIdx] = updatedRecord;
+            syncLiteracyExamResultToCloud(updatedRecord).catch((e) => console.warn('Cloud sync bulk update exam result error:', e));
             updated++;
           } else {
             skipped++;
@@ -5211,6 +5770,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const newRes: LiteracyExamResult = {
             id: item.id || `EXAM-RES-${cleanUdise.slice(-4)}-${Date.now().toString().slice(-4)}${idx}`,
+            sessionId: item.sessionId || item.academicYear || selectedSessionId,
+            academicYear: item.academicYear || item.sessionId || selectedSessionId,
             schoolUdise: cleanUdise,
             schoolName: item.schoolName || schools.find(s => s.udise === cleanUdise)?.name || 'शासकीय प्राथमिक शाला',
             examCycleId: cycleId,
@@ -5228,6 +5789,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updatedAt: new Date().toISOString(),
           };
           currentList.push(newRes);
+          syncLiteracyExamResultToCloud(newRes).catch((e) => console.warn('Cloud sync bulk add exam result error:', e));
           added++;
         }
       });
@@ -5238,6 +5800,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bulkImportSupportingInstitutions = (items: Partial<SupportingInstitution>[], mode: DuplicateHandlingMode) => {
+    assertFeatureEnabled('module.upload.action.import_file', 'सहयोगी संस्था बल्क अपलोड (bulkImportSupportingInstitutions)');
+    assertFeatureEnabled('module.literacy-partners.action.add', 'सहयोगी संस्था जोड़ना (bulkImportSupportingInstitutions)');
     let added = 0;
     let updated = 0;
     let skipped = 0;
@@ -5245,11 +5809,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let currentList = [...prev];
       items.forEach((item, idx) => {
         const cleanInst = item.institutionName?.trim();
-        const cleanUdise = item.schoolUdise?.trim() || schools[0]?.udise || '';
+        let cleanUdise = item.schoolUdise?.trim() || schools[0]?.udise || '';
+        if (isSchoolUser) {
+          cleanUdise = currentSchoolUdise;
+        }
         const existingIdx = currentList.findIndex((p) => p.schoolUdise === cleanUdise && p.institutionName?.trim() === cleanInst);
         if (existingIdx >= 0) {
           if (mode === 'UPDATE_EXISTING') {
-            currentList[existingIdx] = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            const updatedRecord = { ...currentList[existingIdx], ...(item as any), updatedAt: new Date().toISOString() };
+            currentList[existingIdx] = updatedRecord;
+            syncSupportingInstitutionToCloud(updatedRecord).catch((e) => console.warn('Cloud sync bulk update partner error:', e));
             updated++;
           } else {
             skipped++;
@@ -5257,17 +5826,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const newPartner: SupportingInstitution = {
             id: item.id || `PART-${cleanUdise.slice(-4)}-${Date.now().toString().slice(-4)}${idx}`,
+            sessionId: item.sessionId || item.academicYear || selectedSessionId,
+            academicYear: item.academicYear || item.sessionId || selectedSessionId,
             schoolUdise: cleanUdise,
             schoolName: item.schoolName || schools.find(s => s.udise === cleanUdise)?.name || 'शासकीय प्राथमिक शाला',
-            institutionName: item.institutionName || 'महिला एवं बाल विकास विभाग',
-            contactPersonName: item.contactPersonName || 'कार्यकर्ता',
-            mobileNumber: item.mobileNumber || '9876543210',
-            designation: item.designation || 'आंगनवाड़ी कार्यकर्ता',
+            institutionName: item.institutionName || 'सहयोगी संस्था',
+            contactPersonName: item.contactPersonName || '',
+            mobileNumber: item.mobileNumber || '',
+            designation: item.designation || '',
             workDescription: item.workDescription || 'असाक्षरों का चिन्हांकन एवं प्रेरणा',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
           currentList.push(newPartner);
+          syncSupportingInstitutionToCloud(newPartner).catch((e) => console.warn('Cloud sync bulk add partner error:', e));
           added++;
         }
       });
@@ -5896,6 +6468,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }>
   ): { promotedCount: number; message: string } => {
     promotions.forEach((p) => {
+      assertFeatureEnabled('module.students.sub.promotion_tc', 'विद्यार्थी कक्षोन्नति (promoteStudents)');
+      assertFeatureEnabled('module.students.action.edit', 'विद्यार्थी कक्षोन्नति (promoteStudents)');
       assertSessionModifiable(p.fromSessionId, 'promoteStudents:sourceSession');
       assertSessionModifiable(p.toSessionId, 'promoteStudents:targetSession', true);
       if (isSchoolUser) {
@@ -6032,6 +6606,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const transferStudent = (
     transferData: Omit<StudentTransferRecord, 'id' | 'transferDate' | 'createdBy' | 'createdByName'>
   ): { success: boolean; message: string } => {
+    assertFeatureEnabled('module.students.sub.promotion_tc', 'स्थानांतरण प्रमाण-पत्र (transferStudent)');
+    assertFeatureEnabled('module.students.action.edit', 'स्थानांतरण प्रमाण-पत्र (transferStudent)');
     assertSessionModifiable(transferData.oldSessionId || selectedSessionId, 'transferStudent:sourceSession');
     if (transferData.newSessionId && transferData.newSessionId !== (transferData.oldSessionId || selectedSessionId)) {
       assertSessionModifiable(transferData.newSessionId, 'transferStudent:destinationSession');
@@ -6123,6 +6699,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     transferId: string,
     updatedData: Partial<StudentTransferRecord>
   ): { success: boolean; message: string } => {
+    assertFeatureEnabled('module.students.sub.promotion_tc', 'स्थानांतरण प्रमाण-पत्र संपादन (updateStudentTransfer)');
+    assertFeatureEnabled('module.students.action.edit', 'स्थानांतरण प्रमाण-पत्र संपादन (updateStudentTransfer)');
     const existing = studentTransfers.find((t) => t.id === transferId);
     if (!existing) {
       return { success: false, message: 'स्थानांतरण अभिलेख (TC Record) नहीं मिला।' };
@@ -6428,6 +7006,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addNotification,
         markNotificationAsRead,
+        deleteNotification,
 
         addDocument,
         deleteDocument,
@@ -6466,6 +7045,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         updateSettings,
         logActivity,
+        addAuditLog,
         resetToSampleData,
 
         // Migration & Audit

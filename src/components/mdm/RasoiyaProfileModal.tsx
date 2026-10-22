@@ -261,7 +261,7 @@ export const RasoiyaProfileModal: React.FC<RasoiyaProfileModalProps> = ({
               <div>
                 <span className="text-gray-500 dark:text-gray-400">समूह का नाम: </span>
                 <span className="font-bold text-gray-900 dark:text-white">
-                  {rasoiya.shgName || 'माँ शारदा स्व-सहायता समूह'}
+                  {rasoiya.shgName || 'लागू नहीं / अपंजीकृत'}
                 </span>
               </div>
               <div>

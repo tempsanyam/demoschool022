@@ -22,12 +22,14 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { LiteracyRegister } from '../../types/literacy';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
 
 export const LiteracyRegisterView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -347,36 +349,40 @@ export const LiteracyRegisterView: React.FC = () => {
             </div>
           )}
 
-          <UnifiedPrintButton
-            id="literacy-reg-unified-print"
-            currentSession={selectedSessionId}
-            currentSchoolName={activeSchool?.name || activeSchool?.hindiName}
-            currentUdise={activeSchool?.udise}
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => setIsPrintModalOpen(true)}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Current View"
-            currentViewSubtext="साक्षरता पंजी तालिका का त्वरित स्क्रीन प्रिंट"
-            reportLabel="Report"
-            reportSubtext="शालावार साक्षरता पंजी सारांश रिपोर्ट"
-            literacyFormLabel="Literacy Form (प्रपत्र - 03)"
-            literacyFormSubtext="आधिकारिक प्रपत्र 03 साक्षरता पंजी A4 प्रारूप"
-            exportPayload={getLiteracyExportPayload}
-          />
+          {isFeatureEnabled('module.literacy-register.action.print_export') && (
+            <UnifiedPrintButton
+              id="literacy-reg-unified-print"
+              currentSession={selectedSessionId}
+              currentSchoolName={activeSchool?.name || activeSchool?.hindiName}
+              currentUdise={activeSchool?.udise}
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => setIsPrintModalOpen(true)}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Current View"
+              currentViewSubtext="साक्षरता पंजी तालिका का त्वरित स्क्रीन प्रिंट"
+              reportLabel="Report"
+              reportSubtext="शालावार साक्षरता पंजी सारांश रिपोर्ट"
+              literacyFormLabel="Literacy Form (प्रपत्र - 03)"
+              literacyFormSubtext="आधिकारिक प्रपत्र 03 साक्षरता पंजी A4 प्रारूप"
+              exportPayload={getLiteracyExportPayload}
+            />
+          )}
 
-          <button
-            onClick={() => handleOpenEdit()}
-            disabled={isLocked}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors ${
-              isLocked
-                ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                : 'bg-[#087F5B] hover:bg-[#076C4D] text-white cursor-pointer'
-            }`}
-            title={isLocked ? 'सत्र लॉक होने के कारण नवीन प्रविष्टि बंद है' : 'नवीन साक्षरता पंजी जोड़ें'}
-          >
-            {isLocked ? <Lock className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
-            <span>पंजी प्रविष्टि / अद्यतन</span>
-          </button>
+          {isFeatureEnabled('module.literacy-register.action.edit') && (
+            <button
+              onClick={() => handleOpenEdit()}
+              disabled={isLocked}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors ${
+                isLocked
+                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : 'bg-[#087F5B] hover:bg-[#076C4D] text-white cursor-pointer'
+              }`}
+              title={isLocked ? 'सत्र लॉक होने के कारण नवीन प्रविष्टि बंद है' : 'नवीन साक्षरता पंजी जोड़ें'}
+            >
+              {isLocked ? <Lock className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+              <span>पंजी प्रविष्टि / अद्यतन</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -479,20 +485,24 @@ export const LiteracyRegisterView: React.FC = () => {
                         </button>
                       ) : (
                         <>
-                          <button
-                            onClick={() => handleOpenEdit(reg, false)}
-                            className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors cursor-pointer"
-                            title="पंजी विवरण संपादित करें"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingRegister(reg)}
-                            className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
-                            title="पंजी रिकॉर्ड हटाएं"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {isFeatureEnabled('module.literacy-register.action.edit') && (
+                            <button
+                              onClick={() => handleOpenEdit(reg, false)}
+                              className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                              title="पंजी विवरण संपादित करें"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {isFeatureEnabled('module.literacy-register.action.delete') && (
+                            <button
+                              onClick={() => setDeletingRegister(reg)}
+                              className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                              title="पंजी रिकॉर्ड हटाएं"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

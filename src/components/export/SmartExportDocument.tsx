@@ -138,7 +138,7 @@ export const SmartExportDocument: React.FC<SmartExportDocumentProps> = ({
 
   return (
     <div
-      className={`smart-export-document unicode-safe document-style-${canonicalStyle} print-style-${canonicalStyle} bg-white text-gray-900 p-6 sm:p-10 shadow-lg rounded-sm w-full transition-all ${
+      className={`smart-export-document unicode-safe document-style-${canonicalStyle} print-style-${canonicalStyle} bg-white text-gray-900 p-4 sm:p-8 md:p-10 shadow-lg rounded-sm w-full max-w-full overflow-x-auto transition-all ${
         orientation === 'landscape' ? 'max-w-5xl' : 'max-w-4xl'
       }`}
       style={{
@@ -147,7 +147,6 @@ export const SmartExportDocument: React.FC<SmartExportDocumentProps> = ({
         height: 'auto',
         minHeight: '0',
         maxHeight: 'none',
-        overflow: 'visible'
       }}
     >
       {/* 1. Official Document Header */}

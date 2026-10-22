@@ -1,11 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { User, UserRole, UserStatus, School, AuditLog, AuditAction, PreAuthSecurityEvent } from '../types';
 import { initialUsers, initialSchools } from '../data/seedData';
-import { generateSchoolPassword } from '../utils/authUtils';
-import { auth } from '../services/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
-import { syncUserToCloud, syncAuditLogToCloud, syncPreAuthSecurityEventToCloud, subscribeUsersFromCloud } from '../services/cloudDatabaseService';
+import { auth, db } from '../services/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword as fbUpdatePassword,
+  User as FirebaseUser,
+} from 'firebase/auth';
+import {
+  syncUserToCloud,
+  updateUserLoginTimestamp,
+  syncAuditLogToCloud,
+  syncPreAuthSecurityEventToCloud,
+  subscribeUsersFromCloud,
+  deleteUserFromCloud,
+} from '../services/cloudDatabaseService';
 import { safeGetJSON, safeSetJSON, safeSetItem, safeRemoveItem } from '../utils/safeStorage';
+import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
 
 export interface PermissionConfig {
   canViewAllSchools: boolean;
@@ -109,7 +125,7 @@ interface AuthContextType {
   hasPermission: (permission: keyof PermissionConfig) => boolean;
   isUdiseAllowed: (udise: string | null | undefined) => boolean;
   canAccessView: (viewId: string) => boolean;
-  login: (identifier: string, pass: string) => { success: boolean; message: string; user?: User };
+  login: (identifier: string, pass: string) => Promise<{ success: boolean; message: string; user?: User }>;
   logout: () => void;
   register: (data: Omit<User, 'id' | 'createdAt' | 'status'> & { password?: string }) => { success: boolean; message: string };
   approveUser: (userId: string) => Promise<{ success: boolean; message: string }>;
@@ -120,7 +136,7 @@ interface AuthContextType {
   changeUserRole: (userId: string, newRole: UserRole) => Promise<{ success: boolean; message: string }>;
   syncDirectoryToCloud: () => Promise<{ success: boolean; message: string; count?: number }>;
   updateCurrentUser: (updated: Partial<User>) => { success: boolean; message: string };
-  updatePassword: (currentPass: string, newPass: string) => { success: boolean; message: string };
+  updatePassword: (currentPass: string, newPass: string) => Promise<{ success: boolean; message: string }>;
   firebaseUser: FirebaseUser | null;
   firebaseAuthStatus: 'initializing' | 'authenticated' | 'unauthenticated' | 'error';
   firebaseAuthError: string | null;
@@ -266,17 +282,17 @@ export function recordUserManagementAudit(
 }
 
 /**
- * Synchronizes and auto-heals user accounts against the official School Master.
- * Enforces:
- * 1. Exactly 1 ADMIN (SANYAMJAIN88)
- * 2. Exactly 2 CAC (Sanjayjain1979, Sanmatijain99)
- * 3. Exactly N SCHOOL accounts, where N is the exact count in School Master (37)
- * 4. Total accounts = 1 + 2 + 37 = 40
- * 5. Reconciles any mismatched usernames, school names, UDISEs, or roles,
- *    and writes an audit record in jsk_audit_logs if corrections are performed.
+ * Authoritative Synchronization of Administrative Accounts.
+ * Strictly Enforces:
+ * 1. Exactly 1 ADMIN (SANYAMJAIN88 - संयम जैन)
+ * 2. Exactly 2 CAC (Sanjayjain1979 - संजय कुमार जैन, Sanmatijain99 - सन्मति कुमार जैन)
+ * 3. ZERO SCHOOL LOGINS (All school logins have been removed per administrative directive)
+ * 4. Total authorized user accounts = Exactly 3
  */
-function syncAndVerifyUsers(masterSchools: School[]): User[] {
-  // 1. Fixed Administrative Accounts
+export const CANONICAL_ADMIN_USERNAMES = ['sanyamjain88', 'sanjayjain1979', 'sanmatijain99'];
+
+function syncAndVerifyUsers(_masterSchools?: School[]): User[] {
+  // 1. Authoritative Fixed Administrative Accounts
   const canonicalAdmins: User[] = [
     {
       id: 'USR-ADMIN-01',
@@ -336,26 +352,6 @@ function syncAndVerifyUsers(masterSchools: School[]): User[] {
     },
   ];
 
-  // 2. Canonical School Accounts generated directly from actual School Master
-  const canonicalSchools: User[] = masterSchools.map((s) => ({
-    id: `USR-SCH-${s.udise}`,
-    username: s.udise,
-    name: `${s.name} (${s.village})`,
-    role: 'SCHOOL' as UserRole,
-    employeeId: `UDISE-${s.udise}`,
-    mobile: s.mobile || s.principalMobile || '',
-    email: s.email || '',
-    designation: `${s.schoolType} (संस्था लॉगिन)`,
-    assignedSchoolUdise: s.udise,
-    schoolId: s.udise,
-    schoolUdise: s.udise,
-    schoolName: s.name,
-    status: (s.status === 'ARCHIVED' || s.status === 'INACTIVE' || s.isDeleted ? 'SUSPENDED' : 'ACTIVE') as UserStatus,
-    createdAt: '2025-01-01',
-    block: s.block || 'बलदेवगढ़',
-    district: s.district || 'टीकमगढ़',
-  }));
-
   // Retrieve existing localStorage users if present
   let existingStored: User[] = [];
   try {
@@ -363,17 +359,19 @@ function syncAndVerifyUsers(masterSchools: School[]): User[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        existingStored = parsed;
+        // Discard any user with role === 'SCHOOL' or non-admin usernames
+        existingStored = parsed.filter(
+          (u) => u.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((u.username || '').toLowerCase())
+        );
       }
     }
   } catch (e) {
     console.error('Error reading jsk_malguwa_users', e);
   }
 
-  const corrections: string[] = [];
   const finalUsers: User[] = [];
 
-  // Reconcile Admins
+  // Reconcile Canonical Admins
   for (const admin of canonicalAdmins) {
     const stored = existingStored.find(
       (u) => (u.username || '').toLowerCase() === (admin.username || '').toLowerCase()
@@ -391,75 +389,11 @@ function syncAndVerifyUsers(masterSchools: School[]): User[] {
     }
   }
 
-  // Reconcile Schools against canonical master
-  for (const canonSch of canonicalSchools) {
-    const stored = existingStored.find(
-      (u) => u.username === canonSch.username || u.assignedSchoolUdise === canonSch.username
-    );
-
-    if (stored) {
-      // Check for discrepancies in mapping
-      const hasDiscrepancy =
-        stored.name !== canonSch.name ||
-        stored.schoolName !== canonSch.schoolName ||
-        stored.schoolId !== canonSch.schoolId ||
-        stored.schoolUdise !== canonSch.schoolUdise ||
-        stored.assignedSchoolUdise !== canonSch.assignedSchoolUdise ||
-        stored.role !== 'SCHOOL';
-
-      if (hasDiscrepancy) {
-        corrections.push(
-          `सुधार: शाला ${canonSch.username} (${canonSch.schoolName}) - मास्टर डेटा से सिंक किया गया`
-        );
-      }
-
-      finalUsers.push({
-        ...canonSch,
-        ...stored,
-        id: canonSch.id,
-        username: canonSch.username,
-        name: canonSch.name,
-        role: 'SCHOOL',
-        assignedSchoolUdise: canonSch.username,
-        schoolId: canonSch.username,
-        schoolUdise: canonSch.username,
-        schoolName: canonSch.schoolName,
-        status: 'ACTIVE',
-      });
-    } else {
-      finalUsers.push(canonSch);
-    }
-  }
-
-  // Safeguard orphan accounts in existingStored (preserve as INACTIVE/Archived to prevent historical reference breaks)
-  const validUsernames = new Set(
-    finalUsers.map((u) => (u.username || '').toLowerCase()).filter(Boolean)
-  );
-  for (const stored of existingStored) {
-    const sUsername = (stored.username || '').toLowerCase();
-    if (sUsername && !validUsernames.has(sUsername)) {
-      finalUsers.push({
-        ...stored,
-        status: 'SUSPENDED',
-        designation: `${stored.designation || 'पूर्व शाला'} (अभिलेख सुरक्षित / Archived)`,
-      });
-      validUsernames.add(sUsername);
-      corrections.push(`पूर्व खाता सुरक्षित व अभिलेखागारित (Archived): ${stored.username}`);
-    }
-  }
-
-  // If any corrections or orphan removals were performed, record an audit entry
-  if (corrections.length > 0) {
-    try {
-      recordSecurityAudit(
-        'LOGIN',
-        'SYSTEM_SYNC',
-        'SYSTEM',
-        `उपयोगकर्ता व शाला मास्टर सत्यापन: ${corrections.join('; ')}`
-      );
-    } catch (e) {
-      console.error(e);
-    }
+  // Update localStorage immediately with clean 3 accounts
+  try {
+    localStorage.setItem('jsk_malguwa_users', JSON.stringify(finalUsers));
+  } catch {
+    // ignore
   }
 
   return finalUsers;
@@ -520,6 +454,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   };
 
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
@@ -529,72 +465,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const token = await fbUser.getIdToken();
           setFirebaseIdToken(token);
+
+          // Requirement 3 & 4: Authoritative Firestore user document verification
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (!userDocSnap.exists()) {
+            console.warn('Firebase user has no /users profile document. Purging session.');
+            await signOut(auth);
+            setCurrentUser(null);
+            safeRemoveItem('jsk_malguwa_current_user');
+            safeRemoveItem('jsk_malguwa_session_token');
+            safeRemoveItem('jsk_malguwa_session_timestamp');
+            setFirebaseAuthStatus('unauthenticated');
+            return;
+          }
+
+          const profile = userDocSnap.data() as User;
+          const isActive = profile.status === 'ACTIVE';
+          const isApproved = !profile.approvalStatus || profile.approvalStatus === 'APPROVED';
+
+          if (!isActive || !isApproved) {
+            console.warn('User status is inactive or unapproved. Purging session.');
+            await signOut(auth);
+            setCurrentUser(null);
+            safeRemoveItem('jsk_malguwa_current_user');
+            safeRemoveItem('jsk_malguwa_session_token');
+            safeRemoveItem('jsk_malguwa_session_timestamp');
+            setFirebaseAuthStatus('unauthenticated');
+            return;
+          }
+
+          // Verify stored session token if available
+          const saved = localStorage.getItem('jsk_malguwa_current_user');
+          if (saved) {
+            try {
+              const u: User = JSON.parse(saved);
+              if (u.id !== fbUser.uid) {
+                console.warn('Stored user ID mismatch with Firebase Auth UID. Purging invalid local session.');
+                safeRemoveItem('jsk_malguwa_current_user');
+                safeRemoveItem('jsk_malguwa_session_token');
+                safeRemoveItem('jsk_malguwa_session_timestamp');
+              }
+            } catch {
+              safeRemoveItem('jsk_malguwa_current_user');
+            }
+          }
+
+          const authenticatedUser: User = {
+            ...profile,
+            id: fbUser.uid,
+          };
+          setCurrentUser(authenticatedUser);
+          safeSetJSON('jsk_malguwa_current_user', authenticatedUser);
         } catch (tokErr) {
-          console.warn('ID token fetch error:', tokErr);
+          console.warn('ID token fetch / session hydration error:', tokErr);
         }
       } else {
+        // Requirement 3: If no Firebase user, purge local session completely and send to login
         setFirebaseAuthStatus('unauthenticated');
         setFirebaseIdToken(null);
+        setCurrentUser(null);
+        safeRemoveItem('jsk_malguwa_current_user');
+        safeRemoveItem('jsk_malguwa_session_token');
+        safeRemoveItem('jsk_malguwa_session_timestamp');
       }
     });
     return () => unsubscribe();
   }, []);
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('jsk_malguwa_current_user');
-    const savedToken = localStorage.getItem('jsk_malguwa_session_token');
-    const savedTimestamp = localStorage.getItem('jsk_malguwa_session_timestamp');
-
-    if (saved) {
-      try {
-        const u: User = JSON.parse(saved);
-        const allKnown = syncAndVerifyUsers(getKnownSchools());
-        const matched = allKnown.find(
-          (k) => (k.username || '').toLowerCase() === (u.username || '').toLowerCase()
-        );
-
-        if (matched) {
-          // Cryptographic signature verification to prevent localStorage tampering
-          const expectedToken = savedTimestamp
-            ? computeSessionToken(matched.username, matched.role, matched.assignedSchoolUdise || '', savedTimestamp)
-            : null;
-
-          const isSignatureValid = !savedToken || (expectedToken && savedToken === expectedToken);
-
-          if (isSignatureValid) {
-            return {
-              ...matched,
-              ...u,
-              username: matched.username,
-              role: matched.role,
-              assignedSchoolUdise: matched.assignedSchoolUdise,
-              schoolId: matched.schoolId,
-              schoolUdise: matched.schoolUdise,
-              schoolName: matched.schoolName,
-              status: 'ACTIVE',
-            };
-          } else {
-            // Tampered role/username detected in localStorage
-            recordSecurityAudit(
-              'SECURITY_ALERT',
-              u.username || 'UNKNOWN',
-              'TAMPER_ATTEMPT',
-              `अनाधिकृत लोकलस्टोरेज सत्र टैम्परिंग (Invalid Signature): खाता '${u.username}' सत्र निरस्त किया गया।`
-            );
-          }
-        }
-
-        // Immediately purge unauthorized user session
-        safeRemoveItem('jsk_malguwa_current_user');
-        safeRemoveItem('jsk_malguwa_session_token');
-        safeRemoveItem('jsk_malguwa_session_timestamp');
-        return null;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return null;
-  });
 
   useEffect(() => {
     safeSetJSON('jsk_malguwa_users', users);
@@ -612,12 +550,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'jsk_malguwa_current_user') {
-        if (!e.newValue) {
-          // Another browser tab initiated logout
+        if (!e.newValue || !auth.currentUser) {
+          // Another browser tab initiated logout or no Firebase auth session
           setCurrentUser(null);
         } else {
           try {
             const parsed: User = JSON.parse(e.newValue);
+            if (parsed.id !== auth.currentUser.uid) {
+              console.warn('Storage user UID mismatch with active Firebase user. Purging session.');
+              setCurrentUser(null);
+              safeRemoveItem('jsk_malguwa_current_user');
+              safeRemoveItem('jsk_malguwa_session_token');
+              safeRemoveItem('jsk_malguwa_session_timestamp');
+              return;
+            }
             const allKnown = syncAndVerifyUsers(getKnownSchools());
             const matched = allKnown.find(
               (k) => (k.username || '').toLowerCase() === (parsed.username || '').toLowerCase()
@@ -629,10 +575,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               : null;
             const isSignatureValid = !savedToken || (expectedToken && savedToken === expectedToken);
 
-            if (matched && isSignatureValid) {
+            if (matched && isSignatureValid && parsed.status === 'ACTIVE') {
               setCurrentUser({
                 ...matched,
                 ...parsed,
+                id: auth.currentUser.uid,
                 username: matched.username,
                 role: matched.role,
                 assignedSchoolUdise: matched.assignedSchoolUdise,
@@ -663,9 +610,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsub = subscribeUsersFromCloud(
       (cloudUsers) => {
         if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+          // Strictly keep only the 3 canonical administrative accounts
+          const validAdmins = cloudUsers.filter(
+            (cu) => cu.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((cu.username || '').toLowerCase())
+          );
           setUsers((prev) => {
             const merged = [...prev];
-            cloudUsers.forEach((cu) => {
+            validAdmins.forEach((cu) => {
               const idx = merged.findIndex(
                 (m) => m.id === cu.id || (m.username && cu.username && m.username.toLowerCase() === cu.username.toLowerCase())
               );
@@ -675,7 +626,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 merged.push(cu);
               }
             });
-            return merged;
+            return merged.filter(
+              (u) => u.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((u.username || '').toLowerCase())
+            );
+          });
+
+          // Proactively remove any legacy school accounts from Cloud Firestore
+          cloudUsers.forEach((cu) => {
+            if (cu.role === 'SCHOOL' || !CANONICAL_ADMIN_USERNAMES.includes((cu.username || '').toLowerCase())) {
+              if (cu.id) {
+                deleteUserFromCloud(cu.id).catch(() => {});
+              }
+            }
           });
         }
       },
@@ -690,11 +652,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Main Unified Authentication Function:
    * 1. Validate non-empty inputs
-   * 2. Auto-detect Role: ADMIN, CAC, or SCHOOL (UDISE)
+   * 2. Auto-detect Role: ADMIN, CAC 1, or CAC 2 (Zero School Login Allowed)
    * 3. Validate credentials without exposing specific error details to UI
    * 4. Create persistent session & log audit trail
    */
-  const login = (identifier: string, pass: string): { success: boolean; message: string; user?: User } => {
+  const login = async (identifier: string, pass: string): Promise<{ success: boolean; message: string; user?: User }> => {
     const cleanId = (identifier || '').trim();
     const cleanPass = (pass || '').trim();
 
@@ -713,283 +675,172 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Password required' };
     }
 
-    const lowerId = cleanId.toLowerCase();
-    let authenticatedUser: User | null = null;
-
-    // -------------------------------------------------------------
-    // 1. ADMIN Authentication: SANYAMJAIN88 / ADMIN88159
-    // -------------------------------------------------------------
-    if (cleanId.toUpperCase() === 'SANYAMJAIN88' && cleanPass === 'ADMIN88159') {
-      const existingAdmin = users.find((u) => u.username.toUpperCase() === 'SANYAMJAIN88');
-      authenticatedUser = existingAdmin || {
-        id: 'USR-ADMIN-01',
-        username: 'SANYAMJAIN88',
-        name: 'संयम जैन',
-        role: 'ADMIN',
-        employeeId: 'EMP-ADM-88',
-        mobile: '9826088159',
-        email: 'admin.malguwa@mp.gov.in',
-        designation: 'मुख्य व्यवस्थापक (System Admin)',
-        assignedSchoolUdise: '',
-        status: 'ACTIVE',
-        createdAt: '2025-01-01',
-        block: 'बलदेवगढ़',
-        district: 'टीकमगढ़',
-      };
-    }
-
-    // -------------------------------------------------------------
-    // 2. CAC Accounts Authentication:
-    //    CAC 1: Sanjayjain1979 / CAC700038
-    //    CAC 2: Sanmatijain99 / CAC997732
-    // -------------------------------------------------------------
-    if (!authenticatedUser) {
-      if (lowerId === 'sanjayjain1979' && cleanPass === 'CAC700038') {
-        const existingCAC1 = users.find((u) => (u.username || '').toLowerCase() === 'sanjayjain1979');
-        authenticatedUser = existingCAC1 || {
-          id: 'USR-CAC-01',
-          username: 'Sanjayjain1979',
-          name: 'संजय कुमार जैन',
-          role: 'CAC',
-          employeeId: 'EMP-CAC-201',
-          mobile: '7000382532',
-          alternateMobile: '9753679036',
-          email: 'cac.malguwa@mp.gov.in',
-          designation: 'संकुल समन्वयक (CAC)',
-          assignedSchoolUdise: '',
-          status: 'ACTIVE',
-          createdAt: '2025-06-01',
-          block: 'बलदेवगढ़',
-          district: 'टीकमगढ़',
-        };
-      } else if (lowerId === 'sanmatijain99' && cleanPass === 'CAC997732') {
-        const existingCAC2 = users.find((u) => (u.username || '').toLowerCase() === 'sanmatijain99');
-        authenticatedUser = existingCAC2 || {
-          id: 'USR-CAC-02',
-          username: 'Sanmatijain99',
-          name: 'सन्मति कुमार जैन',
-          role: 'CAC',
-          employeeId: 'EMP-CAC-202',
-          mobile: '9977323573',
-          alternateMobile: '9977323573',
-          email: 'cac.sanmati@mp.gov.in',
-          designation: 'संकुल समन्वयक (CAC)',
-          assignedSchoolUdise: '',
-          status: 'ACTIVE',
-          createdAt: '2025-06-01',
-          block: 'बलदेवगढ़',
-          district: 'टीकमगढ़',
-        };
-      }
-    }
-
-    // -------------------------------------------------------------
-    // 3. SCHOOL Login Authentication:
-    //    Username = School UDISE Code (11 digits, e.g. 23080110701)
-    //    Password = Standardized [SchoolName] + [Last 4 Digits of UDISE]
-    // -------------------------------------------------------------
-    if (!authenticatedUser) {
-      const knownSchools = getKnownSchools();
-      const matchedSchool = knownSchools.find(
-        (s) => s.udise === cleanId || (s.udise || '').toLowerCase() === lowerId
+    // Strict Administrative Scope Validation:
+    // Only Admin (SANYAMJAIN88) and 2 CACs (Sanjayjain1979, Sanmatijain99) are authorized to log in.
+    const cleanLowerId = cleanId.toLowerCase().replace('@malguwa.edu.in', '').trim();
+    if (/^\d{11}$/.test(cleanId) || (!cleanId.includes('@') && !CANONICAL_ADMIN_USERNAMES.includes(cleanLowerId))) {
+      recordSecurityAudit(
+        'FAILED_LOGIN',
+        cleanId,
+        'UNKNOWN',
+        `लॉगिन अस्वीकृत: शाला लॉगिन बंद है। केवल व्यवस्थापक एवं जन शिक्षक अधिकृत हैं: ${cleanId}`
       );
-
-      if (matchedSchool) {
-        if (matchedSchool.status === 'ARCHIVED' || matchedSchool.status === 'INACTIVE' || matchedSchool.isDeleted) {
-          recordSecurityAudit(
-            'SECURITY_ALERT',
-            cleanId,
-            'SCHOOL',
-            `निष्क्रिय विद्यालय लॉगिन प्रयास अस्वीकृत: ${matchedSchool.name} (${cleanId})`,
-            cleanId
-          );
-          return {
-            success: false,
-            message: 'यह विद्यालय वर्तमान में निष्क्रिय है। कृपया संकुल कार्यालय/CAC से संपर्क करें।',
-          };
-        }
-
-        const expectedDefaultPass = generateSchoolPassword(matchedSchool);
-        
-        // Also check if school user changed password previously
-        let customSchoolPass: string | null = null;
-        try {
-          const savedPasses = localStorage.getItem('jsk_school_passwords');
-          if (savedPasses) {
-            const map = JSON.parse(savedPasses);
-            customSchoolPass = map[matchedSchool.udise] || null;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-
-        const passClean = cleanPass.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const expectedClean = expectedDefaultPass.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-
-        const isPassValid =
-          cleanPass === expectedDefaultPass ||
-          cleanPass.toUpperCase() === expectedDefaultPass.toUpperCase() ||
-          passClean === expectedClean ||
-          (customSchoolPass && (cleanPass === customSchoolPass || cleanPass.toUpperCase() === customSchoolPass.toUpperCase()));
-
-        if (isPassValid) {
-          authenticatedUser = {
-            id: `USR-SCH-${matchedSchool.udise}`,
-            username: matchedSchool.udise,
-            name: `${matchedSchool.name} (${matchedSchool.village})`,
-            role: 'SCHOOL',
-            employeeId: `UDISE-${matchedSchool.udise}`,
-            mobile: matchedSchool.mobile || matchedSchool.principalMobile || '',
-            email: matchedSchool.email || '',
-            designation: `${matchedSchool.schoolType} (संस्था लॉगिन)`,
-            assignedSchoolUdise: matchedSchool.udise,
-            schoolId: matchedSchool.udise,
-            schoolUdise: matchedSchool.udise,
-            schoolName: matchedSchool.name,
-            status: 'ACTIVE',
-            createdAt: '2025-01-01',
-            block: matchedSchool.block || 'बलदेवगढ़',
-            district: matchedSchool.district || 'टीकमगढ़',
-          };
-        }
-      }
-    }
-
-    // -------------------------------------------------------------
-    // STRICT SECURITY POLICY:
-    // ONLY Admin (SANYAMJAIN88), CAC 1 (Sanjayjain1979), CAC 2 (Sanmatijain99),
-    // and the 37 Cluster Schools (UDISE) are permitted. NO OTHER LOGIN IS ALLOWED.
-    // -------------------------------------------------------------
-    if (!authenticatedUser) {
-      recordSecurityAudit('FAILED_LOGIN', cleanId, 'UNKNOWN', `अमान्य क्रेडेंशियल्स अथवा अनधिकृत खाता: ${cleanId}`);
       return {
         success: false,
-        message: 'अमान्य यूज़रनेम या पासवर्ड! केवल मुख्य व्यवस्थापक (Admin: SANYAMJAIN88), जन शिक्षक (CAC 1 व CAC 2), अथवा संकुल की अधिकृत सक्रिय शालाओं (11-अंकीय UDISE) का लॉगिन मान्य है। अन्य किसी का प्रवेश प्रतिबंधित है।'
+        message: 'शाला लॉगिन सुविधा उपलब्ध नहीं है। केवल व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) लॉगिन अधिकृत हैं।',
       };
     }
 
-    // -------------------------------------------------------------
-    // Success: Update session & record audit
-    // -------------------------------------------------------------
-    const updatedUser: User = {
-      ...authenticatedUser,
-      lastLogin: new Date().toLocaleString('hi-IN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    };
-
-    // Generate cryptographic session signature for persistent integrity
-    const sessionTimestamp = Date.now().toString();
-    const sessionToken = computeSessionToken(
-      updatedUser.username,
-      updatedUser.role,
-      updatedUser.assignedSchoolUdise || '',
-      sessionTimestamp
-    );
-    safeSetItem('jsk_malguwa_session_token', sessionToken);
-    safeSetItem('jsk_malguwa_session_timestamp', sessionTimestamp);
-
-    setCurrentUser(updatedUser);
-
-    // Update users array if persistent user
-    setUsers((prev) => {
-      const exists = prev.some((u) => u.id === updatedUser.id);
-      if (exists) {
-        return prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
-      }
-      return [updatedUser, ...prev];
-    });
-
-    // Attempt Firebase Auth sign in with mapped email
-    const mappedEmail = `${cleanId.toLowerCase()}@malguwa.edu.in`;
+    // Map identifier to authoritative email domain
+    const mappedEmail = cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@malguwa.edu.in`;
     setCachedAuthCreds({ email: mappedEmail, pass: cleanPass });
     setFirebaseAuthStatus('initializing');
     setFirebaseAuthError(null);
 
-    signInWithEmailAndPassword(auth, mappedEmail, cleanPass)
-      .then(async (cred) => {
-        console.log('Firebase Auth: Sign in successful with UID:', cred.user.uid);
-        setFirebaseUser(cred.user);
-        setFirebaseAuthStatus('authenticated');
-        setFirebaseAuthError(null);
-        try {
-          const token = await cred.user.getIdToken();
-          setFirebaseIdToken(token);
-          const authedUser: User = {
-            ...updatedUser,
-            id: cred.user.uid,
-          };
-          setCurrentUser(authedUser);
-          await syncUserToCloud(authedUser);
-          // Authoritative LOGIN audit now that Firebase Auth session is authenticated
-          recordSecurityAudit(
-            'LOGIN',
-            authedUser.username,
-            authedUser.role,
-            `${authedUser.name} (${authedUser.role}) द्वारा सफलतापूर्वक लॉगिन किया गया।`,
-            authedUser.assignedSchoolUdise
-          );
-        } catch (tokErr) {
-          console.warn('Post login user sync error:', tokErr);
+    try {
+      // 1. Authoritative Firebase Authentication (No local password checks, No auto-creation)
+      const cred = await signInWithEmailAndPassword(auth, mappedEmail, cleanPass);
+      console.log('Firebase Auth: Sign in successful with UID:', cred.user.uid);
+      setFirebaseUser(cred.user);
+      setFirebaseAuthStatus('authenticated');
+      setFirebaseAuthError(null);
+
+      const token = await cred.user.getIdToken();
+      // 2. Requirement 4: Read /users/{uid} profile from Firestore
+      const userDocRef = doc(db, 'users', cred.user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        console.warn(`Profile /users/${cred.user.uid} not found. Rejecting login.`);
+        await signOut(auth);
+        setFirebaseUser(null);
+        setFirebaseAuthStatus('error');
+        setFirebaseAuthError('user-profile-not-found');
+        recordSecurityAudit(
+          'FAILED_LOGIN',
+          cleanId,
+          'UNKNOWN',
+          `लॉगिन अस्वीकृत: प्रोफ़ाइल /users/${cred.user.uid} Firestore में मौजूद नहीं है।`
+        );
+        return {
+          success: false,
+          message: 'अमान्य यूज़रनेम या पासवर्ड (Invalid username or password)',
+        };
+      }
+
+      const cloudProfile = userDocSnap.data() as User;
+
+      // School login rejection guard
+      if (cloudProfile.role === 'SCHOOL' || !CANONICAL_ADMIN_USERNAMES.includes((cloudProfile.username || '').toLowerCase())) {
+        console.warn(`Profile /users/${cred.user.uid} has SCHOOL role or unauthorized username. Rejecting login.`);
+        await signOut(auth);
+        setFirebaseUser(null);
+        setFirebaseAuthStatus('error');
+        setFirebaseAuthError('school-login-disabled');
+        recordSecurityAudit(
+          'FAILED_LOGIN',
+          cleanId,
+          cloudProfile.role,
+          `लॉगिन अस्वीकृत: शाला लॉगिन बंद है। केवल व्यवस्थापक एवं जन शिक्षक अधिकृत हैं।`
+        );
+        return {
+          success: false,
+          message: 'शाला लॉगिन सुविधा उपलब्ध नहीं है। केवल व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) लॉगिन अधिकृत हैं।',
+        };
+      }
+
+      const isActive = cloudProfile.status === 'ACTIVE';
+      const isApproved = !cloudProfile.approvalStatus || cloudProfile.approvalStatus === 'APPROVED';
+
+      if (!isActive || !isApproved) {
+        console.warn(`Profile /users/${cred.user.uid} not active or approved. Rejecting login.`);
+        await signOut(auth);
+        setFirebaseUser(null);
+        setFirebaseAuthStatus('error');
+        setFirebaseAuthError('user-not-active-or-unapproved');
+        recordSecurityAudit(
+          'FAILED_LOGIN',
+          cleanId,
+          cloudProfile.role,
+          `लॉगिन अस्वीकृत: खाता निष्क्रिय या अस्वीकृत है (status=${cloudProfile.status}, approvalStatus=${cloudProfile.approvalStatus})`
+        );
+        return {
+          success: false,
+          message: 'अमान्य यूज़रनेम या पासवर्ड (Invalid username or password)',
+        };
+      }
+
+      const authenticatedUser: User = {
+        ...cloudProfile,
+        id: cred.user.uid,
+      };
+
+      const updatedUser: User = {
+        ...authenticatedUser,
+        lastLogin: new Date().toLocaleString('hi-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+
+      // 3. Persistent cryptographically-signed session token
+      const sessionTimestamp = Date.now().toString();
+      const sessionToken = computeSessionToken(
+        updatedUser.username,
+        updatedUser.role,
+        updatedUser.assignedSchoolUdise || '',
+        sessionTimestamp
+      );
+      safeSetItem('jsk_malguwa_session_token', sessionToken);
+      safeSetItem('jsk_malguwa_session_timestamp', sessionTimestamp);
+
+      setCurrentUser(updatedUser);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === updatedUser.id);
+        if (exists) {
+          return prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
         }
-      })
-      .catch(async (authErr) => {
-        console.warn('Firebase Auth sign in notice:', authErr.code, authErr.message);
-        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
-          try {
-            const newCred = await createUserWithEmailAndPassword(auth, mappedEmail, cleanPass);
-            setFirebaseUser(newCred.user);
-            setFirebaseAuthStatus('authenticated');
-            setFirebaseAuthError(null);
-            const token = await newCred.user.getIdToken();
-            setFirebaseIdToken(token);
-            const authedUser: User = {
-              ...updatedUser,
-              id: newCred.user.uid,
-            };
-            setCurrentUser(authedUser);
-            await syncUserToCloud(authedUser);
-            // Authoritative LOGIN audit now that Firebase Auth session is authenticated
-            recordSecurityAudit(
-              'LOGIN',
-              authedUser.username,
-              authedUser.role,
-              `${authedUser.name} (${authedUser.role}) द्वारा सफलतापूर्वक लॉगिन किया गया।`,
-              authedUser.assignedSchoolUdise
-            );
-            return;
-          } catch (createErr: any) {
-            setFirebaseAuthStatus('error');
-            setFirebaseAuthError(createErr.code || createErr.message);
-          }
-        } else {
-          setFirebaseAuthStatus('error');
-          setFirebaseAuthError(authErr.code || authErr.message);
-        }
+        return [updatedUser, ...prev];
       });
 
-    return { success: true, message: 'लॉगिन सफल रहा।', user: updatedUser };
+      // Update ONLY lastLogin on Cloud (strictly within self-update whitelist)
+      updateUserLoginTimestamp(cred.user.uid).catch((e) => console.warn('User lastLogin update notice:', e));
+      recordSecurityAudit(
+        'LOGIN',
+        updatedUser.username,
+        updatedUser.role,
+        `${updatedUser.name} (${updatedUser.role}) द्वारा सफलतापूर्वक लॉगिन किया गया।`,
+        updatedUser.assignedSchoolUdise
+      );
+
+      return { success: true, message: 'लॉगिन सफल रहा।', user: updatedUser };
+    } catch (authErr: any) {
+      console.warn('Firebase Auth sign in notice:', authErr.code);
+      setFirebaseAuthStatus('error');
+      setFirebaseAuthError(authErr.code || authErr.message);
+
+      recordSecurityAudit(
+        'FAILED_LOGIN',
+        cleanId,
+        'UNKNOWN',
+        `लॉगिन प्रयास विफल (${authErr.code}): ${cleanId}`
+      );
+
+      // Generic error message: Zero account existence or system detail leakage
+      return {
+        success: false,
+        message: 'अमान्य यूज़रनेम या पासवर्ड (Invalid username or password)',
+      };
+    }
   };
 
   const retryFirebaseAuth = async (): Promise<{ success: boolean; error?: string; uid?: string }> => {
-    let email = cachedAuthCreds?.email;
-    let pass = cachedAuthCreds?.pass;
-
-    if (!email && currentUser) {
-      email = `${(currentUser.username || '').toLowerCase()}@malguwa.edu.in`;
-      const uname = (currentUser.username || '').toLowerCase();
-      if (currentUser.role === 'ADMIN' || uname === 'sanyamjain88') {
-        pass = 'ADMIN88159';
-      } else if (currentUser.role === 'CAC') {
-        pass = uname === 'sanjayjain1979' ? 'CAC700038' : 'CAC997732';
-      } else if (currentUser.role === 'SCHOOL' && currentUser.assignedSchoolUdise) {
-        pass = generateSchoolPassword(currentUser.assignedSchoolUdise);
-      }
-    }
+    const email = cachedAuthCreds?.email;
+    const pass = cachedAuthCreds?.pass;
 
     if (!email || !pass) {
       return { success: false, error: 'no-credentials' };
@@ -999,29 +850,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFirebaseAuthError(null);
 
     try {
-      let cred;
-      try {
-        cred = await signInWithEmailAndPassword(auth, email, pass);
-      } catch (err: any) {
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          cred = await createUserWithEmailAndPassword(auth, email, pass);
-        } else {
-          throw err;
-        }
-      }
-
+      // Authoritative sign in only — strictly NO auto-createUserWithEmailAndPassword
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
       setFirebaseUser(cred.user);
       setFirebaseAuthStatus('authenticated');
       setFirebaseAuthError(null);
       const token = await cred.user.getIdToken(true);
       setFirebaseIdToken(token);
-
-      if (currentUser) {
-        await syncUserToCloud({
-          ...currentUser,
-          id: cred.user.uid,
-        });
-      }
 
       return { success: true, uid: cred.user.uid };
     } catch (e: any) {
@@ -1031,19 +866,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: e.code || e.message };
     }
   };
-
-  // Background Auto-Authentication on Session Restore:
-  // When a local authenticated user session exists and Firebase Auth is unauthenticated,
-  // attempt a non-disruptive background authentication against Firebase
-  const autoAuthAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (currentUser && firebaseAuthStatus === 'unauthenticated' && !autoAuthAttemptedRef.current) {
-      autoAuthAttemptedRef.current = true;
-      retryFirebaseAuth().catch((e) => {
-        console.warn('Background Firebase Auth attempt notice:', e);
-      });
-    }
-  }, [currentUser, firebaseAuthStatus]);
 
   const logout = () => {
     if (currentUser) {
@@ -1099,6 +921,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const approveUser = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users.action.approve', currentUser?.role, 'उपयोगकर्ता आवेदन स्वीकृत करना (approveUser)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत: केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) आवेदन स्वीकृत कर सकते हैं।' };
     }
@@ -1132,6 +958,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const rejectUser = async (userId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users.action.reject', currentUser?.role, 'उपयोगकर्ता आवेदन अस्वीकृत करना (rejectUser)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत: केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) आवेदन अस्वीकृत कर सकते हैं।' };
     }
@@ -1165,6 +995,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const activateUser = async (userId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users.action.activate_deactivate', currentUser?.role, 'खाता सक्रिय करना (activateUser)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत: केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) उपयोगकर्ता सक्रिय कर सकते हैं।' };
     }
@@ -1205,6 +1039,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deactivateUser = async (userId: string, reason: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users.action.activate_deactivate', currentUser?.role, 'खाता निष्क्रिय करना (deactivateUser)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत: केवल संकुल व्यवस्थापक (ADMIN) एवं जन शिक्षक (CAC) उपयोगकर्ता निष्क्रिय कर सकते हैं।' };
     }
@@ -1247,6 +1085,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetUserAccess = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users.action.activate_deactivate', currentUser?.role, 'एक्सेस रीसेट करना (resetUserAccess)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत पहुंच।' };
     }
@@ -1317,6 +1159,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const syncDirectoryToCloud = async (): Promise<{ success: boolean; message: string; count?: number }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.users', currentUser?.role, 'क्लाउड डायरेक्टरी सिंक (syncDirectoryToCloud)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'CAC')) {
       return { success: false, message: 'अनधिकृत पहुंच।' };
     }
@@ -1333,6 +1179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateCurrentUser = (updated: Partial<User>) => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.profile.action.edit_profile', currentUser?.role, 'प्रोफ़ाइल अपडेट करना (updateCurrentUser)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser) {
       return { success: false, message: 'कोई सक्रिय सत्र नहीं मिला।' };
     }
@@ -1382,9 +1232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, message: 'प्रोफ़ाइल सफलतापूर्वक अपडेट की गई।' };
   };
 
-  const updatePassword = (currentPass: string, newPass: string) => {
+  const updatePassword = async (currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> => {
+    const fcCheck = enforceRuntimeFeatureAccess('module.profile.action.change_password', currentUser?.role, 'पासवर्ड बदलना (updatePassword)');
+    if (!fcCheck.allowed) {
+      return { success: false, message: fcCheck.message };
+    }
     if (!currentUser) {
       return { success: false, message: 'कोई सक्रिय सत्र नहीं मिला।' };
+    }
+    if (!auth.currentUser || !auth.currentUser.email) {
+      return { success: false, message: 'सक्रिय प्रमाणीकरण सत्र उपलब्ध नहीं है।' };
     }
 
     const cleanCurrent = (currentPass || '').trim();
@@ -1398,47 +1255,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'नया पासवर्ड न्यूनतम 6 अक्षरों का होना आवश्यक है।' };
     }
 
-    // 1. Verify current password based on role
-    let isCurrentValid = false;
+    try {
+      // 1. Authoritative reauthentication with Firebase Auth credentials
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, cleanCurrent);
+      await reauthenticateWithCredential(auth.currentUser, credential);
 
-    if (currentUser.role === 'SCHOOL' && currentUser.assignedSchoolUdise) {
-      const knownSchools = getKnownSchools();
-      const schoolObj = knownSchools.find((s) => s.udise === currentUser.assignedSchoolUdise);
-      const expectedDefaultPass = schoolObj ? generateSchoolPassword(schoolObj) : '';
-      let customSchoolPass: string | null = null;
-      try {
-        const savedPasses = localStorage.getItem('jsk_school_passwords');
-        if (savedPasses) {
-          const map = JSON.parse(savedPasses);
-          customSchoolPass = map[currentUser.assignedSchoolUdise] || null;
+      // 2. Authoritative updatePassword via Firebase Auth SDK
+      await fbUpdatePassword(auth.currentUser, cleanNew);
+
+      // 3. If account had mandatory password change flag, clear it in Firestore
+      if (currentUser.mustChangePassword) {
+        try {
+          const userDocRef = doc(db, 'users', currentUser.id);
+          await updateDoc(userDocRef, {
+            mustChangePassword: false,
+            lastProfileUpdate: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (clearErr) {
+          console.warn('Clear mustChangePassword notice:', clearErr);
         }
-      } catch (e) {
-        console.error(e);
       }
 
-      const passClean = cleanCurrent.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      const expectedClean = expectedDefaultPass.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-
-      isCurrentValid =
-        (currentUser.password && cleanCurrent === currentUser.password) ||
-        (customSchoolPass && (cleanCurrent === customSchoolPass || cleanCurrent.toUpperCase() === customSchoolPass.toUpperCase())) ||
-        cleanCurrent === expectedDefaultPass ||
-        cleanCurrent.toUpperCase() === expectedDefaultPass.toUpperCase() ||
-        passClean === expectedClean;
-    } else {
-      // CAC or ADMIN
-      const defaultPasses: Record<string, string> = {
-        sanyamjain88: 'ADMIN88159',
-        sanjayjain1979: 'CAC700038',
-        sanmatijain99: 'CAC997732',
+      // 4. Update session metadata (Zero local password storage)
+      const updatedUser: User = {
+        ...currentUser,
+        mustChangePassword: false,
+        lastProfileUpdate: new Date().toLocaleString('hi-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
       };
-      const expectedDefault = defaultPasses[(currentUser.username || '').toLowerCase()] || '';
-      isCurrentValid =
-        (currentUser.password && cleanCurrent === currentUser.password) ||
-        (expectedDefault && cleanCurrent === expectedDefault);
-    }
 
-    if (!isCurrentValid) {
+      setCurrentUser(updatedUser);
+      safeSetJSON('jsk_malguwa_current_user', updatedUser);
+      setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+
+      recordSecurityAudit(
+        'SECURITY_ALERT',
+        currentUser.username,
+        currentUser.role,
+        `पासवर्ड सफलतापूर्वक बदला गया (Firebase Auth updatePassword): ${currentUser.name}`,
+        currentUser.assignedSchoolUdise
+      );
+
+      return { success: true, message: 'पासवर्ड सफलतापूर्वक बदल दिया गया है।' };
+    } catch (authErr: any) {
+      console.warn('updatePassword error:', authErr.code, authErr.message);
       recordSecurityAudit(
         'SECURITY_ALERT',
         currentUser.username,
@@ -1446,37 +1312,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         `पासवर्ड परिवर्तन विफल: अमान्य वर्तमान पासवर्ड। उपयोगकर्ता: ${currentUser.name}`,
         currentUser.assignedSchoolUdise
       );
-      return { success: false, message: 'वर्तमान पासवर्ड गलत है (Incorrect Current Password)।' };
-    }
-
-    // For school accounts, store in jsk_school_passwords
-    if (currentUser.role === 'SCHOOL' && currentUser.assignedSchoolUdise) {
-      try {
-        const savedPasses = localStorage.getItem('jsk_school_passwords');
-        const map = savedPasses ? JSON.parse(savedPasses) : {};
-        map[currentUser.assignedSchoolUdise] = cleanNew;
-        safeSetJSON('jsk_school_passwords', map);
-      } catch (e) {
-        console.error(e);
+      if (authErr.code === 'auth/wrong-password' || authErr.code === 'auth/invalid-credential') {
+        return { success: false, message: 'वर्तमान पासवर्ड गलत है (Incorrect Current Password)।' };
       }
+      return { success: false, message: 'पासवर्ड परिवर्तन में त्रुटि हुई। कृपया पुनः प्रयास करें।' };
     }
-
-    const updatedUser: User = {
-      ...currentUser,
-      password: cleanNew,
-      lastProfileUpdate: new Date().toLocaleString('hi-IN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    };
-
-    setCurrentUser(updatedUser);
-    safeSetJSON('jsk_malguwa_current_user', updatedUser);
-    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
-    return { success: true, message: 'पासवर्ड सफलतापूर्वक बदल दिया गया है।' };
   };
 
   // Centralized Permission Matrix & Scope Derivation

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { SchoolBanner } from '../common/SchoolBanner';
 import { institutionConfig } from '../../config/institutionConfig';
 import { getActiveDashboardWidgets } from '../../config/dashboardWidgets';
@@ -40,6 +41,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const scope = useSchoolScope();
   const { selectedSessionId } = useData();
+  const { isFeatureEnabled, isRouteEnabled } = useFeatureControl();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<string>(() =>
     new Date().toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -93,18 +95,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {institutionConfig.institutionName} ({institutionConfig.district})
             </h1>
             <p className="text-emerald-200 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-              विकास खंड {institutionConfig.block} अंतर्गत कुल {scope.schools.length || institutionConfig.totalSchoolsCount} शासकीय विद्यालयों की वास्तविक समय शैक्षणिक, भौतिक एवं प्रशासनिक निगरानी प्रणाली
+              विकास खंड {institutionConfig.block} अंतर्गत कुल {scope.schools.length} शासकीय विद्यालयों की वास्तविक समय शैक्षणिक, भौतिक एवं प्रशासनिक निगरानी प्रणाली
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => onNavigate('export')}
-              className="bg-white hover:bg-emerald-50 text-[#0B6B4B] font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-[#0B6B4B]" />
-              <span>डोजियर व रिपोर्ट</span>
-            </button>
+            {isFeatureEnabled('module.dashboard.action.print_summary') && (
+              <button
+                onClick={() => onNavigate('export')}
+                className="bg-white hover:bg-emerald-50 text-[#0B6B4B] font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-[#0B6B4B]" />
+                <span>डोजियर व रिपोर्ट</span>
+              </button>
+            )}
             <button
               onClick={() => onNavigate('search')}
               className="bg-emerald-800 hover:bg-emerald-700 text-emerald-100 font-semibold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all border border-emerald-700 flex items-center gap-2 cursor-pointer"
@@ -144,34 +148,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 3. CORE DYNAMIC METRICS GRID (Extensible Widget Architecture) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {coreWidgets.map((widget) => (
-          <DashboardWidgetCard
-            key={widget.id}
-            widget={widget}
-            scopeContext={scope}
-            onNavigate={onNavigate}
-            variant="core"
-          />
-        ))}
-      </div>
+      {isFeatureEnabled('module.dashboard.sub.kpi_cards') && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {coreWidgets.map((widget) => (
+              <DashboardWidgetCard
+                key={widget.id}
+                widget={widget}
+                scopeContext={scope}
+                onNavigate={onNavigate}
+                variant="core"
+              />
+            ))}
+          </div>
 
-      {/* 4. SECONDARY OPERATIONAL METRIC TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        {secondaryWidgets.map((widget) => (
-          <DashboardWidgetCard
-            key={widget.id}
-            widget={widget}
-            scopeContext={scope}
-            onNavigate={onNavigate}
-            variant="secondary"
-          />
-        ))}
-      </div>
+          {/* 4. SECONDARY OPERATIONAL METRIC TILES */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+            {secondaryWidgets.map((widget) => (
+              <DashboardWidgetCard
+                key={widget.id}
+                widget={widget}
+                scopeContext={scope}
+                onNavigate={onNavigate}
+                variant="secondary"
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* 5. DETAILED ANALYTICAL, COMPLETENESS & ACTION PANELS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* Column 1: Social Category & Demographic Distribution */}
+        {isFeatureEnabled('module.dashboard.sub.analytics_charts') && (
         <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
@@ -230,37 +239,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
             <span>समेकित छात्रवृत्ति पोर्टल सत्यापन</span>
-            <button
-              onClick={() => onNavigate('students')}
-              className="text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline"
-            >
-              छात्र सूची देखें →
-            </button>
+            {isRouteEnabled('students').allowed && (
+              <button
+                onClick={() => onNavigate('students')}
+                className="text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline"
+              >
+                छात्र सूची देखें →
+              </button>
+            )}
           </div>
         </div>
+        )}
 
         {/* Column 2: Data Completeness & Quality Card */}
-        <DataCompletenessCard
-          percentage={scope.dataCompleteness.percentage}
-          status={scope.dataCompleteness.status}
-          passedCount={scope.dataCompleteness.passedCount}
-          totalCount={scope.dataCompleteness.totalCount}
-          pillars={scope.dataCompleteness.pillars}
-          onNavigate={onNavigate}
-        />
+        {isFeatureEnabled('module.dashboard.sub.analytics_charts') && (
+          <DataCompletenessCard
+            percentage={scope.dataCompleteness.percentage}
+            status={scope.dataCompleteness.status}
+            passedCount={scope.dataCompleteness.passedCount}
+            totalCount={scope.dataCompleteness.totalCount}
+            pillars={scope.dataCompleteness.pillars}
+            onNavigate={onNavigate}
+          />
+        )}
 
         {/* Column 3: Pending & Action Required Items Card */}
-        <PendingActionsCard
-          items={scope.pendingActionItems}
-          onNavigate={onNavigate}
-          onOpenQuickAttendance={onOpenQuickAttendance}
-          onOpenQuickMDM={onOpenQuickMDM}
-        />
+        {isFeatureEnabled('module.dashboard.sub.pending_actions') && (
+          <PendingActionsCard
+            items={scope.pendingActionItems}
+            onNavigate={onNavigate}
+            onOpenQuickAttendance={onOpenQuickAttendance}
+            onOpenQuickMDM={onOpenQuickMDM}
+          />
+        )}
       </div>
 
       {/* 6. LOWER WORKSPACE: QUICK ACTIONS & RECENT AUDIT TRAIL */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* Quick Government Actions Panel */}
+        {isFeatureEnabled('module.dashboard.action.quick_entry') && (
         <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
@@ -272,6 +289,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {isRouteEnabled('attendance').allowed && isFeatureEnabled('module.attendance.action.mark_save') && (
               <button
                 onClick={onOpenQuickAttendance || (() => onNavigate('attendance'))}
                 className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-[#EAF6F0] dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 text-left flex items-center justify-between transition-colors group cursor-pointer"
@@ -291,7 +309,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <PlusCircle className="w-4 h-4 text-[#0B6B4B]" />
               </button>
+              )}
 
+              {isRouteEnabled('mdm').allowed && isFeatureEnabled('module.mdm.action.add_edit') && (
               <button
                 onClick={onOpenQuickMDM || (() => onNavigate('mdm'))}
                 className="p-3 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-left flex items-center justify-between transition-colors group cursor-pointer"
@@ -311,8 +331,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <PlusCircle className="w-4 h-4 text-[#FF7A00]" />
               </button>
+              )}
 
-              {scope.currentUser?.role === 'ADMIN' && (
+              {isRouteEnabled('upload').allowed && (
                 <button
                   onClick={() => onNavigate('upload')}
                   className="p-3 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/60 text-left flex items-center justify-between transition-colors cursor-pointer"
@@ -334,6 +355,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               )}
 
+              {isRouteEnabled('export').allowed && (
               <button
                 onClick={() => onNavigate('export')}
                 className="p-3 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/70 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-left flex items-center justify-between transition-colors cursor-pointer"
@@ -353,19 +375,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <ArrowRight className="w-4 h-4 text-purple-600" />
               </button>
+              )}
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
             <span>अक्सर प्रयुक्त शासकीय सेवाएं</span>
-            <button
-              onClick={() => onNavigate('complaints')}
-              className="text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline"
-            >
-              शिकायत दर्ज करें →
-            </button>
+            {isRouteEnabled('complaints').allowed && (
+              <button
+                onClick={() => onNavigate('complaints')}
+                className="text-[#0B6B4B] dark:text-emerald-400 font-bold hover:underline"
+              >
+                शिकायत दर्ज करें →
+              </button>
+            )}
           </div>
         </div>
+        )}
 
         {/* Scoped Recent Audit Log Activity Card */}
         <AuditRecentActivityCard

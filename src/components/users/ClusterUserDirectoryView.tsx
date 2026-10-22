@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { User, UserRole, UserStatus } from '../../types';
 import { exportToCSV, exportToExcel, printReport } from '../../utils/exportUtils';
 
@@ -54,6 +55,7 @@ export const ClusterUserDirectoryView: React.FC<ClusterUserDirectoryViewProps> =
   } = useAuth();
 
   const { schools, activeSchools } = useData();
+  const { isFeatureEnabled } = useFeatureControl();
 
   // Access Guard: only CAC and ADMIN are allowed
   const isAuthorized = currentUser?.role === 'ADMIN' || currentUser?.role === 'CAC';
@@ -464,35 +466,39 @@ export const ClusterUserDirectoryView: React.FC<ClusterUserDirectoryViewProps> =
           </button>
 
           {/* Export Center Actions */}
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="px-3 py-2 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-[#0B6B4B] dark:text-emerald-300 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
-            title="Excel फ़ॉर्मेट में डाउनलोड करें"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Excel</span>
-          </button>
+          {isFeatureEnabled('module.users.action.export') && (
+            <>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="px-3 py-2 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-[#0B6B4B] dark:text-emerald-300 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors"
+                title="Excel फ़ॉर्मेट में डाउनलोड करें"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="px-3 py-2 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5 transition-colors"
-            title="CSV फ़ॉर्मेट में डाउनलोड करें"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>CSV</span>
-          </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-3 py-2 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5 transition-colors"
+                title="CSV फ़ॉर्मेट में डाउनलोड करें"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>CSV</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handlePrintDirectory}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-[#0B6B4B] hover:bg-[#09573D] text-white flex items-center gap-1.5 shadow-xs transition-colors"
-            title="डायरेक्टरी प्रिंट या PDF बनाएं"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>प्रिंट डायरेक्टरी</span>
-          </button>
+              <button
+                type="button"
+                onClick={handlePrintDirectory}
+                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-[#0B6B4B] hover:bg-[#09573D] text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                title="डायरेक्टरी प्रिंट या PDF बनाएं"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>प्रिंट डायरेक्टरी</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1028,34 +1034,40 @@ export const ClusterUserDirectoryView: React.FC<ClusterUserDirectoryViewProps> =
                           </button>
 
                           {/* Quick Manage Button */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUserForManage(u)}
-                            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-[#0B6B4B] dark:text-emerald-400 transition-colors"
-                            title="खाता प्रबंधन एवं सेटिंग्स"
-                          >
-                            <SettingsIcon className="w-3.5 h-3.5" />
-                          </button>
+                          {isFeatureEnabled('module.users.action.activate_deactivate') && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUserForManage(u)}
+                              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-[#0B6B4B] dark:text-emerald-400 transition-colors"
+                              title="खाता प्रबंधन एवं सेटिंग्स"
+                            >
+                              <SettingsIcon className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           {/* Quick Approval / Rejection if pending */}
                           {isPending && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickApprove(u)}
-                                className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors"
-                                title="आवेदन स्वीकृत करें"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRejectDialog(u)}
-                                className="p-1.5 rounded-lg bg-rose-100 text-rose-800 hover:bg-rose-200 transition-colors"
-                                title="आवेदन अस्वीकृत करें"
-                              >
-                                <XCircle className="w-3.5 h-3.5 text-rose-700" />
-                              </button>
+                              {isFeatureEnabled('module.users.action.approve') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickApprove(u)}
+                                  className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors"
+                                  title="आवेदन स्वीकृत करें"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                                </button>
+                              )}
+                              {isFeatureEnabled('module.users.action.reject') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectDialog(u)}
+                                  className="p-1.5 rounded-lg bg-rose-100 text-rose-800 hover:bg-rose-200 transition-colors"
+                                  title="आवेदन अस्वीकृत करें"
+                                >
+                                  <XCircle className="w-3.5 h-3.5 text-rose-700" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

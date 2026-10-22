@@ -7,11 +7,14 @@ import React, { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth, recordSecurityAudit } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
+import { FeatureControlProvider, useFeatureControl } from './context/FeatureControlContext';
+import { FeatureGuard } from './components/common/FeatureGuard';
 
 // Layout and Common Components
 import { SplashScreen } from './components/splash/SplashScreen';
 import { LoginView } from './components/auth/LoginView';
 import { RegisterView } from './components/auth/RegisterView';
+import { MandatoryPasswordChangeView } from './components/auth/MandatoryPasswordChangeView';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { Footer } from './components/common/Footer';
@@ -57,6 +60,7 @@ import { LogOut, ShieldAlert, X } from 'lucide-react';
 const MainAppContent: React.FC = () => {
   const { isAuthenticated, logout, currentUser, isUdiseAllowed, canAccessView } = useAuth();
   const { logActivity, selectedSessionId } = useData();
+  const { isRouteEnabled } = useFeatureControl();
 
   // Splash Screen State
   const [showSplash, setShowSplash] = useState(true);
@@ -411,6 +415,11 @@ const MainAppContent: React.FC = () => {
     );
   }
 
+  // Requirement 2.d: If user must change password on first login, lock the entire app until changed!
+  if (currentUser?.mustChangePassword) {
+    return <MandatoryPasswordChangeView user={currentUser} />;
+  }
+
   const handleSelectSchoolFromList = (udise: string) => {
     if (!isUdiseAllowed(udise)) {
       if (currentUser?.assignedSchoolUdise) {
@@ -444,7 +453,7 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAF8] dark:bg-[#0F1714] text-[#17211C] dark:text-[#F4F7F5] flex flex-col font-sans transition-colors duration-150 w-full overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8FAF8] dark:bg-[#0F1714] text-[#17211C] dark:text-[#F4F7F5] flex flex-col font-sans transition-colors duration-150 w-full max-w-full">
       {/* 1. Official Top & Navigation Header with Context Ribbon */}
       <Header
         onOpenGlobalSearch={() => handleGlobalSearch('')}
@@ -454,7 +463,7 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* 2. Main Workspace Layout */}
-      <div className="flex-1 flex w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 gap-4 md:gap-6 min-w-0">
+      <div className="flex-1 flex w-full max-w-7xl mx-auto px-2.5 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 gap-3 md:gap-5 min-w-0">
         {/* Navigation Sidebar (Desktop visible, Tablet/Mobile Drawer) */}
         <Sidebar
           currentView={currentView}
@@ -465,7 +474,7 @@ const MainAppContent: React.FC = () => {
         />
 
         {/* Dynamic Main Workspace Content */}
-        <main key={selectedSessionId} className="flex-1 min-w-0 w-full space-y-4 md:space-y-6">
+        <main key={selectedSessionId} className="flex-1 min-w-0 max-w-full w-full space-y-4 md:space-y-6">
           {/* Direct Route Access Violation Alert */}
           {routeAccessDeniedMessage && (
               <div className="bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 p-4 rounded-xl flex items-start justify-between gap-3 text-red-800 dark:text-red-200 shadow-sm animate-in fade-in">
@@ -486,7 +495,15 @@ const MainAppContent: React.FC = () => {
               </div>
             )}
 
-          {/* Views Routing */}
+          {/* Views Routing (Protected by Admin Granular Feature & Option Control System) */}
+          <FeatureGuard
+            featureKey={currentView}
+            evaluation={isRouteEnabled(currentView)}
+            mode="page"
+            onReturnToDashboard={
+              currentView !== 'dashboard' ? () => handleNavigate('dashboard') : undefined
+            }
+          >
           {/* Fallback to Dashboard if invalid/legacy route */}
           {(currentView === 'dashboard' ||
             ![
@@ -604,7 +621,7 @@ const MainAppContent: React.FC = () => {
 
           {(currentView === 'export' || currentView === 'export-center') && <ExportCenterView />}
 
-          {(currentView === 'upload' || currentView === 'data-upload') && currentUser?.role === 'ADMIN' && (
+          {(currentView === 'upload' || currentView === 'data-upload') && (
             <DataUploadView onNavigateToModule={(mod) => setCurrentView(mod)} />
           )}
 
@@ -682,6 +699,7 @@ const MainAppContent: React.FC = () => {
           {(currentView === 'literacy-print' || currentView === 'literacy-export') && (
             <ExportCenterView initialTab="LITERACY_FORMS" />
           )}
+          </FeatureGuard>
         </main>
       </div>
 
@@ -733,7 +751,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <DataProvider>
-          <MainAppContent />
+          <FeatureControlProvider>
+            <MainAppContent />
+          </FeatureControlProvider>
         </DataProvider>
       </AuthProvider>
     </ThemeProvider>

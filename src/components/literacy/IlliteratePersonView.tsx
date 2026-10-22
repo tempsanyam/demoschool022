@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { IlliteratePerson } from '../../types/literacy';
 import { triggerPrint } from '../../utils/printUtils';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
@@ -25,6 +26,7 @@ import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
 
 export const IlliteratePersonView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -208,27 +210,31 @@ export const IlliteratePersonView: React.FC = () => {
             </div>
           )}
 
-          <UnifiedPrintButton
-            id="illiterate-unified-print"
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => setIsPrintModalOpen(true)}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Current View"
-            currentViewSubtext="असाक्षर व्यक्ति सूची का स्क्रीन प्रिंट"
-            reportLabel="Report"
-            reportSubtext="असाक्षर चिन्हांकन समेकित सारांश रिपोर्ट"
-            literacyFormLabel="Literacy Form (प्रपत्र - 01)"
-            literacyFormSubtext="आधिकारिक प्रपत्र 01 असाक्षर पंजी A4 प्रारूप"
-            buttonLabel="Print"
-          />
+          {isFeatureEnabled('module.literacy-learners.action.print_export') && (
+            <UnifiedPrintButton
+              id="illiterate-unified-print"
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => setIsPrintModalOpen(true)}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Current View"
+              currentViewSubtext="असाक्षर व्यक्ति सूची का स्क्रीन प्रिंट"
+              reportLabel="Report"
+              reportSubtext="असाक्षर चिन्हांकन समेकित सारांश रिपोर्ट"
+              literacyFormLabel="Literacy Form (प्रपत्र - 01)"
+              literacyFormSubtext="आधिकारिक प्रपत्र 01 असाक्षर पंजी A4 प्रारूप"
+              buttonLabel="Print"
+            />
+          )}
 
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#087F5B] hover:bg-[#076C4D] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>नया असाक्षर व्यक्ति जोड़ें</span>
-          </button>
+          {isFeatureEnabled('module.literacy-learners.action.add') && (
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#087F5B] hover:bg-[#076C4D] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>नया असाक्षर व्यक्ति जोड़ें</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -379,20 +385,24 @@ export const IlliteratePersonView: React.FC = () => {
                   </td>
                   <td className="py-3 px-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        onClick={() => handleOpenModal(person)}
-                        className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
-                        title="संपादित करें"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(person.id)}
-                        className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
-                        title="हटाएं"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isFeatureEnabled('module.literacy-learners.action.edit') && (
+                        <button
+                          onClick={() => handleOpenModal(person)}
+                          className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
+                          title="संपादित करें"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {isFeatureEnabled('module.literacy-learners.action.delete') && (
+                        <button
+                          onClick={() => setDeleteConfirmId(person.id)}
+                          className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
+                          title="हटाएं"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

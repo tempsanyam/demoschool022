@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { AuditLog } from '../../types';
 import { exportToExcel, triggerSystemPrint } from '../../utils/exportUtils';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
@@ -20,6 +21,7 @@ import { SmartExportModal } from '../export/SmartExportModal';
 
 export const AuditLogView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const { auditLogs, selectedSessionId } = useData();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,22 +104,26 @@ export const AuditLogView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="audit-log-unified-print"
-            onPrintCurrentView={() => triggerSystemPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="वर्तमान ऑडिट ट्रेल व सुरक्षा लॉग का त्वरित प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="सुरक्षा व सिस्टम ऑडिट रिपोर्ट / आधिकारिक A4 प्रारूप"
-          />
-          <button
-            onClick={handleExport}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल (Excel)</span>
-          </button>
+          {isFeatureEnabled('module.audit.action.export') && (
+            <>
+              <UnifiedPrintButton
+                id="audit-log-unified-print"
+                onPrintCurrentView={() => triggerSystemPrint()}
+                onPrintReport={() => setIsSmartExportOpen(true)}
+                currentViewLabel="Print Current View"
+                currentViewSubtext="वर्तमान ऑडिट ट्रेल व सुरक्षा लॉग का त्वरित प्रिंट"
+                reportLabel="Print Report"
+                reportSubtext="सुरक्षा व सिस्टम ऑडिट रिपोर्ट / आधिकारिक A4 प्रारूप"
+              />
+              <button
+                onClick={handleExport}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>एक्सेल (Excel)</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

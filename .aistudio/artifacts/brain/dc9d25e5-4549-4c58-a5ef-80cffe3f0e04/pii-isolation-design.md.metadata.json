@@ -1,0 +1,5 @@
+{
+  "summary": "Comprehensive PII Isolation Architecture and Schema Design Document covering Student and Staff sensitive data isolation, subcollection vs top-level trade-offs, Firestore security rules, UI screen impacts, automated migration, and zero-downtime rollback strategy.",
+  "updatedAt": "2026-10-18T09:43:58.952018841Z",
+  "userFacing": true
+}

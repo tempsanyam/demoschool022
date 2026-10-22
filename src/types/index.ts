@@ -18,6 +18,7 @@ export interface User {
   schoolName?: string;
   status: UserStatus;
   approvalStatus?: 'APPROVED' | 'PENDING' | 'REJECTED';
+  mustChangePassword?: boolean;
   rejectionReason?: string;
   deactivationReason?: string;
   deactivatedAt?: string;
@@ -373,12 +374,16 @@ export interface NotificationItem {
   priority: NotificationPriority;
   targetType: NotificationTarget;
   targetSchools?: string[];
+  targetSchoolUdise?: string;
   targetRoles?: UserRole[];
   publishedBy: string;
   publishedByName: string;
   attachmentUrl?: string;
   dueDate?: string;
   readBy: string[]; // user IDs
+  sessionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type ComplaintCategory =
@@ -552,7 +557,13 @@ export type AuditAction =
   | 'USER_DEACTIVATED'
   | 'USER_ACCESS_RESET'
   | 'USER_ROLE_CHANGED'
-  | 'USER_SCHOOL_ASSIGNED';
+  | 'USER_SCHOOL_ASSIGNED'
+  | 'FEATURE_ENABLED'
+  | 'FEATURE_DISABLED'
+  | 'FEATURE_SCHEDULED_DEACTIVATION'
+  | 'FEATURE_MANUAL_REACTIVATION'
+  | 'FEATURE_DURATION_EXTENDED'
+  | 'FEATURE_BULK_RESET';
 
 export interface AuditLog {
   id: string;
@@ -579,6 +590,13 @@ export interface AuditLog {
   details: string;
   ip?: string;
   userRole?: string;
+  // Granular Feature Control Audit Fields
+  featureKey?: string;
+  controlType?: 'FEATURE' | 'SUB_OPTION' | 'ACTION' | string;
+  targetRole?: 'CAC_ONLY' | 'SCHOOL_ONLY' | 'BOTH' | string;
+  startTime?: string | null;
+  endTime?: string | null;
+  adminUid?: string;
 }
 
 export type PreAuthEventType =

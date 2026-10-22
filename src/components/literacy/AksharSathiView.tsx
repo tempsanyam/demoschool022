@@ -20,12 +20,14 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { AksharSathi } from '../../types/literacy';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
 
 export const AksharSathiView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -187,27 +189,31 @@ export const AksharSathiView: React.FC = () => {
             </div>
           )}
 
-          <UnifiedPrintButton
-            id="akshar-sathi-unified-print"
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => setIsPrintModalOpen(true)}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Current View"
-            currentViewSubtext="अक्षर साथी सूची का त्वरित स्क्रीन प्रिंट"
-            reportLabel="Report"
-            reportSubtext="अक्षर साथी समेकित विवरण रिपोर्ट"
-            literacyFormLabel="Literacy Form (प्रपत्र - 02)"
-            literacyFormSubtext="आधिकारिक प्रपत्र 02 अक्षर साथी पंजी A4 प्रारूप"
-            buttonLabel="Print"
-          />
+          {isFeatureEnabled('module.literacy-volunteers.action.print_export') && (
+            <UnifiedPrintButton
+              id="akshar-sathi-unified-print"
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => setIsPrintModalOpen(true)}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Current View"
+              currentViewSubtext="अक्षर साथी सूची का त्वरित स्क्रीन प्रिंट"
+              reportLabel="Report"
+              reportSubtext="अक्षर साथी समेकित विवरण रिपोर्ट"
+              literacyFormLabel="Literacy Form (प्रपत्र - 02)"
+              literacyFormSubtext="आधिकारिक प्रपत्र 02 अक्षर साथी पंजी A4 प्रारूप"
+              buttonLabel="Print"
+            />
+          )}
 
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>नया अक्षर साथी जोड़ें</span>
-          </button>
+          {isFeatureEnabled('module.literacy-volunteers.action.add') && (
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>नया अक्षर साथी जोड़ें</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -309,20 +315,24 @@ export const AksharSathiView: React.FC = () => {
                   </td>
                   <td className="py-3 px-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        onClick={() => handleOpenModal(vol)}
-                        className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 cursor-pointer"
-                        title="संपादित करें"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(vol.id)}
-                        className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
-                        title="हटाएं"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isFeatureEnabled('module.literacy-volunteers.action.edit') && (
+                        <button
+                          onClick={() => handleOpenModal(vol)}
+                          className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 cursor-pointer"
+                          title="संपादित करें"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {isFeatureEnabled('module.literacy-volunteers.action.delete') && (
+                        <button
+                          onClick={() => setDeleteConfirmId(vol.id)}
+                          className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
+                          title="हटाएं"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { Staff } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
@@ -84,6 +85,7 @@ export const TeachersView: React.FC = () => {
   } = useSchoolScope();
 
   const { selectedSessionId, isSessionLocked, assertSessionModifiable } = useData();
+  const { isFeatureEnabled } = useFeatureControl();
 
   // Category Filter & Search States
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('ALL');
@@ -414,7 +416,7 @@ export const TeachersView: React.FC = () => {
 
         {/* Top Actions: + जोड़ें, Search, Filter, Print, PDF, Excel */}
         <div className="flex items-center gap-2 flex-wrap">
-          {canEdit && (
+          {canEdit && isFeatureEnabled('module.teachers.action.add') && (
             <button
               id="btn-open-add-flow"
               type="button"
@@ -433,116 +435,122 @@ export const TeachersView: React.FC = () => {
             </button>
           )}
 
-          <button
-            id="btn-teachers-excel"
-            onClick={handleExportExcel}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Excel स्प्रेडशीट डाउनलोड करें"
-          >
-            <Download className="w-4 h-4" />
-            <span>Excel</span>
-          </button>
+          {isFeatureEnabled('module.teachers.action.print_export') && (
+            <>
+              <button
+                id="btn-teachers-excel"
+                onClick={handleExportExcel}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Excel स्प्रेडशीट डाउनलोड करें"
+              >
+                <Download className="w-4 h-4" />
+                <span>Excel</span>
+              </button>
 
-          <UnifiedPrintButton
-            id="teachers-unified-print"
-            currentSession={selectedSessionId}
-            currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
-            currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter)}
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => {
-              setExportStaffTarget(null);
-              setIsExportModalOpen(true);
-            }}
-            currentViewLabel="Print"
-            currentViewSubtext="वर्तमान शिक्षक एवं स्टाफ सूची का त्वरित प्रिंट"
-            reportLabel="PDF"
-            reportSubtext="स्टाफ सेवा विवरण / आधिकारिक A4 स्मार्ट रिपोर्ट"
-            exportPayload={getStaffExportPayload}
-          />
+              <UnifiedPrintButton
+                id="teachers-unified-print"
+                currentSession={selectedSessionId}
+                currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+                currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter)}
+                onPrintCurrentView={() => window.print()}
+                onPrintReport={() => {
+                  setExportStaffTarget(null);
+                  setIsExportModalOpen(true);
+                }}
+                currentViewLabel="Print"
+                currentViewSubtext="वर्तमान शिक्षक एवं स्टाफ सूची का त्वरित प्रिंट"
+                reportLabel="PDF"
+                reportSubtext="स्टाफ सेवा विवरण / आधिकारिक A4 स्मार्ट रिपोर्ट"
+                exportPayload={getStaffExportPayload}
+              />
+            </>
+          )}
         </div>
       </div>
 
       {/* Category Filter Pills (Tabs): [ सभी ] [ शिक्षक ] [ अन्य स्टाफ ] */}
-      <div className="bg-white dark:bg-[#17211C] p-2.5 sm:p-3 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-gray-600 dark:text-gray-400 px-1">श्रेणी:</span>
+      {isFeatureEnabled('module.teachers.sub.duty_filter') && (
+        <div className="bg-white dark:bg-[#17211C] p-2.5 sm:p-3 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-400 px-1">श्रेणी:</span>
 
-          <button
-            id="btn-filter-category-all"
-            type="button"
-            onClick={() => setCategoryFilter('ALL')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'ALL'
-                ? 'bg-[#0B6B4B] text-white shadow-sm'
-                : 'bg-gray-50 dark:bg-[#121B17] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>सभी ({counts.total})</span>
-          </button>
+            <button
+              id="btn-filter-category-all"
+              type="button"
+              onClick={() => setCategoryFilter('ALL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                categoryFilter === 'ALL'
+                  ? 'bg-[#0B6B4B] text-white shadow-sm'
+                  : 'bg-gray-50 dark:bg-[#121B17] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>सभी ({counts.total})</span>
+            </button>
 
-          <button
-            id="btn-filter-category-teacher"
-            type="button"
-            onClick={() => setCategoryFilter('TEACHER')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'TEACHER'
-                ? 'bg-purple-700 text-white shadow-sm'
-                : 'bg-gray-50 dark:bg-[#121B17] text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60'
-            }`}
-          >
-            <GraduationCap className="w-3.5 h-3.5" />
-            <span>👨‍🏫 शिक्षक ({counts.teachers})</span>
-          </button>
+            <button
+              id="btn-filter-category-teacher"
+              type="button"
+              onClick={() => setCategoryFilter('TEACHER')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                categoryFilter === 'TEACHER'
+                  ? 'bg-purple-700 text-white shadow-sm'
+                  : 'bg-gray-50 dark:bg-[#121B17] text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>👨‍🏫 शिक्षक ({counts.teachers})</span>
+            </button>
 
-          <button
-            id="btn-filter-category-other-staff"
-            type="button"
-            onClick={() => setCategoryFilter('OTHER_STAFF')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'OTHER_STAFF'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-gray-50 dark:bg-[#121B17] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>👤 अन्य स्टाफ ({counts.otherStaff})</span>
-          </button>
+            <button
+              id="btn-filter-category-other-staff"
+              type="button"
+              onClick={() => setCategoryFilter('OTHER_STAFF')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                categoryFilter === 'OTHER_STAFF'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-gray-50 dark:bg-[#121B17] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>👤 अन्य स्टाफ ({counts.otherStaff})</span>
+            </button>
+          </div>
+
+          {/* View Mode Toggle: Table / Cards */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              title="तालिका प्रारूप (Table View)"
+            >
+              <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              title="कार्ड ग्रिड प्रारूप (Card View)"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-
-        {/* View Mode Toggle: Table / Cards */}
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setViewMode('table')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              viewMode === 'table'
-                ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-            title="तालिका प्रारूप (Table View)"
-          >
-            <TableIcon className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('cards')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              viewMode === 'cards'
-                ? 'bg-white dark:bg-[#17211C] text-gray-900 dark:text-white shadow-xs'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-            title="कार्ड ग्रिड प्रारूप (Card View)"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Filter and Search Toolbar */}
-      <div className="bg-white dark:bg-[#17211C] p-3.5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#17211C] p-3.5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 min-w-0">
         {/* Search input */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -562,13 +570,13 @@ export const TeachersView: React.FC = () => {
         </div>
 
         {/* School & Status Dropdowns */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           {!isSchoolRestricted && (
-            <div className="relative min-w-[180px]">
+            <div className="relative flex-1 sm:flex-initial min-w-0 sm:min-w-[160px] max-w-full">
               <select
                 value={selectedSchoolFilter}
                 onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none truncate"
               >
                 <option value="ALL">सभी संकुल विद्यालय ({schools.length})</option>
                 {schools.map((s) => (
@@ -580,11 +588,11 @@ export const TeachersView: React.FC = () => {
             </div>
           )}
 
-          <div className="relative min-w-[130px]">
+          <div className="relative flex-1 sm:flex-initial min-w-0 sm:min-w-[120px] max-w-full">
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121B17] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B] appearance-none truncate"
             >
               <option value="ALL">सभी स्थिति</option>
               <option value="ACTIVE">सक्रिय (Active)</option>
@@ -741,38 +749,44 @@ export const TeachersView: React.FC = () => {
                               <Eye className="w-3.5 h-3.5" />
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => setPrintingStaff(item.rawStaff)}
-                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
-                              title="प्रिंट करें (Print)"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
+                            {isFeatureEnabled('module.teachers.action.print_export') && (
+                              <button
+                                type="button"
+                                onClick={() => setPrintingStaff(item.rawStaff)}
+                                className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
+                                title="प्रिंट करें (Print)"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                             {canEdit && (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEdit(item)}
-                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
-                                  title="संपादित करें (Edit)"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDeleteTarget({
-                                      id: item.id,
-                                      name: item.name,
-                                    });
-                                  }}
-                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
-                                  title="हटाएं (Delete)"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {isFeatureEnabled('module.teachers.action.edit') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(item)}
+                                    className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
+                                    title="संपादित करें (Edit)"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {isFeatureEnabled('module.teachers.action.delete') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDeleteTarget({
+                                        id: item.id,
+                                        name: item.name,
+                                      });
+                                    }}
+                                    className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                                    title="हटाएं (Delete)"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -867,34 +881,40 @@ export const TeachersView: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setPrintingStaff(item.rawStaff)}
-                        className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
-                        title="प्रिंट करें"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
+                      {isFeatureEnabled('module.teachers.action.print_export') && (
+                        <button
+                          onClick={() => setPrintingStaff(item.rawStaff)}
+                          className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors cursor-pointer"
+                          title="प्रिंट करें"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {canEdit && (
                         <>
-                          <button
-                            onClick={() => handleOpenEdit(item)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
-                            title="संपादित करें"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeleteTarget({
-                                id: item.id,
-                                name: item.name,
-                              });
-                            }}
-                            className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
-                            title="हटाएं"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {isFeatureEnabled('module.teachers.action.edit') && (
+                            <button
+                              onClick={() => handleOpenEdit(item)}
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors cursor-pointer"
+                              title="संपादित करें"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {isFeatureEnabled('module.teachers.action.delete') && (
+                            <button
+                              onClick={() => {
+                                setDeleteTarget({
+                                  id: item.id,
+                                  name: item.name,
+                                });
+                              }}
+                              className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                              title="हटाएं"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

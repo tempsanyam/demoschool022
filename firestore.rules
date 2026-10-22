@@ -73,23 +73,78 @@ service cloud.firestore {
         (!('details' in data) || (data.details is string && data.details.size() <= 300));
     }
 
-    // Connection ping test
+    // ===============================================================
+    // Server-Side Feature Control Enforcement Helpers (Zero-Trust)
+    // ===============================================================
+    function isScheduleWindowBlocking(sched) {
+      return sched != null &&
+        sched.get('enabled', false) == true &&
+        sched.get('endTimeMs', null) is number &&
+        request.time.toMillis() < sched.get('endTimeMs', 0) &&
+        (!(sched.get('startTimeMs', null) is number) || request.time.toMillis() >= sched.get('startTimeMs', 0));
+    }
+
+    function isScheduleExpiredWithoutAutoReactivate(sched) {
+      return sched != null &&
+        sched.get('enabled', false) == true &&
+        sched.get('autoReactivate', true) == false &&
+        sched.get('endTimeMs', null) is number &&
+        request.time.toMillis() >= sched.get('endTimeMs', 0);
+    }
+
+    function isRuleAllowedForRole(rule, isCacRole) {
+      let baseEnabled = isCacRole ? rule.get('cacEnabled', true) : rule.get('schoolEnabled', true);
+      let sched = isCacRole ? rule.get('scheduleCac', null) : rule.get('scheduleSchool', null);
+      return rule == null ||
+        (baseEnabled == true && !isScheduleWindowBlocking(sched) && !isScheduleExpiredWithoutAutoReactivate(sched)) ||
+        (baseEnabled == false && sched != null && sched.get('enabled', false) == true && sched.get('autoReactivate', true) == true && sched.get('endTimeMs', null) is number && request.time.toMillis() >= sched.get('endTimeMs', 0));
+    }
+
+    function isFeatureRulesMapAllowed(rulesMap, featureKey, parentKey, isCacRole) {
+      return rulesMap == null ||
+        ((parentKey == '' || !(parentKey in rulesMap) || isRuleAllowedForRole(rulesMap[parentKey], isCacRole)) &&
+         (!(featureKey in rulesMap) || isRuleAllowedForRole(rulesMap[featureKey], isCacRole)));
+    }
+
+    function isFeatureAllowed(featureKey, parentKey) {
+      let fcPath = /databases/$(database)/documents/systemSettings/feature_controls;
+      return isAdmin() ||
+        !exists(fcPath) ||
+        isFeatureRulesMapAllowed(
+          get(fcPath).data.get('rules', null),
+          featureKey,
+          parentKey,
+          isCAC()
+        );
+    }
+
+    function isFeatureAllowedWithSubOption(featureKey, subOptionKey, moduleKey) {
+      let fcPath = /databases/$(database)/documents/systemSettings/feature_controls;
+      return isAdmin() ||
+        !exists(fcPath) ||
+        (isFeatureRulesMapAllowed(get(fcPath).data.get('rules', null), subOptionKey, moduleKey, isCAC()) &&
+         isFeatureRulesMapAllowed(get(fcPath).data.get('rules', null), featureKey, subOptionKey, isCAC()));
+    }
+
+    // Connection ping test (Read-only connectivity probe)
     match /_connection_test/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if false;
     }
 
     // Schools Collection - Protected Soft Delete Architecture (Hard delete strictly disabled)
     match /schools/{schoolId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && (isAdmin() || isCAC());
+      allow create: if isSignedIn() && (isAdmin() || (isCAC() && isFeatureAllowed('module.schools.action.add', 'module.schools')));
       // Physical delete is strictly disabled to prevent accidental data loss (Soft Delete Architecture)
       allow delete: if false;
       // Controlled update: ADMIN & CAC can update/archive/restore/activate/deactivate;
       // SCHOOL role can only update their own school's profile fields and cannot alter status or isDeleted
       allow update: if isSignedIn() && (
         isAdmin() ||
-        isCAC() ||
+        (isCAC() && isFeatureAllowed('module.schools.action.edit', 'module.schools')) ||
         (isMySchool(schoolId) &&
+         isFeatureAllowed('module.schools.action.edit', 'module.schools') &&
          request.resource.data.status == resource.data.status &&
          request.resource.data.isDeleted == resource.data.isDeleted)
       );
@@ -98,80 +153,312 @@ service cloud.firestore {
     // Student Masters Collection
     match /studentMasters/{studentId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCAC() || isSchool();
+      allow create: if isAdmin() || ((isCAC() || isSchool()) && isFeatureAllowed('module.students.action.add', 'module.students'));
+      allow update: if isAdmin() || ((isCAC() || isSchool()) && isFeatureAllowed('module.students.action.edit', 'module.students'));
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.students.action.delete', 'module.students'));
     }
 
     // Student Academic Records Collection
     match /studentAcademicRecords/{recordId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
-      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.students.action.add', 'module.students'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.students.action.edit', 'module.students'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.students.action.delete', 'module.students'));
     }
 
     // Staff Masters Collection
     match /staffMasters/{staffId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCAC() || isSchool();
+      allow create: if isAdmin() || ((isCAC() || isSchool()) && isFeatureAllowed('module.teachers.action.add', 'module.teachers'));
+      allow update: if isAdmin() || ((isCAC() || isSchool()) && isFeatureAllowed('module.teachers.action.edit', 'module.teachers'));
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.teachers.action.delete', 'module.teachers'));
     }
 
     // Staff Postings Collection
     match /staffPostings/{postingId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
-      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.teachers.action.add', 'module.teachers'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.teachers.action.edit', 'module.teachers'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.teachers.action.delete', 'module.teachers'));
     }
 
     // Daily Attendance Records
     match /attendance/{attendanceId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
-      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.attendance.action.mark_save', 'module.attendance'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.attendance.action.mark_save', 'module.attendance'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.attendance.action.mark_save', 'module.attendance'));
     }
 
     // Daily MDM Records
     match /mdmRecords/{mdmId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
-      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.mdm.action.add_edit', 'module.mdm'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.mdm.action.add_edit', 'module.mdm'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.mdm.action.delete', 'module.mdm'));
     }
 
     // Government Work & Orders
     match /governmentWork/{workId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || resource.data.schoolUdise == null || isMySchool(resource.data.schoolUdise));
-      allow create, update: if isAdmin() || isCAC() || (isSchool() && isMySchool(request.resource.data.schoolUdise));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isAdmin() || ((isCAC() || (isSchool() && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.work.action.add', 'module.work'));
+      allow update: if isAdmin() || (
+        (isCAC() || (isSchool() && isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+        (isFeatureAllowed('module.work.action.update_status', 'module.work') && isFeatureAllowed('module.work.action.edit', 'module.work'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.work.action.delete', 'module.work'));
     }
 
     // Complaints & Grievances
     match /complaints/{complaintId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn();
-      allow update: if isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise);
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && (isAdmin() || ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.complaints.action.create', 'module.complaints')));
+      allow update: if isAdmin() || (
+        (isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+        isFeatureAllowed('module.complaints.action.edit', 'module.complaints') &&
+        isFeatureAllowed('module.complaints.action.resolve', 'module.complaints') &&
+        isFeatureAllowed('module.complaints.action.close', 'module.complaints') &&
+        isFeatureAllowed('module.complaints.action.reopen', 'module.complaints')
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.complaints.action.delete', 'module.complaints'));
     }
 
     // Documents Metadata
     match /documents/{documentId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || isCAC() || isSchool();
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        isCAC() ||
+        !('schoolUdise' in resource.data) ||
+        resource.data.schoolUdise == null ||
+        resource.data.schoolUdise == '' ||
+        resource.data.schoolUdise == 'ALL' ||
+        isMySchool(resource.data.schoolUdise)
+      );
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isSchool() && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowed('module.documents.action.upload', 'module.documents'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isSchool() && isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowed('module.documents.action.upload', 'module.documents'))
+      );
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isSchool() && isMySchool(resource.data.schoolUdise))) &&
+         isFeatureAllowed('module.documents.action.delete', 'module.documents'))
+      );
     }
 
     // Dedicated MDM Rasoiya Master
     match /rasoiya/{rasoiyaId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
-      allow create: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(request.resource.data.schoolUdise));
-      allow update: if isSignedIn() && (isAdmin() || isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise)));
-      allow delete: if isAdmin() || isCAC();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) && isFeatureAllowed('module.rasoiya.action.add', 'module.rasoiya'))
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) && isFeatureAllowed('module.rasoiya.action.edit', 'module.rasoiya'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.rasoiya.action.delete', 'module.rasoiya'));
+    }
+
+    // Self-Help Groups (SHG / स्वयं सहायता समूह)
+    match /shgs/{shgId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(shgId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowed('module.shg.action.add', 'module.shg'))
+      );
+      allow update: if isSignedIn() && isValidId(shgId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowed('module.shg.action.edit', 'module.shg'))
+      );
+      allow delete: if isSignedIn() && isValidId(shgId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowed('module.shg.action.delete', 'module.shg'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — Survey Registers
+    match /literacyRegisters/{registerId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(registerId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-register.action.edit', 'module.literacy.sub.registers', 'module.literacy'))
+      );
+      allow update: if isSignedIn() && isValidId(registerId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowedWithSubOption('module.literacy-register.action.edit', 'module.literacy.sub.registers', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(registerId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-register.action.delete', 'module.literacy.sub.registers', 'module.literacy'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — Illiterate Learners
+    match /illiteratePersons/{personId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(personId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-learners.action.add', 'module.literacy.sub.learners', 'module.literacy'))
+      );
+      allow update: if isSignedIn() && isValidId(personId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowedWithSubOption('module.literacy-learners.action.edit', 'module.literacy.sub.learners', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(personId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-learners.action.delete', 'module.literacy.sub.learners', 'module.literacy'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — Akshar Sathi Volunteers
+    match /aksharSathis/{volunteerId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(volunteerId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-volunteers.action.add', 'module.literacy.sub.volunteers', 'module.literacy'))
+      );
+      allow update: if isSignedIn() && isValidId(volunteerId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowedWithSubOption('module.literacy-volunteers.action.edit', 'module.literacy.sub.volunteers', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(volunteerId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-volunteers.action.delete', 'module.literacy.sub.volunteers', 'module.literacy'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — FLNAT Exam Cycles
+    match /examCycles/{cycleId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(cycleId) && (
+        isAdmin() ||
+        (isCAC() && isFeatureAllowedWithSubOption('module.literacy-exams.action.add_edit', 'module.literacy.sub.exams', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(cycleId) && (
+        isAdmin() ||
+        (isCAC() && isFeatureAllowedWithSubOption('module.literacy-exams.action.delete', 'module.literacy.sub.exams', 'module.literacy'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — FLNAT Exam Results
+    match /literacyExamResults/{resultId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(resultId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-exams.action.add_edit', 'module.literacy.sub.exams', 'module.literacy'))
+      );
+      allow update: if isSignedIn() && isValidId(resultId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowedWithSubOption('module.literacy-exams.action.add_edit', 'module.literacy.sub.exams', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(resultId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-exams.action.delete', 'module.literacy.sub.exams', 'module.literacy'))
+      );
+    }
+
+    // ULLAS Navbharat Literacy — Supporting Institutions
+    match /supportingInstitutions/{institutionId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.schoolUdise));
+      allow create: if isSignedIn() && isValidId(institutionId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-partners.action.add', 'module.literacy.sub.institutions', 'module.literacy'))
+      );
+      allow update: if isSignedIn() && isValidId(institutionId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.schoolUdise) && isMySchool(request.resource.data.schoolUdise))) &&
+         isFeatureAllowedWithSubOption('module.literacy-partners.action.edit', 'module.literacy.sub.institutions', 'module.literacy'))
+      );
+      allow delete: if isSignedIn() && isValidId(institutionId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(resource.data.schoolUdise)) &&
+         isFeatureAllowedWithSubOption('module.literacy-partners.action.delete', 'module.literacy.sub.institutions', 'module.literacy'))
+      );
+    }
+
+    // Cluster Notifications & Notice Board
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        isCAC() ||
+        (isSchool() && (
+          !('targetType' in resource.data) ||
+          resource.data.targetType == 'ALL' ||
+          ('targetSchoolUdise' in resource.data && (resource.data.targetSchoolUdise == 'ALL' || isMySchool(resource.data.targetSchoolUdise))) ||
+          ('targetSchools' in resource.data && resource.data.targetSchools is list && getUserData().assignedSchoolUdise in resource.data.targetSchools) ||
+          ('targetRoles' in resource.data && resource.data.targetRoles is list && 'SCHOOL' in resource.data.targetRoles)
+        ))
+      );
+      allow create: if isSignedIn() && isValidId(notificationId) && (
+        isAdmin() ||
+        (isCAC() && isFeatureAllowed('module.notifications.action.create', 'module.notifications'))
+      );
+      allow update: if isSignedIn() && isValidId(notificationId) && (
+        isAdmin() ||
+        (isCAC() && (
+          isFeatureAllowed('module.notifications.action.create', 'module.notifications') ||
+          isFeatureAllowed('module.notifications.action.mark_read', 'module.notifications')
+        )) ||
+        (isSchool() &&
+         isFeatureAllowed('module.notifications.action.mark_read', 'module.notifications') &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt']))
+      );
+      allow delete: if isSignedIn() && isValidId(notificationId) && (
+        isAdmin() ||
+        (isCAC() && isFeatureAllowed('module.notifications.action.delete', 'module.notifications'))
+      );
     }
 
     // Physical Facilities
     match /facilities/{facilityId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCAC() || (isSchool() && isMySchool(facilityId));
+      allow write: if isAdmin() || ((isCAC() || (isSchool() && isMySchool(facilityId))) && isFeatureAllowed('module.facilities.action.update', 'module.facilities'));
     }
 
     // Academic Sessions Definition
@@ -183,10 +470,28 @@ service cloud.firestore {
     // User Accounts Master
     match /users/{userId} {
       allow read: if isSignedIn() && (isAdmin() || isCAC() || request.auth.uid == userId);
-      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isCAC());
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        (isCAC() && request.resource.data.role != 'ADMIN') ||
+        (request.auth.uid == userId && (
+          request.resource.data.role == 'SCHOOL' ||
+          (request.resource.data.role == 'ADMIN' &&
+           request.auth.token.email == 'sanyamjain88@malguwa.edu.in' &&
+           request.resource.data.username == 'SANYAMJAIN88') ||
+          (request.resource.data.role == 'CAC' &&
+           ((request.auth.token.email == 'sanjayjain1979@malguwa.edu.in' && request.resource.data.username == 'Sanjayjain1979') ||
+            (request.auth.token.email == 'sanmatijain99@malguwa.edu.in' && request.resource.data.username == 'Sanmatijain99')))
+        ))
+      );
       allow update: if isAdmin() ||
-                      (isCAC() && resource.data.role != 'ADMIN' && request.resource.data.role != 'ADMIN') ||
-                      (isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role);
+                      (isCAC() && resource.data.role != 'ADMIN' && request.resource.data.role != 'ADMIN' &&
+                       isFeatureAllowed('module.users.action.approve', 'module.users') &&
+                       isFeatureAllowed('module.users.action.reject', 'module.users') &&
+                       isFeatureAllowed('module.users.action.activate_deactivate', 'module.users')) ||
+                      (isSignedIn() && request.auth.uid == userId &&
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.get('assignedSchoolUdise', null) == resource.data.get('assignedSchoolUdise', null) &&
+                       isFeatureAllowed('module.profile.action.edit_profile', 'module.profile'));
       allow delete: if isAdmin();
     }
 

@@ -8,6 +8,49 @@ import {
   getDocumentStyle,
   toCanonicalDocumentStyle,
 } from './documentStyle';
+import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
+import { resolvePrintFeatureKey } from './printUtils';
+
+function getCurrentUserRoleForExport(): 'ADMIN' | 'CAC' | 'SCHOOL' | undefined {
+  try {
+    const raw = localStorage.getItem('jsk_malguwa_current_user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed?.role;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
+function assertExportAllowed(payloadOrTitle: ExportDataPayload | string, actionType: 'EXCEL' | 'CSV' | 'PDF' | 'PRINT'): void {
+  const role = typeof payloadOrTitle === 'object'
+    ? (payloadOrTitle.userRole as 'ADMIN' | 'CAC' | 'SCHOOL' | undefined) || getCurrentUserRoleForExport()
+    : getCurrentUserRoleForExport();
+  const titleStr = typeof payloadOrTitle === 'object'
+    ? (payloadOrTitle.reportType || payloadOrTitle.title || payloadOrTitle.fileName)
+    : payloadOrTitle;
+  const featureKey = resolvePrintFeatureKey(titleStr);
+  const fcCheck = enforceRuntimeFeatureAccess(featureKey, role, `${actionType} एक्सपोर्ट (${titleStr})`);
+  if (!fcCheck.allowed) {
+    throw new Error(`[FEATURE_DISABLED: ${featureKey}] ${fcCheck.message}`);
+  }
+  if (featureKey === 'module.reports.action.print_export') {
+    const formatKey =
+      actionType === 'PDF'
+        ? 'module.reports.action.pdf'
+        : actionType === 'EXCEL'
+        ? 'module.reports.action.excel'
+        : actionType === 'CSV'
+        ? 'module.reports.action.csv'
+        : 'module.reports.action.print';
+    const formatCheck = enforceRuntimeFeatureAccess(formatKey, role, `${actionType} प्रतिवेदन डाउनलोड (${titleStr})`);
+    if (!formatCheck.allowed) {
+      throw new Error(`[FEATURE_DISABLED: ${formatKey}] ${formatCheck.message}`);
+    }
+  }
+}
 
 export interface SummaryMetric {
   label: string;
@@ -73,6 +116,7 @@ export type { PrintDocumentOptions, PrintElementOptions } from './printUtils';
  * Export to Excel (.xlsx) with UTF-8 Unicode support and custom column widths
  */
 export const exportToExcel = (payload: ExportDataPayload) => {
+  assertExportAllowed(payload, 'EXCEL');
   const { title, subtitle, schoolName, udise, session, summaryMetrics, headers, rows, fileName, additionalSheets, options } = payload;
   const opts = {
     includeHeader: options?.includeHeader ?? true,
@@ -178,6 +222,7 @@ export const exportToExcel = (payload: ExportDataPayload) => {
  * Export to CSV with UTF-8 BOM encoding for Hindi / Unicode script support
  */
 export const exportToCSV = (payload: ExportDataPayload) => {
+  assertExportAllowed(payload, 'CSV');
   const { title, subtitle, schoolName, udise, session, summaryMetrics, headers, rows, fileName, options } = payload;
   const opts = {
     includeHeader: options?.includeHeader ?? true,
@@ -259,6 +304,7 @@ export const exportMultiSheetExcel = (
   sheetList: { sheetName: string; title?: string; headers: string[]; rows: (string | number)[][] }[],
   fileName: string
 ) => {
+  assertExportAllowed(fileName, 'EXCEL');
   const wb = XLSX.utils.book_new();
   sheetList.forEach((sheet) => {
     const data = [
@@ -391,6 +437,7 @@ export const generateUnicodePDFFromElement = async (
   options?: ExportOptions,
   reportStyle?: DocumentStyle | PrintReportStyle
 ): Promise<void> => {
+  assertExportAllowed(fileName, 'PDF');
   const element = typeof elementIdOrRef === 'string' ? document.getElementById(elementIdOrRef) : elementIdOrRef;
   if (!element) {
     const errorMsg = `PDF Export Error: Document element "${elementIdOrRef}" not found in DOM.`;
@@ -605,6 +652,7 @@ export const exportToUnicodePDF = async (
   payload: ExportDataPayload,
   reportStyle?: DocumentStyle | PrintReportStyle
 ): Promise<void> => {
+  assertExportAllowed(payload, 'PDF');
   const canonicalStyle = toCanonicalDocumentStyle(reportStyle || getDocumentStyle());
   const orientation = payload.orientation || (payload.headers.length > 7 ? 'landscape' : 'portrait');
   const opts = {

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { institutionConfig } from '../../config/institutionConfig';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
@@ -28,6 +29,7 @@ interface LiteracyDashboardViewProps {
 
 export const LiteracyDashboardView: React.FC<LiteracyDashboardViewProps> = ({ onNavigate }) => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const {
     schools,
@@ -151,57 +153,71 @@ export const LiteracyDashboardView: React.FC<LiteracyDashboardViewProps> = ({ on
 
         {/* Quick Module Buttons Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-4 mt-4 border-t border-white/10">
-          <button
-            onClick={() => onNavigate('literacy-register')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>साक्षरता पंजी</span>
-          </button>
-          <button
-            onClick={() => onNavigate('literacy-learners')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>असाक्षर व्यक्ति</span>
-          </button>
-          <button
-            onClick={() => onNavigate('literacy-volunteers')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>अक्षर साथी</span>
-          </button>
-          <button
-            onClick={() => onNavigate('literacy-exams')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>परीक्षा परिणाम</span>
-          </button>
-          <button
-            onClick={() => onNavigate('literacy-partners')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>सहयोगी संस्थाएँ</span>
-          </button>
-          <button
-            onClick={() => onNavigate('literacy-reports')}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
-          >
-            <span>रिपोर्ट्स</span>
-          </button>
-          <UnifiedPrintButton
-            id="literacy-dashboard-unified-print"
-            currentSchoolName={selectedSchool?.name || currentUser?.assignedSchoolName}
-            currentUdise={currentSchoolUdise}
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => onNavigate('export')}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="डैशबोर्ड स्क्रीन एवं सांख्यिकी का त्वरित प्रिंट"
-            reportLabel="Report (General Center)"
-            reportSubtext="शाला, शिक्षक एवं संकुल महा-डोजियर प्रिंट केंद्र"
-            literacyFormLabel="Literacy Form (ULLAS)"
-            literacyFormSubtext="उल्लास नवभारत साक्षरता आधिकारिक प्रपत्र (01 से 05)"
-            exportPayload={getUllasDashboardExportPayload}
-          />
+          {isFeatureEnabled('module.literacy.sub.registers') && (
+            <button
+              onClick={() => onNavigate('literacy-register')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>साक्षरता पंजी</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.sub.learners') && (
+            <button
+              onClick={() => onNavigate('literacy-learners')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>असाक्षर व्यक्ति</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.sub.volunteers') && (
+            <button
+              onClick={() => onNavigate('literacy-volunteers')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>अक्षर साथी</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.sub.exams') && (
+            <button
+              onClick={() => onNavigate('literacy-exams')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>परीक्षा परिणाम</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.sub.institutions') && (
+            <button
+              onClick={() => onNavigate('literacy-partners')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>सहयोगी संस्थाएँ</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.sub.reports') && (
+            <button
+              onClick={() => onNavigate('literacy-reports')}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer text-center"
+            >
+              <span>रिपोर्ट्स</span>
+            </button>
+          )}
+          {isFeatureEnabled('module.literacy.action.print_export') && (
+            <UnifiedPrintButton
+              id="literacy-dashboard-unified-print"
+              currentSchoolName={selectedSchool?.name || currentUser?.assignedSchoolName}
+              currentUdise={currentSchoolUdise}
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => onNavigate('export')}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="डैशबोर्ड स्क्रीन एवं सांख्यिकी का त्वरित प्रिंट"
+              reportLabel="Report (General Center)"
+              reportSubtext="शाला, शिक्षक एवं संकुल महा-डोजियर प्रिंट केंद्र"
+              literacyFormLabel="Literacy Form (ULLAS)"
+              literacyFormSubtext="उल्लास नवभारत साक्षरता आधिकारिक प्रपत्र (01 से 05)"
+              exportPayload={getUllasDashboardExportPayload}
+            />
+          )}
         </div>
       </div>
 

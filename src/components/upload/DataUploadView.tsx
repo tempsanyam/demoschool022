@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import {
   UploadDataType,
   DuplicateHandlingMode,
@@ -92,6 +93,7 @@ export const DataUploadView: React.FC<DataUploadViewProps> = ({ onNavigateToModu
   } = useData();
 
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
 
   // Active Main Tab
   const [activeTab, setActiveTab] = useState<'UPLOAD' | 'MANUAL' | 'HISTORY' | 'ERRORS' | 'TEMPLATES'>('UPLOAD');
@@ -472,18 +474,20 @@ export const DataUploadView: React.FC<DataUploadViewProps> = ({ onNavigateToModu
             <span>B. एकल प्रविष्टि (Manual Entry)</span>
           </button>
 
-          <button
-            id="tab-btn-upload-history"
-            onClick={() => setActiveTab('HISTORY')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeTab === 'HISTORY'
-                ? 'bg-white text-slate-900 shadow-md scale-[1.02]'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>C. अपलोड इतिहास (Upload History)</span>
-          </button>
+          {isFeatureEnabled('module.upload.sub.history') && (
+            <button
+              id="tab-btn-upload-history"
+              onClick={() => setActiveTab('HISTORY')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeTab === 'HISTORY'
+                  ? 'bg-white text-slate-900 shadow-md scale-[1.02]'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>C. अपलोड इतिहास (Upload History)</span>
+            </button>
+          )}
 
           <button
             id="tab-btn-validation-errors"
@@ -1097,17 +1101,19 @@ export const DataUploadView: React.FC<DataUploadViewProps> = ({ onNavigateToModu
                     रद्द करें
                   </button>
 
-                  <button
-                    id="confirm-and-import-btn"
-                    onClick={handleConfirmImport}
-                    disabled={isImporting || processedResult.validCount === 0}
-                    className="flex items-center gap-2 px-7 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>
-                      {isImporting ? 'आयात हो रहा है...' : `डेटाबेस में आयात करें (${processedResult.validCount} रिकॉर्ड्स)`}
-                    </span>
-                  </button>
+                  {isFeatureEnabled('module.upload.action.import_file') && (
+                    <button
+                      id="confirm-and-import-btn"
+                      onClick={handleConfirmImport}
+                      disabled={isImporting || processedResult.validCount === 0}
+                      className="flex items-center gap-2 px-7 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>
+                        {isImporting ? 'आयात हो रहा है...' : `डेटाबेस में आयात करें (${processedResult.validCount} रिकॉर्ड्स)`}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

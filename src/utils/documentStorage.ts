@@ -2,6 +2,7 @@
  * Utility for persisting, retrieving, validating, and downloading real document binaries
  * in the JSK Digital Archive using IndexedDB with in-memory & localStorage safe fallbacks.
  */
+import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
 
 const DB_NAME = 'JSK_Digital_Archive_DB';
 const DB_VERSION = 1;
@@ -14,6 +15,30 @@ export interface StoredDocumentBinary {
   fileSize: number;
   dataUrl: string;
   savedAt: string;
+  schoolUdise?: string;
+  uploadedByRole?: 'ADMIN' | 'CAC' | 'SCHOOL';
+}
+
+function getCurrentRuntimeUserContext(): {
+  role?: 'ADMIN' | 'CAC' | 'SCHOOL';
+  assignedSchoolUdise?: string;
+} {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved =
+      window.localStorage.getItem('jsk_malguwa_current_user') ||
+      window.localStorage.getItem('jsk_auth_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        role: parsed?.role,
+        assignedSchoolUdise: parsed?.assignedSchoolUdise,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return {};
 }
 
 // In-memory cache for ultra-fast access during active session
@@ -152,8 +177,35 @@ export function validateDocumentFile(file: File): FileValidationResult {
 export async function saveDocumentBinary(
   id: string,
   file: File,
-  dataUrl?: string
+  dataUrl?: string,
+  schoolUdise?: string
 ): Promise<StoredDocumentBinary> {
+  const userCtx = getCurrentRuntimeUserContext();
+  const fcCheck = enforceRuntimeFeatureAccess(
+    'module.documents.action.upload',
+    userCtx.role,
+    'दस्तावेज बाइनरी अपलोड करना (saveDocumentBinary)'
+  );
+  if (!fcCheck.allowed) {
+    throw new Error(fcCheck.message);
+  }
+
+  const effectiveUdise =
+    userCtx.role === 'SCHOOL'
+      ? userCtx.assignedSchoolUdise || 'ALL'
+      : schoolUdise || 'ALL';
+
+  if (
+    userCtx.role === 'SCHOOL' &&
+    schoolUdise &&
+    schoolUdise !== 'ALL' &&
+    schoolUdise !== userCtx.assignedSchoolUdise
+  ) {
+    throw new Error(
+      `[403 Forbidden] ACCESS_DENIED: विद्यालय उपयोगकर्ता (${userCtx.assignedSchoolUdise}) अन्य विद्यालय (${schoolUdise}) के लिए दस्तावेज़ बाइनरी सहेज नहीं सकता।`
+    );
+  }
+
   const resolvedDataUrl = dataUrl || (await readFileAsDataURL(file));
   const record: StoredDocumentBinary = {
     id,
@@ -162,6 +214,8 @@ export async function saveDocumentBinary(
     fileSize: file.size,
     dataUrl: resolvedDataUrl,
     savedAt: new Date().toISOString(),
+    schoolUdise: effectiveUdise,
+    uploadedByRole: userCtx.role,
   };
 
   // Cache in memory
@@ -186,37 +240,73 @@ export async function saveDocumentBinary(
 }
 
 /**
- * Retrieve file binary from memory cache or IndexedDB
+ * Retrieve file binary from memory cache or IndexedDB with strict role & UDISE authorization
  */
-export async function getDocumentBinary(id: string): Promise<StoredDocumentBinary | null> {
+export async function getDocumentBinary(
+  id: string,
+  expectedSchoolUdise?: string,
+  userRole?: 'ADMIN' | 'CAC' | 'SCHOOL',
+  assignedSchoolUdise?: string
+): Promise<StoredDocumentBinary | null> {
+  const userCtx = getCurrentRuntimeUserContext();
+  const effectiveRole = userRole || userCtx.role;
+  const effectiveAssignedUdise = assignedSchoolUdise || userCtx.assignedSchoolUdise;
+
+  // Enforce parent module.documents access before returning binary
+  const moduleCheck = enforceRuntimeFeatureAccess(
+    'module.documents',
+    effectiveRole,
+    'दस्तावेज बाइनरी एक्सेस (getDocumentBinary)'
+  );
+  if (!moduleCheck.allowed) {
+    throw new Error(moduleCheck.message);
+  }
+
+  let record: StoredDocumentBinary | null = null;
+
   // Check memory cache first
   if (memoryCache.has(id)) {
-    return memoryCache.get(id)!;
-  }
+    record = memoryCache.get(id)!;
+  } else {
+    // Check IndexedDB
+    try {
+      const db = await openArchiveDB();
+      record = await new Promise<StoredDocumentBinary | null>((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
 
-  // Check IndexedDB
-  try {
-    const db = await openArchiveDB();
-    const record = await new Promise<StoredDocumentBinary | null>((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(id);
+        request.onsuccess = () => {
+          resolve(request.result || null);
+        };
+        request.onerror = () => reject(request.error);
+      });
 
-      request.onsuccess = () => {
-        resolve(request.result || null);
-      };
-      request.onerror = () => reject(request.error);
-    });
-
-    if (record) {
-      memoryCache.set(id, record);
-      return record;
+      if (record) {
+        memoryCache.set(id, record);
+      }
+    } catch (err) {
+      console.warn('Could not retrieve file from IndexedDB:', err);
     }
-  } catch (err) {
-    console.warn('Could not retrieve file from IndexedDB:', err);
   }
 
-  return null;
+  if (!record) return null;
+
+  // Verify UDISE scoping for SCHOOL users on binary access
+  const docUdise = record.schoolUdise || expectedSchoolUdise;
+  if (
+    effectiveRole === 'SCHOOL' &&
+    docUdise &&
+    docUdise !== 'ALL' &&
+    effectiveAssignedUdise &&
+    docUdise !== effectiveAssignedUdise
+  ) {
+    throw new Error(
+      `[403 Forbidden] ACCESS_DENIED: विद्यालय (${effectiveAssignedUdise}) को अन्य विद्यालय (${docUdise}) की दस्तावेज़ बाइनरी पढ़ने या डाउनलोड करने की अनुमति नहीं है।`
+    );
+  }
+
+  return record;
 }
 
 /**
@@ -243,13 +333,51 @@ export async function deleteDocumentBinary(id: string): Promise<boolean> {
 }
 
 /**
+ * Wipe all file binaries from IndexedDB and memory cache (for complete clean slate)
+ */
+export async function clearAllDocumentBinaries(): Promise<boolean> {
+  memoryCache.clear();
+  try {
+    const db = await openArchiveDB();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.clear();
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    return true;
+  } catch (err) {
+    console.warn('Could not clear IndexedDB document archive:', err);
+    return false;
+  }
+}
+
+/**
  * Trigger native browser file download from Data URL / Blob
  */
 export function downloadFile(
   dataUrl: string,
   fileName: string,
-  mimeType?: string
+  mimeType?: string,
+  userRole?: 'ADMIN' | 'CAC' | 'SCHOOL'
 ) {
+  let role = userRole;
+  if (!role && typeof window !== 'undefined') {
+    try {
+      const saved =
+        window.localStorage.getItem('jsk_malguwa_current_user') ||
+        window.localStorage.getItem('jsk_user');
+      if (saved) role = JSON.parse(saved)?.role;
+    } catch {
+      // ignore
+    }
+  }
+  const fcCheck = enforceRuntimeFeatureAccess('module.documents.action.download', role, 'दस्तावेज डाउनलोड करना (downloadFile)');
+  if (!fcCheck.allowed) {
+    throw new Error(fcCheck.message);
+  }
   try {
     // Convert data URL to Blob for more reliable download in sandboxed environments
     const arr = dataUrl.split(',');

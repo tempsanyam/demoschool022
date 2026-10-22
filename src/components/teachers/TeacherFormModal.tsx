@@ -44,25 +44,22 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
   const defaultUdise = currentSchoolUdise || schools[0]?.udise || '';
 
   const getFreshTeacherState = (): Partial<Staff> => {
-    const genId = `EMP-TCH-${Math.floor(100 + Math.random() * 900)}`;
-    const genUid = `UID-MP-${Math.floor(1000 + Math.random() * 9000)}`;
-
     return {
-      employeeId: genId,
-      employeeCode: genId,
-      uniqueId: genUid,
+      employeeId: '',
+      employeeCode: '',
+      uniqueId: '',
       name: '',
       gender: 'MALE',
-      designation: 'माध्यमिक शिक्षक',
-      teacherType: 'वर्ग 2',
-      subject: 'गणित',
-      qualification: 'B.Sc., B.Ed.',
+      designation: 'प्राथमिक शिक्षक',
+      teacherType: 'वर्ग 3',
+      subject: '',
+      qualification: '',
       mobile: '',
       email: '',
       caste: '',
       aadhaarNumber: '',
       voterIdNumber: '',
-      joiningDate: '2016-07-15',
+      joiningDate: '',
       postingDate: new Date().toISOString().split('T')[0],
       isBlo: false,
       isCensus: false,
@@ -70,7 +67,7 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
       employmentType: 'REGULAR',
       assignedSchoolUdise: defaultUdise,
       status: 'ACTIVE',
-      dob: '1988-06-15',
+      dob: '',
       category: 'OBC',
     };
   };

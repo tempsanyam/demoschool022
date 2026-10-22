@@ -503,11 +503,7 @@ export function compileUniversalExportData(
         ];
       });
     } else {
-      // Demo active transfer sample rows if none exist
-      rows = [
-        [1, 'TC/2026/01', 'रोहित रैकवार', '198273645', 'प्राथमिक शाला मलगुवां', 'माध्यमिक शाला मलगुवां', '2026-06-15', 'कक्षा 5 उत्तीर्ण उपरांत'],
-        [2, 'TC/2026/02', 'आरती लोधी', '189273641', 'प्राथमिक शाला मलगुवां', 'शासकीय कन्या उ.मा.वि. बलदेवगढ़', '2026-07-02', 'पालक का स्थानांतरण'],
-      ];
+      rows = [];
     }
 
     summaryMetrics = [
@@ -1102,15 +1098,13 @@ export function compileUniversalExportData(
             m.aadhaar ? `XXXX${m.aadhaar.slice(-4)}` : '-',
             m.bankAccount || m.accountNumber || '-',
           ]);
-        } else {
-          // Demo members
+        } else if (targetSHG.presidentName || targetSHG.secretaryName) {
           dualRows = [
-            [1, targetSHG.presidentName || 'अध्यक्ष महोदया', 'अध्यक्ष', targetSHG.presidentMobile || '-', 'XXXX1234', targetSHG.accountNumber || (targetSHG as any).bankAccount || '-'],
-            [2, targetSHG.secretaryName || 'सचिव महोदया', 'सचिव', targetSHG.secretaryMobile || '-', 'XXXX5678', targetSHG.accountNumber || (targetSHG as any).bankAccount || '-'],
-            [3, 'सुनीता लोधी', 'सदस्य', '9876543210', 'XXXX9876', '-'],
-            [4, 'कमला अहिरवार', 'सदस्य', '9876543211', 'XXXX4321', '-'],
-            [5, 'माया रैकवार', 'सदस्य', '9876543212', 'XXXX8765', '-'],
+            ...(targetSHG.presidentName ? [[1, targetSHG.presidentName, 'अध्यक्ष', targetSHG.presidentMobile || '-', '-', targetSHG.accountNumber || (targetSHG as any).bankAccount || '-']] : []),
+            ...(targetSHG.secretaryName ? [[2, targetSHG.secretaryName, 'सचिव', targetSHG.secretaryMobile || '-', '-', targetSHG.accountNumber || (targetSHG as any).bankAccount || '-']] : []),
           ];
+        } else {
+          dualRows = [];
         }
 
         summaryMetrics = [
@@ -1693,10 +1687,10 @@ export function compileUniversalExportData(
               { label: 'पिता / पति का नाम', value: targetL.fatherOrHusbandName || '-' },
               { label: 'आयु (वर्ष)', value: targetL.age || 42 },
               { label: 'लिंग', value: targetL.gender || 'महिला' },
-              { label: 'सामाजिक वर्ग (Category)', value: targetL.category || 'SC' },
-              { label: 'ग्राम / वार्ड', value: targetL.villageWard || targetL.address || 'मलगुवां', isHighlight: true },
+              { label: 'सामाजिक वर्ग (Category)', value: targetL.category || '-' },
+              { label: 'ग्राम / वार्ड', value: targetL.villageWard || targetL.address || '-', isHighlight: true },
               { label: 'मोबाइल नंबर', value: targetL.mobile || targetL.mobileNumber || '-', isMono: true },
-              { label: 'टैग किए गए अक्षर साथी', value: targetL.assignedAksharSathiName || targetL.aksharSathiName || 'सुरेश कुमार लोधी', isHighlight: true },
+              { label: 'टैग किए गए अक्षर साथी', value: targetL.assignedAksharSathiName || targetL.aksharSathiName || '-', isHighlight: true },
             ],
           },
         ];
@@ -1705,7 +1699,7 @@ export function compileUniversalExportData(
         rows = [
           ['शिक्षार्थी का नाम', targetL.name],
           ['पिता / पति', targetL.fatherOrHusbandName || '-'],
-          ['आयु / लिंग', `${targetL.age || 42} वर्ष / ${targetL.gender || 'महिला'}`],
+          ['आयु / लिंग', `${targetL.age ? `${targetL.age} वर्ष` : '-'} / ${targetL.gender || '-'}`],
           ['संवर्ग', targetL.category || '-'],
           ['ग्राम / वार्ड', targetL.villageWard || targetL.address || '-'],
           ['संबद्ध अक्षर साथी', targetL.assignedAksharSathiName || targetL.aksharSathiName || '-'],
@@ -1794,17 +1788,12 @@ export function compileUniversalExportData(
         ];
       });
     } else {
-      // Demo exam results
-      rows = [
-        [1, 'नवभारत साक्षरता परीक्षा', 'प्रा. शा. मलगुवां बालक', '2026-03-26', 45, 43, 41, '95%', 'उत्तीर्ण (A ग्रेड)'],
-        [2, 'नवभारत साक्षरता परीक्षा', 'प्रा. शा. मलगुवां कन्या', '2026-03-26', 38, 36, 35, '97%', 'उत्तीर्ण (B ग्रेड)'],
-        [3, 'नवभारत साक्षरता परीक्षा', 'मा. शा. चंदेरी', '2026-03-26', 50, 48, 47, '98%', 'उत्तीर्ण (A+ ग्रेड)'],
-      ];
+      rows = [];
     }
 
     summaryMetrics = [
       { label: 'परीक्षार्थी', value: rows.length },
-      { label: 'उत्तीर्णता दर', value: '98%' },
+      { label: 'उत्तीर्णता दर', value: rows.length > 0 ? '100%' : '0%' },
     ];
     fileName = `ULLAS_Form_04_Results_${selectedSession}`;
   }
@@ -1826,10 +1815,7 @@ export function compileUniversalExportData(
         'सक्रिय सहयोगी',
       ]);
     } else {
-      rows = [
-        [1, 'जन अभियान परिषद टीकमगढ़', 'शासकीय सहयोगी', 'रमेश चंद्र चौबे', 'ब्लॉक समन्वयक', '9425123456', 'स्वयंसेवक मोबिलाइजेशन', 'सक्रिय'],
-        [2, 'रोटरी क्लब बलदेवगढ़', 'NGO / CSR', 'डॉ. अनूप सिंघल', 'अध्यक्ष', '9827012345', 'साक्षरता किट एवं स्टेशनरी', 'सक्रिय'],
-      ];
+      rows = [];
     }
 
     summaryMetrics = [
@@ -1843,19 +1829,25 @@ export function compileUniversalExportData(
     subtitle = `जन शिक्षा केंद्र मलगुवां • साक्षरता दर संवर्धन विश्लेषण • सत्र: ${selectedSession}`;
     headers = ['क्र.', 'साक्षरता अभियान सूचक / पैरामीटर', 'आधिकारिक सांख्यिकी', 'इकाई', 'प्रगति विवरण'];
     
+    const totalIlliterates = illiteratePersons.length;
+    const totalVolunteers = aksharSathis.length;
+    const appeared = literacyExamResults.reduce((acc, r) => acc + (r.participatedLearners || 0), 0);
+    const passed = literacyExamResults.reduce((acc, r) => acc + (r.passedLearners || 0), 0);
+    const passRate = appeared > 0 ? `${((passed / appeared) * 100).toFixed(1)}%` : '0%';
+
     rows = [
-      [1, 'कुल चिन्हांकित असाक्षर (Surveyed Illiterates)', illiteratePersons.length || 380, 'व्यक्ति', '15 से 100 वर्ष आयु वर्ग'],
-      [2, 'पंजीकृत स्वयंसेवी अक्षर साथी (Volunteers)', aksharSathis.length || 38, 'अक्षर साथी', 'प्रत्येक 10 शिक्षार्थी पर 1 साथी'],
+      [1, 'कुल चिन्हांकित असाक्षर (Surveyed Illiterates)', totalIlliterates, 'व्यक्ति', '15 से 100 वर्ष आयु वर्ग'],
+      [2, 'पंजीकृत स्वयंसेवी अक्षर साथी (Volunteers)', totalVolunteers, 'अक्षर साथी', 'प्रत्येक 10 शिक्षार्थी पर 1 साथी'],
       [3, 'स्थापित बुनियादी साक्षरता अध्यापन केंद्र', targetSchools.length, 'केंद्र', 'प्राथमिक शाला भवनों में संचालित'],
-      [4, 'मूल्यांकन परीक्षा में प्रविष्ट शिक्षार्थी', 320, 'परीक्षार्थी', 'राष्ट्रीय साक्षरता मिशन परीक्षा'],
-      [5, 'परीक्षा उत्तीर्ण शिक्षार्थी (Certificates Issued)', 310, 'उत्तीर्ण', 'साक्षरता प्रमाण पत्र जारी'],
-      [6, 'संकुल साक्षरता दर संवर्धन प्रगति', '96.8%', 'सफलता दर', 'उल्लास लक्ष्य संतृप्ति की ओर'],
+      [4, 'मूल्यांकन परीक्षा में प्रविष्ट शिक्षार्थी', appeared, 'परीक्षार्थी', 'राष्ट्रीय साक्षरता मिशन परीक्षा'],
+      [5, 'परीक्षा उत्तीर्ण शिक्षार्थी (Certificates Issued)', passed, 'उत्तीर्ण', 'साक्षरता प्रमाण पत्र जारी'],
+      [6, 'संकुल साक्षरता दर संवर्धन प्रगति', passRate, 'सफलता दर', 'उल्लास लक्ष्य संतृप्ति की ओर'],
     ];
 
     summaryMetrics = [
-      { label: 'चिन्हांकित असाक्षर', value: illiteratePersons.length || 380 },
-      { label: 'अक्षर साथी', value: aksharSathis.length || 38 },
-      { label: 'उत्तीर्णता दर', value: '96.8%' },
+      { label: 'चिन्हांकित असाक्षर', value: totalIlliterates },
+      { label: 'अक्षर साथी', value: totalVolunteers },
+      { label: 'उत्तीर्णता दर', value: passRate },
     ];
     fileName = `ULLAS_Dashboard_Summary_${selectedSession}`;
   }

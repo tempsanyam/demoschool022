@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
+import { FeatureGuard } from '../common/FeatureGuard';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { Student, Gender, SocialCategory } from '../../types';
 import { StudentTransferRecord } from '../../types/session';
@@ -40,6 +42,7 @@ import { StudentPrintModal } from './StudentPrintModal';
 
 export const StudentsView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled, getFeatureEvaluation } = useFeatureControl();
   const {
     students: scopedStudents,
     schools,
@@ -225,44 +228,43 @@ export const StudentsView: React.FC = () => {
     setEditingStudent(null);
     setFormTab('BASIC');
     setFormError('');
-    const genSamagra = `${Math.floor(100000000 + Math.random() * 900000000)}`;
     const effectiveUdise = currentSchoolUdise || (schools[0]?.udise || '');
 
     setFormData({
-      samagraId: genSamagra,
-      apaarId: `APAAR-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      apaarStatus: 'Available / Generated',
+      samagraId: '',
+      apaarId: '',
+      apaarStatus: 'Pending',
       panNumber: '',
-      srNumber: `SR-${Date.now().toString().slice(-4)}`,
-      scholarNo: `SCH-${Date.now().toString().slice(-4)}`,
+      srNumber: '',
+      scholarNo: '',
       name: '',
       fatherName: '',
       motherName: '',
       guardianName: '',
-      dob: '2015-05-10',
+      dob: '',
       gender: 'बालक',
       category: 'OBC',
-      class: '5',
+      class: '1',
       section: 'A',
       schoolUdise: effectiveUdise,
-      village: 'मलगुवां',
-      address: 'ग्राम मलगुवां, विकासखंड बलदेवगढ़',
+      village: '',
+      address: '',
       isCwsn: false,
       cwsnType: '',
-      mobile: '9826012345',
+      mobile: '',
       session: selectedSessionId,
       admissionDate: new Date().toISOString().split('T')[0],
-      isAadhaarVerified: true,
-      isKycVerified: true,
+      isAadhaarVerified: false,
+      isKycVerified: false,
       bankAccount: {
-        accountNumber: `38901234${Math.floor(1000 + Math.random() * 9000)}`,
-        ifsc: 'SBIN0001234',
-        bankName: 'भारतीय स्टेट बैंक',
+        accountNumber: '',
+        ifsc: '',
+        bankName: '',
       },
       benefits: {
-        freeUniform: true,
-        freeBooks: true,
-        scholarship: true,
+        freeUniform: false,
+        freeBooks: false,
+        scholarship: false,
       },
     });
     setIsModalOpen(true);
@@ -568,33 +570,37 @@ export const StudentsView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="students-unified-print"
-            currentSession={selectedSessionId}
-            currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
-            currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter)}
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => {
-              setExportStudentTarget(null);
-              setIsExportModalOpen(true);
-            }}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="वर्तमान विद्यार्थी तालिका एवं फ़िल्टर का प्रिंट निकालें"
-            reportLabel="Print Report"
-            reportSubtext="विद्यार्थी रोस्टर / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-            exportPayload={getStudentExportPayload}
-          />
-          <button
-            id="open-tc-register-button"
-            type="button"
-            onClick={() => setIsTcRegisterModalOpen(true)}
-            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            title="शाला स्थानांतरण प्रमाण-पत्र (TC) पंजी देखें"
-          >
-            <ArrowRightLeft className="w-4 h-4" />
-            <span>TC पंजी ({studentTransfers.length})</span>
-          </button>
-          {canMutate && (
+          {isFeatureEnabled('module.students.action.print_export') && (
+            <UnifiedPrintButton
+              id="students-unified-print"
+              currentSession={selectedSessionId}
+              currentSchoolName={currentSchool?.name || currentSchool?.hindiName}
+              currentUdise={isSchoolRestricted ? currentSchoolUdise : (selectedSchoolFilter === 'ALL' ? undefined : selectedSchoolFilter)}
+              onPrintCurrentView={() => triggerPrint()}
+              onPrintReport={() => {
+                setExportStudentTarget(null);
+                setIsExportModalOpen(true);
+              }}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="वर्तमान विद्यार्थी तालिका एवं फ़िल्टर का प्रिंट निकालें"
+              reportLabel="Print Report"
+              reportSubtext="विद्यार्थी रोस्टर / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+              exportPayload={getStudentExportPayload}
+            />
+          )}
+          {isFeatureEnabled('module.students.sub.promotion_tc') && (
+            <button
+              id="open-tc-register-button"
+              type="button"
+              onClick={() => setIsTcRegisterModalOpen(true)}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              title="शाला स्थानांतरण प्रमाण-पत्र (TC) पंजी देखें"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              <span>TC पंजी ({studentTransfers.length})</span>
+            </button>
+          )}
+          {canMutate && isFeatureEnabled('module.students.sub.promotion_tc') && (
             <button
               onClick={() => setIsBulkPromotionOpen(true)}
               className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -604,7 +610,7 @@ export const StudentsView: React.FC = () => {
               <span>कक्षा प्रोन्नति</span>
             </button>
           )}
-          {canMutate && (
+          {canMutate && isFeatureEnabled('module.students.action.add') && (
             <button
               onClick={handleOpenAdd}
               className="px-4 py-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -616,8 +622,10 @@ export const StudentsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
+      {/* Filter Bar & Students Data Table */}
+      {isFeatureEnabled('module.students.sub.directory') ? (
+        <>
+          <div className="bg-white dark:bg-[#17211C] p-4 rounded-xl border border-[#DDE7E2] dark:border-[#2B3933] flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
           <input
@@ -763,7 +771,7 @@ export const StudentsView: React.FC = () => {
                                 </span>
                               ) : null}
 
-                              {canStudentMutate && (
+                              {canStudentMutate && isFeatureEnabled('module.students.action.edit') && (
                                 <button
                                   onClick={() => handleOpenEdit(st)}
                                   className="p-1.5 text-gray-500 hover:text-[#0B6B4B] hover:bg-emerald-50 rounded transition-colors"
@@ -773,7 +781,7 @@ export const StudentsView: React.FC = () => {
                                 </button>
                               )}
 
-                              {(() => {
+                              {isFeatureEnabled('module.students.sub.promotion_tc') && (() => {
                                 const stTc = studentTransfers.find(
                                   (t) => t.studentId === st.id && (t.oldSessionId === selectedSessionId || !selectedSessionId)
                                 );
@@ -814,15 +822,17 @@ export const StudentsView: React.FC = () => {
                                 <History className="w-3.5 h-3.5" />
                               </button>
 
-                              <button
-                                onClick={() => setPrintStudentTarget(st)}
-                                className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
-                                title="🖨 विद्यार्थी का डेटा प्रिंट / PDF डाउनलोड करें"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </button>
+                              {isFeatureEnabled('module.students.action.print_export') && (
+                                <button
+                                  onClick={() => setPrintStudentTarget(st)}
+                                  className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
+                                  title="🖨 विद्यार्थी का डेटा प्रिंट / PDF डाउनलोड करें"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              )}
 
-                              {canStudentMutate && (
+                              {canStudentMutate && isFeatureEnabled('module.students.action.delete') && (
                                 <button
                                   onClick={() => setDeleteTargetId(st.id)}
                                   className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -857,6 +867,12 @@ export const StudentsView: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      ) : (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-8 text-center text-amber-800 dark:text-amber-300">
+          <p className="font-bold text-sm">विद्यार्थी पंजीयन तालिका (Student Directory) वर्तमान में प्रशासक द्वारा निष्क्रिय है।</p>
+        </div>
+      )}
 
       {/* Add / Edit Student Modal */}
       {isModalOpen && (

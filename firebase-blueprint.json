@@ -152,6 +152,132 @@
       },
       "required": ["id", "name", "schoolUdise"]
     },
+    "SHG": {
+      "title": "SHG",
+      "description": "Self-Help Group (स्व-सहायता समूह) master record linked to school MDM and uniform distribution",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "presidentName": { "type": "string", "maxLength": 150 },
+        "secretaryName": { "type": "string", "maxLength": 150 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "schoolUdise"]
+    },
+    "LiteracyRegister": {
+      "title": "LiteracyRegister",
+      "description": "ULLAS Navbharat Literacy Program village/school survey register front page",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "schoolUdise", "schoolName"]
+    },
+    "IlliteratePerson": {
+      "title": "IlliteratePerson",
+      "description": "ULLAS Navbharat Literacy Program identified adult illiterate learner record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "name": { "type": "string", "maxLength": 150 },
+        "fatherOrHusbandName": { "type": "string", "maxLength": 150 },
+        "gender": { "type": "string", "maxLength": 32 },
+        "category": { "type": "string", "maxLength": 32 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "schoolUdise", "name"]
+    },
+    "AksharSathi": {
+      "title": "AksharSathi",
+      "description": "ULLAS Navbharat Literacy Program volunteer teacher (Akshar Sathi) master record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "name": { "type": "string", "maxLength": 150 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "schoolUdise", "name"]
+    },
+    "ExamCycle": {
+      "title": "ExamCycle",
+      "description": "ULLAS FLNAT Exam Cycle master configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "examCycleName": { "type": "string", "maxLength": 200 },
+        "examName": { "type": "string", "maxLength": 200 },
+        "examDate": { "type": "string", "maxLength": 32 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "isCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "examName", "examDate"]
+    },
+    "LiteracyExamResult": {
+      "title": "LiteracyExamResult",
+      "description": "ULLAS FLNAT Exam Result compilation per school and exam cycle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "examCycleId": { "type": "string", "maxLength": 128 },
+        "examName": { "type": "string", "maxLength": 200 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "schoolUdise", "examName"]
+    },
+    "SupportingInstitution": {
+      "title": "SupportingInstitution",
+      "description": "ULLAS Navbharat Literacy Program partner/supporting institution record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "schoolUdise": { "type": "string", "pattern": "^[0-9]{11}$" },
+        "institutionName": { "type": "string", "maxLength": 200 },
+        "sessionId": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "schoolUdise", "institutionName"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "Cluster notice board, circular, and official notification item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 250 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "date": { "type": "string", "maxLength": 32 },
+        "priority": { "type": "string", "enum": ["HIGH", "MEDIUM", "NORMAL"] },
+        "targetType": { "type": "string", "enum": ["ALL", "SELECTED_SCHOOLS", "SELECTED_ROLES"] },
+        "publishedBy": { "type": "string", "maxLength": 128 },
+        "publishedByName": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "title", "message", "date", "priority", "targetType"]
+    },
     "AuditLog": {
       "title": "AuditLog",
       "description": "Central system mutation audit trail record",
@@ -258,6 +384,38 @@
     "/rasoiya/{rasoiyaId}": {
       "entity": "Rasoiya",
       "description": "MDM cook-cum-helper dedicated master records"
+    },
+    "/shgs/{shgId}": {
+      "entity": "SHG",
+      "description": "Self-Help Group (स्व-सहायता समूह) master records per school"
+    },
+    "/literacyRegisters/{registerId}": {
+      "entity": "LiteracyRegister",
+      "description": "ULLAS Navbharat Literacy Program village/school survey registers"
+    },
+    "/illiteratePersons/{personId}": {
+      "entity": "IlliteratePerson",
+      "description": "ULLAS Navbharat Literacy Program identified adult learners"
+    },
+    "/aksharSathis/{volunteerId}": {
+      "entity": "AksharSathi",
+      "description": "ULLAS Navbharat Literacy Program volunteer teachers (Akshar Sathis)"
+    },
+    "/examCycles/{cycleId}": {
+      "entity": "ExamCycle",
+      "description": "ULLAS FLNAT Exam Cycle master configurations"
+    },
+    "/literacyExamResults/{resultId}": {
+      "entity": "LiteracyExamResult",
+      "description": "ULLAS FLNAT Exam Result compilations per school and cycle"
+    },
+    "/supportingInstitutions/{institutionId}": {
+      "entity": "SupportingInstitution",
+      "description": "ULLAS Navbharat Literacy Program partner and supporting institutions"
+    },
+    "/notifications/{notificationId}": {
+      "entity": "NotificationItem",
+      "description": "Cluster notice board, circulars, and targeted school notifications"
     },
     "/facilities/{facilityId}": {
       "entity": "School",

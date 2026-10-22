@@ -14,11 +14,13 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
 
 export const LiteracyReportView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -116,19 +118,21 @@ export const LiteracyReportView: React.FC = () => {
             </div>
           )}
 
-          <UnifiedPrintButton
-            id="literacy-report-unified-print"
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => setIsPrintModalOpen(true)}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="वर्तमान साक्षरता रिपोर्ट व सांख्यिकी तालिका का प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="साक्षरता विश्लेषण / आधिकारिक A4 रिपोर्ट प्रारूप"
-            literacyFormLabel="ULLAS Forms (01-05)"
-            literacyFormSubtext="ULLAS आधिकारिक प्रपत्र 01 से 05 प्रिंट करें"
-            buttonLabel="Print"
-          />
+          {isFeatureEnabled('module.literacy-reports.action.print_export') && (
+            <UnifiedPrintButton
+              id="literacy-report-unified-print"
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => setIsPrintModalOpen(true)}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="वर्तमान साक्षरता रिपोर्ट व सांख्यिकी तालिका का प्रिंट"
+              reportLabel="Print Report"
+              reportSubtext="साक्षरता विश्लेषण / आधिकारिक A4 रिपोर्ट प्रारूप"
+              literacyFormLabel="ULLAS Forms (01-05)"
+              literacyFormSubtext="ULLAS आधिकारिक प्रपत्र 01 से 05 प्रिंट करें"
+              buttonLabel="Print"
+            />
+          )}
         </div>
       </div>
 

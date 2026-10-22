@@ -20,12 +20,14 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { LiteracyExamResult, ExamCycle } from '../../types/literacy';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyFormPrintModal } from './LiteracyFormPrintModal';
 
 export const ExamResultsView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     selectedSchoolUdise,
@@ -540,7 +542,7 @@ export const ExamResultsView: React.FC = () => {
             </div>
           )}
 
-          {!isSchoolUser && (
+          {!isSchoolUser && isFeatureEnabled('module.literacy-exams.action.add_edit') && (
             <button
               disabled={isCurrentSessionLocked}
               onClick={() => !isCurrentSessionLocked && setIsCycleModalOpen(true)}
@@ -556,34 +558,38 @@ export const ExamResultsView: React.FC = () => {
             </button>
           )}
 
-          <UnifiedPrintButton
-            id="exam-results-unified-print"
-            onPrintCurrentView={() => window.print()}
-            onPrintReport={() => setIsPrintModalOpen(true)}
-            onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
-            currentViewLabel="Current View"
-            currentViewSubtext="परीक्षा परिणाम सूची का त्वरित स्क्रीन प्रिंट"
-            reportLabel="Report"
-            reportSubtext="मूल्यांकन परीक्षा समेकित परिणाम रिपोर्ट"
-            literacyFormLabel="Literacy Form (प्रपत्र - 04)"
-            literacyFormSubtext="आधिकारिक प्रपत्र 04 परीक्षा परिणाम A4 प्रारूप"
-            buttonLabel="Print"
-          />
+          {isFeatureEnabled('module.literacy-exams.action.print_export') && (
+            <UnifiedPrintButton
+              id="exam-results-unified-print"
+              onPrintCurrentView={() => window.print()}
+              onPrintReport={() => setIsPrintModalOpen(true)}
+              onPrintLiteracyForm={() => setIsPrintModalOpen(true)}
+              currentViewLabel="Current View"
+              currentViewSubtext="परीक्षा परिणाम सूची का त्वरित स्क्रीन प्रिंट"
+              reportLabel="Report"
+              reportSubtext="मूल्यांकन परीक्षा समेकित परिणाम रिपोर्ट"
+              literacyFormLabel="Literacy Form (प्रपत्र - 04)"
+              literacyFormSubtext="आधिकारिक प्रपत्र 04 परीक्षा परिणाम A4 प्रारूप"
+              buttonLabel="Print"
+            />
+          )}
 
-          <button
-            id="btn-add-exam-result"
-            disabled={isCurrentSessionLocked}
-            onClick={() => handleOpenModal()}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors ${
-              isCurrentSessionLocked
-                ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-300 dark:border-gray-700'
-                : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
-            }`}
-            title={isCurrentSessionLocked ? `सत्र ${selectedSessionId} लॉक/अभिलेखीय है - नवीन प्रविष्टि प्रतिबंधित` : 'परिणाम प्रविष्टि दर्ज करें'}
-          >
-            {isCurrentSessionLocked ? <Lock className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
-            <span>परिणाम प्रविष्टि दर्ज करें</span>
-          </button>
+          {isFeatureEnabled('module.literacy-exams.action.add_edit') && (
+            <button
+              id="btn-add-exam-result"
+              disabled={isCurrentSessionLocked}
+              onClick={() => handleOpenModal()}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors ${
+                isCurrentSessionLocked
+                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-300 dark:border-gray-700'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+              }`}
+              title={isCurrentSessionLocked ? `सत्र ${selectedSessionId} लॉक/अभिलेखीय है - नवीन प्रविष्टि प्रतिबंधित` : 'परिणाम प्रविष्टि दर्ज करें'}
+            >
+              {isCurrentSessionLocked ? <Lock className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+              <span>परिणाम प्रविष्टि दर्ज करें</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -824,20 +830,24 @@ export const ExamResultsView: React.FC = () => {
                         }
                         return (
                           <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleOpenModal(res)}
-                              className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-gray-700 dark:text-gray-300 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer"
-                              title="संपादित करें"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(res.id)}
-                              className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
-                              title="हटाएं"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isFeatureEnabled('module.literacy-exams.action.add_edit') && (
+                              <button
+                                onClick={() => handleOpenModal(res)}
+                                className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-gray-700 dark:text-gray-300 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer"
+                                title="संपादित करें"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isFeatureEnabled('module.literacy-exams.action.delete') && (
+                              <button
+                                onClick={() => setDeleteConfirmId(res.id)}
+                                className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-700 dark:text-gray-300 hover:text-rose-700 dark:hover:text-rose-300 cursor-pointer"
+                                title="हटाएं"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         );
                       })()}

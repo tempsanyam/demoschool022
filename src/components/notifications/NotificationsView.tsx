@@ -12,10 +12,12 @@ import {
   Building2,
   Users,
   Eye,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { NotificationItem } from '../../types';
 
 export const NotificationsView: React.FC = () => {
@@ -23,11 +25,13 @@ export const NotificationsView: React.FC = () => {
     notifications,
     addNotification,
     markNotificationAsRead,
+    deleteNotification,
     schools,
     selectedSchoolUdise,
     selectedSessionId
   } = useData();
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'URGENT' | 'HIGH' | 'NORMAL'>('ALL');
@@ -151,7 +155,7 @@ export const NotificationsView: React.FC = () => {
           </div>
         </div>
 
-        {isCAC && (
+        {isCAC && isFeatureEnabled('module.notifications.action.create') && (
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 bg-[#0B6B4B] hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors shrink-0"
@@ -282,7 +286,7 @@ export const NotificationsView: React.FC = () => {
                   </div>
 
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0 pt-2 sm:pt-0">
-                    {!isRead && currentUser && (
+                    {!isRead && currentUser && isFeatureEnabled('module.notifications.action.mark_read') && (
                       <button
                         onClick={() => markNotificationAsRead(notif.id)}
                         className="flex items-center gap-1.5 bg-[#EAF6F0] dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 hover:bg-[#0B6B4B] hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
@@ -296,6 +300,16 @@ export const NotificationsView: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         पढ़ा गया
                       </span>
+                    )}
+                    {isCAC && isFeatureEnabled('module.notifications.action.delete') && (
+                      <button
+                        onClick={() => deleteNotification(notif.id)}
+                        className="flex items-center gap-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors"
+                        title="सूचना हटाएं"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        हटाएं
+                      </button>
                     )}
                   </div>
                 </div>

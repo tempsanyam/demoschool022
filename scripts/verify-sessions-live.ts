@@ -51,8 +51,8 @@ async function runLiveVerification() {
   console.log('===============================================================\n');
 
   // STEP 1: ADMIN Login
-  const adminCreds = { user: 'SANYAMJAIN88', pass: 'ADMIN88159' };
-  const isAdminValid = adminCreds.user.toUpperCase() === 'SANYAMJAIN88' && adminCreds.pass === 'ADMIN88159';
+  const adminCreds = { user: 'SANYAMJAIN88', pass: process.env.TEST_ADMIN_PASSWORD || 'TEST_SIMULATED_AUTH' };
+  const isAdminValid = adminCreds.user.toUpperCase() === 'SANYAMJAIN88';
   const currentUser = isAdminValid ? {
     id: 'USR-ADMIN-01',
     username: 'SANYAMJAIN88',

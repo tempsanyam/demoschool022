@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { Complaint, ComplaintStatus, ComplaintPriority, ComplaintHistoryItem } from '../../types';
 import { triggerPrint } from '../../utils/printUtils';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -33,6 +34,7 @@ import { SmartExportModal } from '../export/SmartExportModal';
 
 export const ComplaintsView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     scopedComplaints,
     schools,
@@ -613,25 +615,29 @@ export const ComplaintsView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="complaints-unified-print"
-            currentSession={selectedSessionId}
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="प्रिंट पंजी"
-            currentViewSubtext="वर्तमान जनशिकायत पंजी व स्थिति तालिका का प्रिंट"
-            reportLabel="A4 रिपोर्ट"
-            reportSubtext="शिकायत निवारण प्रतिवेदन / स्मार्ट रिपोर्ट प्रारूप"
-            exportPayload={getComplaintsExportPayload}
-          />
-          <button
-            id="btn-add-complaint"
-            onClick={handleOpenAdd}
-            className="px-4 py-2 bg-[#0B6B4B] hover:bg-[#09573D] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>नई शिकायत दर्ज करें</span>
-          </button>
+          {isFeatureEnabled('module.complaints.action.print_export') && (
+            <UnifiedPrintButton
+              id="complaints-unified-print"
+              currentSession={selectedSessionId}
+              onPrintCurrentView={() => triggerPrint()}
+              onPrintReport={() => setIsSmartExportOpen(true)}
+              currentViewLabel="प्रिंट पंजी"
+              currentViewSubtext="वर्तमान जनशिकायत पंजी व स्थिति तालिका का प्रिंट"
+              reportLabel="A4 रिपोर्ट"
+              reportSubtext="शिकायत निवारण प्रतिवेदन / स्मार्ट रिपोर्ट प्रारूप"
+              exportPayload={getComplaintsExportPayload}
+            />
+          )}
+          {isFeatureEnabled('module.complaints.action.create') && (
+            <button
+              id="btn-add-complaint"
+              onClick={handleOpenAdd}
+              className="px-4 py-2 bg-[#0B6B4B] hover:bg-[#09573D] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>नई शिकायत दर्ज करें</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1009,7 +1015,7 @@ export const ComplaintsView: React.FC = () => {
 
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {/* 1. कार्यवाही प्रारंभ करें (Start Progress): Shown for OPEN or REOPENED */}
-                    {canStartThis && (
+                    {canStartThis && isFeatureEnabled('module.complaints.action.resolve') && (
                       <button
                         id={`btn-start-progress-${c.id}`}
                         onClick={() => handleStartProgress(c)}
@@ -1022,7 +1028,7 @@ export const ComplaintsView: React.FC = () => {
                     )}
 
                     {/* 2. निराकरण करें (Resolve): Shown for OPEN, IN_PROGRESS, REOPENED */}
-                    {canResolveThis && (
+                    {canResolveThis && isFeatureEnabled('module.complaints.action.resolve') && (
                       <button
                         id={`btn-resolve-complaint-${c.id}`}
                         onClick={() => handleOpenResolve(c)}
@@ -1035,7 +1041,7 @@ export const ComplaintsView: React.FC = () => {
                     )}
 
                     {/* 3. शिकायत बंद करें (Close): Shown for RESOLVED */}
-                    {canCloseThis && (
+                    {canCloseThis && isFeatureEnabled('module.complaints.action.close') && (
                       <button
                         id={`btn-close-complaint-${c.id}`}
                         onClick={() => handleOpenClose(c)}
@@ -1048,7 +1054,7 @@ export const ComplaintsView: React.FC = () => {
                     )}
 
                     {/* 4. पुनः खोलें (Re-open): Shown for RESOLVED or CLOSED */}
-                    {canReopenThis && (
+                    {canReopenThis && isFeatureEnabled('module.complaints.action.reopen') && (
                       <button
                         id={`btn-reopen-complaint-${c.id}`}
                         onClick={() => handleOpenReopen(c)}
@@ -1061,7 +1067,7 @@ export const ComplaintsView: React.FC = () => {
                     )}
 
                     {/* 5. विवरण / संपादित करें */}
-                    {canManageThis && (
+                    {canManageThis && isFeatureEnabled('module.complaints.action.edit') && (
                       <button
                         id={`btn-edit-complaint-${c.id}`}
                         onClick={() => handleOpenEdit(c)}
@@ -1074,7 +1080,7 @@ export const ComplaintsView: React.FC = () => {
                     )}
 
                     {/* 6. Delete Button */}
-                    {canDeleteThis && (
+                    {canDeleteThis && isFeatureEnabled('module.complaints.action.delete') && (
                       <button
                         id={`btn-delete-complaint-${c.id}`}
                         onClick={() => setDeleteTargetId(c.id)}

@@ -28,7 +28,6 @@ export interface InstitutionConfig {
   cac2: CACInfo;
   systemVersion: string;
   copyrightYear: string;
-  totalSchoolsCount: number;
 }
 
 export const institutionConfig: InstitutionConfig = {
@@ -66,5 +65,4 @@ export const institutionConfig: InstitutionConfig = {
   },
   systemVersion: 'v2.5',
   copyrightYear: '2026',
-  totalSchoolsCount: 37,
 };

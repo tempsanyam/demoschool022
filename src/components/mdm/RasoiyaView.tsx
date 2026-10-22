@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { Rasoiya } from '../../types';
 import { exportToExcel } from '../../utils/exportUtils';
@@ -34,6 +35,7 @@ import { RasoiyaPrintModal } from './RasoiyaPrintModal';
 export const RasoiyaView: React.FC = () => {
   const { currentUser } = useAuth();
   const { selectedSessionId } = useData();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     rasoiya: scopedRasoiya,
     schools,
@@ -81,13 +83,13 @@ export const RasoiyaView: React.FC = () => {
     trainingStatus: 'TRAINED',
     healthCheckupStatus: 'UP_TO_DATE',
     lastHealthCheckupDate: new Date().toISOString().split('T')[0],
-    bankName: 'State Bank of India',
+    bankName: '',
     bankAccount: '',
-    ifsc: 'SBIN0001234',
-    branchName: 'खिरकिया',
+    ifsc: '',
+    branchName: '',
     paymentStatus: 'PAID',
     monthlyHonorarium: 2000,
-    shgName: 'माँ शारदा स्व-सहायता समूह',
+    shgName: '',
     shgId: '',
     status: 'ACTIVE',
     workLocation: 'विद्यालय मध्याह्न भोजन रसोई शेड',
@@ -325,7 +327,7 @@ export const RasoiyaView: React.FC = () => {
 
         {/* Top Actions: + रसोइया जोड़ें, खोजें, Print, PDF, Excel */}
         <div className="flex items-center gap-2 flex-wrap">
-          {canEdit && (
+          {canEdit && isFeatureEnabled('module.rasoiya.action.add') && (
             <button
               id="btn-add-new-rasoiya"
               onClick={handleOpenAddModal}
@@ -347,35 +349,39 @@ export const RasoiyaView: React.FC = () => {
             🔍 खोजें
           </button>
 
-          <button
-            id="btn-print-rasoiya-list"
-            onClick={() => window.print()}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="प्रिंट करें"
-          >
-            <Printer className="w-4 h-4" />
-            🖨 Print
-          </button>
+          {isFeatureEnabled('module.rasoiya.action.print_export') && (
+            <>
+              <button
+                id="btn-print-rasoiya-list"
+                onClick={() => window.print()}
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="प्रिंट करें"
+              >
+                <Printer className="w-4 h-4" />
+                🖨 Print
+              </button>
 
-          <button
-            id="btn-pdf-rasoiya"
-            onClick={handlePrintReport}
-            className="px-3 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="PDF अभिलेख डाउनलोड करें"
-          >
-            <FileText className="w-4 h-4" />
-            PDF
-          </button>
+              <button
+                id="btn-pdf-rasoiya"
+                onClick={handlePrintReport}
+                className="px-3 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="PDF अभिलेख डाउनलोड करें"
+              >
+                <FileText className="w-4 h-4" />
+                PDF
+              </button>
 
-          <button
-            id="btn-export-rasoiya-excel"
-            onClick={handleExportExcel}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Excel स्प्रेडशीट डाउनलोड करें"
-          >
-            <Download className="w-4 h-4" />
-            Excel
-          </button>
+              <button
+                id="btn-export-rasoiya-excel"
+                onClick={handleExportExcel}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Excel स्प्रेडशीट डाउनलोड करें"
+              >
+                <Download className="w-4 h-4" />
+                Excel
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -598,29 +604,35 @@ export const RasoiyaView: React.FC = () => {
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => setPrintingRasoiya(r)}
-                            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                            title="Print"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
+                          {isFeatureEnabled('module.rasoiya.action.print_export') && (
+                            <button
+                              onClick={() => setPrintingRasoiya(r)}
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+                              title="Print"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {canEdit && (
                             <>
-                              <button
-                                onClick={() => handleOpenEditModal(r)}
-                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTargetId(r.id)}
-                                className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {isFeatureEnabled('module.rasoiya.action.edit') && (
+                                <button
+                                  onClick={() => handleOpenEditModal(r)}
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {isFeatureEnabled('module.rasoiya.action.delete') && (
+                                <button
+                                  onClick={() => setDeleteTargetId(r.id)}
+                                  className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

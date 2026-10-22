@@ -13,6 +13,7 @@ import {
   School as SchoolIcon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { useSchoolScope } from '../../hooks/useSchoolScope';
 import { PhysicalFacility, FacilityStatus } from '../../types';
 import { facilityMasterList } from '../../data/seedData';
@@ -23,6 +24,7 @@ import { SmartExportModal } from '../export/SmartExportModal';
 
 export const FacilitiesView: React.FC = () => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     facilities: scopedFacilities,
     schools,
@@ -137,18 +139,20 @@ export const FacilitiesView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <UnifiedPrintButton
-            id="facilities-unified-print"
-            currentSchoolName={activeSchool?.hindiName}
-            currentUdise={selectedSchoolUdise}
-            onPrintCurrentView={() => triggerPrint()}
-            onPrintReport={() => setIsSmartExportOpen(true)}
-            currentViewLabel="Print Current View"
-            currentViewSubtext="16-सूत्रीय भौतिक अधोसंरचना चेकलिस्ट का त्वरित प्रिंट"
-            reportLabel="Print Report"
-            reportSubtext="शाला अधोसंरचना सत्यापन पंजी / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-            exportPayload={getFacilitiesExportPayload}
-          />
+          {isFeatureEnabled('module.facilities.action.print_export') && (
+            <UnifiedPrintButton
+              id="facilities-unified-print"
+              currentSchoolName={activeSchool?.hindiName}
+              currentUdise={selectedSchoolUdise}
+              onPrintCurrentView={() => triggerPrint()}
+              onPrintReport={() => setIsSmartExportOpen(true)}
+              currentViewLabel="Print Current View"
+              currentViewSubtext="16-सूत्रीय भौतिक अधोसंरचना चेकलिस्ट का त्वरित प्रिंट"
+              reportLabel="Print Report"
+              reportSubtext="शाला अधोसंरचना सत्यापन पंजी / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+              exportPayload={getFacilitiesExportPayload}
+            />
+          )}
         </div>
       </div>
 
@@ -177,23 +181,25 @@ export const FacilitiesView: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 font-bold">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>उपलब्ध: {facilityStats.yesCount}</span>
+        {isFeatureEnabled('module.facilities.sub.gap_analysis') && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>उपलब्ध: {facilityStats.yesCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/60 text-red-800 dark:text-red-300 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 font-bold">
+              <XCircle className="w-4 h-4 text-red-600" />
+              <span>अनुपलब्ध: {facilityStats.noCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 font-bold">
+              <HelpCircle className="w-4 h-4 text-[#FF7A00]" />
+              <span>डेटा अप्राप्त: {facilityStats.unknownCount}</span>
+            </div>
+            <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg font-bold text-gray-700 dark:text-gray-300">
+              सत्यापन: {facilityStats.completenessPct}%
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/60 text-red-800 dark:text-red-300 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 font-bold">
-            <XCircle className="w-4 h-4 text-red-600" />
-            <span>अनुपलब्ध: {facilityStats.noCount}</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 font-bold">
-            <HelpCircle className="w-4 h-4 text-[#FF7A00]" />
-            <span>डेटा अप्राप्त: {facilityStats.unknownCount}</span>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg font-bold text-gray-700 dark:text-gray-300">
-            सत्यापन: {facilityStats.completenessPct}%
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 16 Facilities Cards Grid */}
@@ -241,7 +247,7 @@ export const FacilitiesView: React.FC = () => {
                   </span>
                 )}
 
-                {canEdit && (
+                {canEdit && isFeatureEnabled('module.facilities.action.update') && (
                   <button
                     onClick={() => handleOpenEdit(fac)}
                     className="text-[#0B6B4B] dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1"

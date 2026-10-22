@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { UnifiedPrintButton } from '../common/UnifiedPrintButton';
 import { LiteracyPrintExportView } from '../literacy/LiteracyPrintExportView';
 import {
@@ -93,6 +94,7 @@ const CATEGORY_TABS: Array<{ id: DataCategory; label: string }> = [
 
 export const ExportCenterView: React.FC<ExportCenterViewProps> = ({ initialTab = 'CUSTOM_BUILDER' }) => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     students,
@@ -1500,58 +1502,66 @@ export const ExportCenterView: React.FC<ExportCenterViewProps> = ({ initialTab =
             {/* 4 FORMAT ACTION BUTTONS: Print, PDF, Excel, CSV */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* CSV Export Button */}
-              <button
-                type="button"
-                id="btn-export-center-csv"
-                onClick={handleCSV}
-                disabled={isExportingCSV}
-                className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                title="CSV फाइल डाउनलोड करें"
-              >
-                <FileText className="w-4 h-4 text-[#FF7A00] shrink-0" />
-                <span>{isExportingCSV ? 'CSV तैयार...' : 'CSV (.csv)'}</span>
-              </button>
+              {isFeatureEnabled('module.export.action.csv_excel') && (
+                <button
+                  type="button"
+                  id="btn-export-center-csv"
+                  onClick={handleCSV}
+                  disabled={isExportingCSV}
+                  className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  title="CSV फाइल डाउनलोड करें"
+                >
+                  <FileText className="w-4 h-4 text-[#FF7A00] shrink-0" />
+                  <span>{isExportingCSV ? 'CSV तैयार...' : 'CSV (.csv)'}</span>
+                </button>
+              )}
 
               {/* Excel Export Button */}
-              <button
-                type="button"
-                id="btn-export-center-excel"
-                onClick={handleExcel}
-                disabled={isExportingExcel}
-                className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                title="एक्सेल (.xlsx) फाइल डाउनलोड करें"
-              >
-                <FileSpreadsheet className="w-4 h-4 shrink-0" />
-                <span>{isExportingExcel ? 'Excel तैयार...' : 'एक्सेल (.xlsx)'}</span>
-              </button>
+              {isFeatureEnabled('module.export.action.csv_excel') && (
+                <button
+                  type="button"
+                  id="btn-export-center-excel"
+                  onClick={handleExcel}
+                  disabled={isExportingExcel}
+                  className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  title="एक्सेल (.xlsx) फाइल डाउनलोड करें"
+                >
+                  <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                  <span>{isExportingExcel ? 'Excel तैयार...' : 'एक्सेल (.xlsx)'}</span>
+                </button>
+              )}
 
               {/* Direct PDF Download Button */}
-              <button
-                type="button"
-                id="btn-export-center-pdf"
-                onClick={handlePDF}
-                disabled={isPdfGenerating}
-                className="px-3.5 py-2 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl border border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                title="A4 PDF सीधे डाउनलोड करें"
-              >
-                <Download className="w-4 h-4 shrink-0" />
-                <span>{isPdfGenerating ? 'PDF बन रहा है...' : 'PDF डाउनलोड'}</span>
-              </button>
+              {isFeatureEnabled('module.export.action.official_print') && (
+                <button
+                  type="button"
+                  id="btn-export-center-pdf"
+                  onClick={handlePDF}
+                  disabled={isPdfGenerating}
+                  className="px-3.5 py-2 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl border border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  title="A4 PDF सीधे डाउनलोड करें"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>{isPdfGenerating ? 'PDF बन रहा है...' : 'PDF डाउनलोड'}</span>
+                </button>
+              )}
 
               {/* Unified Browser Print Button */}
-              <UnifiedPrintButton
-                id="export-center-unified-print"
-                onPrintCurrentView={handlePrint}
-                onPrintReport={handlePDF}
-                onPrintLiteracyForm={() => setActiveTab('LITERACY_FORMS')}
-                currentViewLabel="A4 शासकीय प्रिंट"
-                currentViewSubtext="वर्तमान रिपोर्ट का सीधा ब्राउज़र A4 प्रिंट"
-                reportLabel="PDF रिपोर्ट डाउनलोड"
-                reportSubtext="A4 शासकीय प्रारूप में PDF डाउनलोड एवं सेव करें"
-                literacyFormLabel="उल्लास प्रपत्र 01-05"
-                literacyFormSubtext="उल्लास नवभारत साक्षरता प्रपत्र 01 से 05"
-                buttonLabel="प्रिंट (A4)"
-              />
+              {isFeatureEnabled('module.export.action.official_print') && (
+                <UnifiedPrintButton
+                  id="export-center-unified-print"
+                  onPrintCurrentView={handlePrint}
+                  onPrintReport={handlePDF}
+                  onPrintLiteracyForm={() => setActiveTab('LITERACY_FORMS')}
+                  currentViewLabel="A4 शासकीय प्रिंट"
+                  currentViewSubtext="वर्तमान रिपोर्ट का सीधा ब्राउज़र A4 प्रिंट"
+                  reportLabel="PDF रिपोर्ट डाउनलोड"
+                  reportSubtext="A4 शासकीय प्रारूप में PDF डाउनलोड एवं सेव करें"
+                  literacyFormLabel="उल्लास प्रपत्र 01-05"
+                  literacyFormSubtext="उल्लास नवभारत साक्षरता प्रपत्र 01 से 05"
+                  buttonLabel="प्रिंट (A4)"
+                />
+              )}
             </div>
           </div>
 

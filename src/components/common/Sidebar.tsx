@@ -33,6 +33,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { institutionConfig } from '../../config/institutionConfig';
 
 interface SidebarProps {
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentUser, users } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { selectedSessionId, activeSchools } = useData();
+  const { isRouteEnabled } = useFeatureControl();
 
   const userRole = currentUser?.role || 'TEACHER';
   const isSchoolUser = userRole === 'SCHOOL' || userRole === 'PRINCIPAL' || userRole === 'TEACHER';
@@ -237,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 overflow-y-auto py-2.5 px-2 space-y-3.5 text-xs select-none custom-scrollbar">
           {menuSections.map((sec, sIdx) => {
             const filteredItems = sec.items.filter(
-              (item) => item.roles.includes(userRole)
+              (item) => item.roles.includes(userRole) && isRouteEnabled(item.id).allowed
             );
             if (filteredItems.length === 0) return null;
 

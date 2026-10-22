@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureControl } from '../../context/FeatureControlContext';
 import { SchoolBanner } from '../common/SchoolBanner';
 import { exportToExcel } from '../../utils/exportUtils';
 import { getSessionForDate } from '../../utils/sessionManager';
@@ -64,6 +65,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
   onNavigateToMDM,
 }) => {
   const { currentUser } = useAuth();
+  const { isFeatureEnabled } = useFeatureControl();
   const {
     schools,
     students,
@@ -298,13 +300,15 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setIsHistoryModalOpen(true)}
-            className="px-3.5 py-2 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-xl border border-purple-200 dark:border-purple-800 hover:bg-purple-100 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>विद्यालय इतिहास देखें</span>
-          </button>
+          {isFeatureEnabled('module.schools.sub.profile_details') && (
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="px-3.5 py-2 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-xl border border-purple-200 dark:border-purple-800 hover:bg-purple-100 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>विद्यालय इतिहास देखें</span>
+            </button>
+          )}
 
           {isHistoricalSession ? (
             <button
@@ -315,7 +319,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
               <Lock className="w-3.5 h-3.5" />
               <span>अभिलेखीय सत्र (संशोधन प्रतिबंधित)</span>
             </button>
-          ) : (
+          ) : isFeatureEnabled('module.schools.action.edit') ? (
             <button
               onClick={() => {
                 setEditFormData({
@@ -338,26 +342,30 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
               <Edit2 className="w-3.5 h-3.5" />
               <span>विवरण संशोधित करें</span>
             </button>
+          ) : null}
+
+          {isFeatureEnabled('module.schools.action.print_export') && (
+            <>
+              <UnifiedPrintButton
+                id="school-profile-unified-print"
+                onPrintCurrentView={handlePrintDossier}
+                onPrintReport={() => setIsExportModalOpen(true)}
+                currentViewLabel="Print Dossier (Current School)"
+                currentViewSubtext="इस विद्यालय का संपूर्ण डोजियर व विवरण प्रिंट करें"
+                reportLabel="Print Report (Smart Export)"
+                reportSubtext="शाला महा-डोजियर / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
+                buttonLabel="Print"
+              />
+
+              <button
+                onClick={handleExportDossier}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>एक्सेल डोजियर</span>
+              </button>
+            </>
           )}
-
-          <UnifiedPrintButton
-            id="school-profile-unified-print"
-            onPrintCurrentView={handlePrintDossier}
-            onPrintReport={() => setIsExportModalOpen(true)}
-            currentViewLabel="Print Dossier (Current School)"
-            currentViewSubtext="इस विद्यालय का संपूर्ण डोजियर व विवरण प्रिंट करें"
-            reportLabel="Print Report (Smart Export)"
-            reportSubtext="शाला महा-डोजियर / आधिकारिक A4 स्मार्ट रिपोर्ट प्रारूप"
-            buttonLabel="Print"
-          />
-
-          <button
-            onClick={handleExportDossier}
-            className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950 text-[#0B6B4B] dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>एक्सेल डोजियर</span>
-          </button>
         </div>
       </div>
 

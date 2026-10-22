@@ -543,19 +543,19 @@ export const SchoolDossierDocument: React.FC<SchoolDossierDocumentProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-gray-50 border-b border-gray-300 text-[11px] avoid-break-card">
               <div>
                 <span className="text-gray-500 font-bold block text-[9px]">स्व सहायता समूह (SHG):</span>
-                <span className="font-bold text-gray-900">{latestMDM?.shgName || 'माँ शारदा स्व सहायता समूह'}</span>
+                <span className="font-bold text-gray-900">{latestMDM?.shgName || '-'}</span>
               </div>
               <div>
                 <span className="text-gray-500 font-bold block text-[9px]">रसोई स्वच्छता स्तर:</span>
-                <span className="font-bold text-emerald-800">{latestMDM?.kitchenHygiene || 'उत्कृष्ट एवं स्वच्छ'}</span>
+                <span className="font-bold text-emerald-800">{latestMDM?.kitchenHygiene || '-'}</span>
               </div>
               <div>
                 <span className="text-gray-500 font-bold block text-[9px]">गेहूं उपलब्ध स्टॉक:</span>
-                <span className="font-mono font-bold text-gray-900">{latestMDM?.wheatStockKg || 45} kg</span>
+                <span className="font-mono font-bold text-gray-900">{latestMDM?.wheatStockKg !== undefined ? `${latestMDM.wheatStockKg} kg` : '-'}</span>
               </div>
               <div>
                 <span className="text-gray-500 font-bold block text-[9px]">चावल उपलब्ध स्टॉक:</span>
-                <span className="font-mono font-bold text-gray-900">{latestMDM?.riceStockKg || 50} kg</span>
+                <span className="font-mono font-bold text-gray-900">{latestMDM?.riceStockKg !== undefined ? `${latestMDM.riceStockKg} kg` : '-'}</span>
               </div>
             </div>
 
