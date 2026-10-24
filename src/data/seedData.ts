@@ -1,4 +1,8 @@
-import { CLUSTER_37_SCHOOLS } from './clusterSchoolsData';
+import {
+  CLUSTER_37_SCHOOLS,
+  OFFICIAL_37_SCHOOL_USERS,
+  OFFICIAL_37_SCHOOL_CREDENTIALS,
+} from './clusterSchoolsData';
 import {
   School,
   Student,
@@ -30,7 +34,7 @@ export const initialSettings: AppSettings = {
   defaultPrintOrientation: 'PORTRAIT',
 };
 
-export const initialUsers: User[] = [
+export const initialAdminUsers: User[] = [
   {
     id: 'USR-ADMIN-01',
     username: 'SANYAMJAIN88',
@@ -83,8 +87,13 @@ export const initialUsers: User[] = [
   }
 ];
 
-// All default schools removed per user directive; clean database ready for user entry or import
-export const initialSchools: School[] = [];
+export const initialUsers: User[] = [
+  ...initialAdminUsers,
+  ...OFFICIAL_37_SCHOOL_USERS,
+];
+
+// All 37 Official Schools for Jan Shiksha Kendra Malguwa
+export const initialSchools: School[] = CLUSTER_37_SCHOOLS;
 
 // All 22 Physical Facilities Master definition (Canonical Facility Reference)
 export const facilityMasterList = [

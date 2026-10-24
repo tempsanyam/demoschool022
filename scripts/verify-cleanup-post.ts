@@ -114,7 +114,7 @@ export function runPostCleanupVerification() {
   console.log('  - Verified Schools Master    :', initialSchools.length, '(Expected: 37)');
   console.log('  - Academic Sessions          :', INITIAL_ACADEMIC_SESSIONS.length, '(Expected: 16)');
   console.log('  - Facility Master List       :', facilityMasterList.length, '(Expected: 22 facilities)');
-  console.log('  - Administrative Users       :', initialUsers.length, '(Expected: 3 [1 Admin, 2 CAC])');
+  console.log('  - Authoritative Users Master :', initialUsers.length, '(Expected: 40 [1 Admin, 2 CAC, 37 Schools])');
   console.log('  - Feature Control Registry   :', FEATURE_CONTROL_REGISTRY.length, '(Expected: 129 keys)');
   console.log('  - Institutional Identity     :', initialSettings.sankulName, '|', initialSettings.blockName, '|', initialSettings.districtName);
 
@@ -122,7 +122,7 @@ export function runPostCleanupVerification() {
     initialSchools.length === 37 &&
     INITIAL_ACADEMIC_SESSIONS.length === 16 &&
     facilityMasterList.length === 22 &&
-    initialUsers.length === 3 &&
+    initialUsers.length === 40 &&
     FEATURE_CONTROL_REGISTRY.length === 129
   ) {
     console.log('  ✓ 100% of Master Data perfectly intact and protected.');

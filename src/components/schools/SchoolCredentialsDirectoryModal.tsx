@@ -22,6 +22,7 @@ import { institutionConfig } from '../../config/institutionConfig';
 import { exportToExcel } from '../../utils/exportUtils';
 import { triggerPrint } from '../../utils/printUtils';
 import { getMigrationReport } from '../../utils/schoolMasterMigration';
+import { OFFICIAL_37_SCHOOL_CREDENTIALS } from '../../data/clusterSchoolsData';
 
 interface SchoolCredentialsDirectoryModalProps {
   isOpen: boolean;
@@ -76,12 +77,15 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
 
   const roster = useMemo(() => {
     return activeSchoolsList.map((s, idx) => {
-      const defaultPass = `SCH${s.udise.slice(-4)}`;
+      const cred = OFFICIAL_37_SCHOOL_CREDENTIALS.find((c) => c.udise === s.udise);
+      const defaultPass = cred?.initialPassword || `SCH${s.udise.slice(-4)}`;
       const customPass = customPasswords[s.udise];
       const effectivePassword = customPass || defaultPass;
+      const username = cred?.username || s.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
       return {
         sr: idx + 1,
         udise: s.udise,
+        username,
         name: s.name,
         hindiName: s.hindiName || s.name,
         village: s.village,
@@ -100,6 +104,7 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
     return roster.filter(
       (r) =>
         r.udise.includes(term) ||
+        r.username.toLowerCase().includes(term) ||
         r.name.toLowerCase().includes(term) ||
         r.village.toLowerCase().includes(term) ||
         r.type.toLowerCase().includes(term)
@@ -114,7 +119,8 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
       session: institutionConfig.academicSession,
       headers: [
         'क्र.',
-        'यू-डायस कोड (लॉगिन ID)',
+        'यू-डायस कोड (DISE)',
+        'यूज़रनेम (Username)',
         'शाला का नाम',
         'ग्राम',
         'प्रकार',
@@ -125,6 +131,7 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
       rows: roster.map((r) => [
         r.sr,
         r.udise,
+        r.username,
         r.name,
         r.village,
         r.type,
@@ -295,9 +302,9 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 font-bold border-b border-gray-200 dark:border-gray-700">
                       <th className="py-2.5 px-3 text-center w-12">क्र.</th>
-                      <th className="py-2.5 px-3">यू-डायस कोड (लॉगिन ID)</th>
+                      <th className="py-2.5 px-3">यू-डायस कोड (DISE)</th>
+                      <th className="py-2.5 px-3">यूज़रनेम (Username)</th>
                       <th className="py-2.5 px-3">शाला का नाम</th>
-                      <th className="py-2.5 px-3">ग्राम</th>
                       <th className="py-2.5 px-3">प्रकार</th>
                       <th className="py-2.5 px-3">पासवर्ड</th>
                       <th className="py-2.5 px-3 text-center">क्विक कॉपी</th>
@@ -306,6 +313,7 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-gray-800 dark:text-gray-200">
                     {filteredRoster.map((r) => {
                       const idKey = `id-${r.udise}`;
+                      const userKey = `user-${r.udise}`;
                       const passKey = `pass-${r.udise}`;
                       const comboKey = `combo-${r.udise}`;
 
@@ -320,14 +328,14 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
                           <td className="py-2.5 px-3 font-mono font-bold text-[#0B6B4B] dark:text-emerald-400">
                             {r.udise}
                           </td>
+                          <td className="py-2.5 px-3 font-mono font-semibold text-indigo-700 dark:text-indigo-400">
+                            {r.username}
+                          </td>
                           <td className="py-2.5 px-3 font-semibold">
                             <div>{r.name}</div>
                             {r.name !== r.hindiName && (
                               <div className="text-[10px] text-gray-500">{r.hindiName}</div>
                             )}
-                          </td>
-                          <td className="py-2.5 px-3 text-gray-600 dark:text-gray-300">
-                            {r.village}
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[11px] font-semibold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
@@ -353,22 +361,36 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
                               <button
                                 type="button"
                                 onClick={() => handleCopy(r.udise, idKey)}
-                                title="UDISE कॉपी करें"
-                                className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10.5px] font-semibold text-gray-700 dark:text-gray-200 cursor-pointer"
+                                title="DISE Code कॉपी करें"
+                                className="px-1.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-semibold text-gray-700 dark:text-gray-200 cursor-pointer"
                               >
                                 {copiedKey === idKey ? (
                                   <span className="text-emerald-600 flex items-center gap-0.5">
-                                    <Check className="w-3 h-3" /> ID
+                                    <Check className="w-3 h-3" /> DISE
                                   </span>
                                 ) : (
-                                  'ID'
+                                  'DISE'
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(r.username, userKey)}
+                                title="Username कॉपी करें"
+                                className="px-1.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 cursor-pointer"
+                              >
+                                {copiedKey === userKey ? (
+                                  <span className="text-emerald-600 flex items-center gap-0.5">
+                                    <Check className="w-3 h-3" /> USER
+                                  </span>
+                                ) : (
+                                  'USER'
                                 )}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleCopy(r.password, passKey)}
                                 title="पासवर्ड कॉपी करें"
-                                className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10.5px] font-semibold text-gray-700 dark:text-gray-200 cursor-pointer"
+                                className="px-1.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-semibold text-gray-700 dark:text-gray-200 cursor-pointer"
                               >
                                 {copiedKey === passKey ? (
                                   <span className="text-emerald-600 flex items-center gap-0.5">
@@ -380,7 +402,7 @@ export const SchoolCredentialsDirectoryModal: React.FC<SchoolCredentialsDirector
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(`लॉगिन: ${r.udise} | पासवर्ड: ${r.password} | ${r.name}`, comboKey)}
+                                onClick={() => handleCopy(`यूज़रनेम: ${r.username} | DISE: ${r.udise} | पासवर्ड: ${r.password} | शाला: ${r.name}`, comboKey)}
                                 title="पूरा विवरण कॉपी करें"
                                 className="p-1 bg-emerald-50 dark:bg-emerald-950/40 text-[#0B6B4B] dark:text-emerald-400 hover:bg-emerald-100 rounded cursor-pointer"
                               >

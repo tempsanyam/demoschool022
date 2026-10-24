@@ -1,4 +1,4 @@
-import { School, SchoolType } from '../types';
+import { School, SchoolType, User, UserRole, UserStatus } from '../types';
 
 export interface ClusterSchoolDefinition {
   sr: number;
@@ -632,4 +632,83 @@ export const CLUSTER_37_SCHOOLS: School[] = CLUSTER_37_SCHOOLS_RAW.map((raw) => 
   totalRooms: raw.rooms,
   totalClassrooms: raw.classrooms,
 }));
+
+export interface SchoolCredentialItem {
+  sr: number;
+  schoolName: string;
+  udise: string;
+  username: string;
+  initialPassword: string;
+}
+
+/**
+ * Official 37 School Login Credentials for Sankul / JSK Malguwa
+ * Verified 11-digit UDISE & canonical usernames
+ */
+export const OFFICIAL_37_SCHOOL_CREDENTIALS: SchoolCredentialItem[] = [
+  { sr: 1, schoolName: 'HS HIRAPUR', udise: '23080100303', username: 'HSHIRAPUR', initialPassword: 'SCH0303' },
+  { sr: 2, schoolName: 'PS JANAKPUR', udise: '23080110701', username: 'PSJANAKPUR', initialPassword: 'SCH0701' },
+  { sr: 3, schoolName: 'PS KACHHIYAT', udise: '23080110702', username: 'PSKACHHIYAT', initialPassword: 'SCH0702' },
+  { sr: 4, schoolName: 'PS PATTIGANESHJU', udise: '23080111001', username: 'PSPATTIGANESHJU', initialPassword: 'SCH1001' },
+  { sr: 5, schoolName: 'MS DUBDEI', udise: '23080111102', username: 'MSDUBDEI', initialPassword: 'SCH1102' },
+  { sr: 6, schoolName: 'PS KHAJRAR', udise: '23080111201', username: 'PSKHAJRAR', initialPassword: 'SCH1201' },
+  { sr: 7, schoolName: 'MS KHAJRAR', udise: '23080111202', username: 'MSKHAJRAR', initialPassword: 'SCH1202' },
+  { sr: 8, schoolName: 'PS PATTI BALWANTSINGH', udise: '23080111301', username: 'PSPATTIBALWANTSINGH', initialPassword: 'SCH1301' },
+  { sr: 9, schoolName: 'PS PURAINIYA', udise: '23080111302', username: 'PSPURAINIYA', initialPassword: 'SCH1302' },
+  { sr: 10, schoolName: 'MS HIRAPUR', udise: '23080111404', username: 'MSHIRAPUR', initialPassword: 'SCH1404' },
+  { sr: 11, schoolName: 'PS PURA KHERA HIRAPUR', udise: '23080111405', username: 'PSPURAKHERAHIRAPUR', initialPassword: 'SCH1405' },
+  { sr: 12, schoolName: 'PS TURKA', udise: '23080111406', username: 'PSTURKA', initialPassword: 'SCH1406' },
+  { sr: 13, schoolName: 'PS DIGORA', udise: '23080111408', username: 'PSDIGORA', initialPassword: 'SCH1408' },
+  { sr: 14, schoolName: 'MS SARKAR', udise: '23080111603', username: 'MSSARKAR', initialPassword: 'SCH1603' },
+  { sr: 15, schoolName: 'MS BANPURA BUZURG', udise: '23080111702', username: 'MSBANPURABUZURG', initialPassword: 'SCH1702' },
+  { sr: 16, schoolName: 'PS PURUWA', udise: '23080111703', username: 'PSPURUWA', initialPassword: 'SCH1703' },
+  { sr: 17, schoolName: 'PS BAR', udise: '23080111801', username: 'PSBAR', initialPassword: 'SCH1801' },
+  { sr: 18, schoolName: 'MS VARME', udise: '23080111902', username: 'MSVARME', initialPassword: 'SCH1902' },
+  { sr: 19, schoolName: 'PS DARGUWAN JAGIR', udise: '23080113101', username: 'PSDARGUWANJAGIR', initialPassword: 'SCH3101' },
+  { sr: 20, schoolName: 'PS DHIMROLA', udise: '23080113102', username: 'PSDHIMROLA', initialPassword: 'SCH3102' },
+  { sr: 21, schoolName: 'PS HB DARGUWAN JAGIR', udise: '23080113103', username: 'PSHBDARGUWANJAGIR', initialPassword: 'SCH3103' },
+  { sr: 22, schoolName: 'GHS DARGUWAN', udise: '23080113104', username: 'GHSDARGUWAN', initialPassword: 'SCH3104' },
+  { sr: 23, schoolName: 'PS BANDHIYANPURA', udise: '23080113203', username: 'PSBANDHIYANPURA', initialPassword: 'SCH3203' },
+  { sr: 24, schoolName: 'PS KACHHIYA KHERA', udise: '23080113301', username: 'PSKACHHIYAKHERA', initialPassword: 'SCH3301' },
+  { sr: 25, schoolName: 'MS KACHHIYA KHERA', udise: '23080113302', username: 'MSKACHHIYAKHERA', initialPassword: 'SCH3302' },
+  { sr: 26, schoolName: 'PS MAUNE KA KHERA', udise: '23080113401', username: 'PSMAUNEKAKHERA', initialPassword: 'SCH3401' },
+  { sr: 27, schoolName: 'MS MAUNE KA KHERA', udise: '23080113402', username: 'MSMAUNEKAKHERA', initialPassword: 'SCH3402' },
+  { sr: 28, schoolName: 'PS BASENDU', udise: '23080113403', username: 'PSBASENDU', initialPassword: 'SCH3403' },
+  { sr: 29, schoolName: 'MS MALGUWAN', udise: '23080113602', username: 'MSMALGUWAN', initialPassword: 'SCH3602' },
+  { sr: 30, schoolName: 'PS DHUVYA', udise: '23080113603', username: 'PSDHUVYA', initialPassword: 'SCH3603' },
+  { sr: 31, schoolName: 'PS DHIMARWAN', udise: '23080113605', username: 'PSDHIMARWAN', initialPassword: 'SCH3605' },
+  { sr: 32, schoolName: 'PS MAGORIYA', udise: '23080113606', username: 'PSMAGORIYA', initialPassword: 'SCH3606' },
+  { sr: 33, schoolName: 'HS MALGUWAN', udise: '23080113607', username: 'HSMALGUWAN', initialPassword: 'SCH3607' },
+  { sr: 34, schoolName: 'PS GARROLI', udise: '23080113701', username: 'PSGARROLI', initialPassword: 'SCH3701' },
+  { sr: 35, schoolName: 'PRI MAA SARASWATI GM MALGUWAN', udise: '23080115206', username: 'PRIMAASARASWATIGMMALGUWAN', initialPassword: 'SCH5206' },
+  { sr: 36, schoolName: 'PRI VEERANGANA AWANTI KUDILA', udise: '23080115210', username: 'PRIVEERANGANAAWANTIKUDILA', initialPassword: 'SCH5210' },
+  { sr: 37, schoolName: 'SARSWATI SHISHU MANDIR BANPURA BUZURG', udise: '23084101366', username: 'SARSWATISHISHUMANDIRBANPURABUZURG', initialPassword: 'SCH1366' },
+];
+
+export const OFFICIAL_37_SCHOOL_USERS: User[] = OFFICIAL_37_SCHOOL_CREDENTIALS.map((cred) => {
+  const raw = CLUSTER_37_SCHOOLS_RAW.find((s) => s.udise === cred.udise);
+  return {
+    id: `USR-SCH-${cred.udise}`,
+    username: cred.username,
+    name: cred.schoolName,
+    role: 'SCHOOL' as UserRole,
+    employeeId: `SCH-${cred.udise.slice(-4)}`,
+    mobile: raw?.principalMobile || '',
+    email: `${cred.username.toLowerCase()}@malguwa.edu.in`,
+    designation: 'संस्था प्रभारी',
+    assignedSchoolUdise: cred.udise,
+    schoolId: cred.udise,
+    schoolUdise: cred.udise,
+    schoolName: cred.schoolName,
+    status: 'ACTIVE' as UserStatus,
+    approvalStatus: 'APPROVED' as const,
+    password: cred.initialPassword,
+    createdAt: '2025-01-01',
+    block: 'बलदेवगढ़',
+    district: 'टीकमगढ़',
+    address: `ग्राम ${raw?.village || ''}, संकुल मलगुवां, विकासखंड बलदेवगढ़`,
+    village: raw?.village || '',
+  };
+});
+
 

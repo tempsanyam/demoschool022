@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { User, UserRole, UserStatus, School, AuditLog, AuditAction, PreAuthSecurityEvent } from '../types';
 import { initialUsers, initialSchools } from '../data/seedData';
+import { OFFICIAL_37_SCHOOL_CREDENTIALS, OFFICIAL_37_SCHOOL_USERS } from '../data/clusterSchoolsData';
 import { auth, db } from '../services/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   reauthenticateWithCredential,
   EmailAuthProvider,
@@ -282,12 +284,12 @@ export function recordUserManagementAudit(
 }
 
 /**
- * Authoritative Synchronization of Administrative Accounts.
+ * Authoritative Synchronization of User Accounts.
  * Strictly Enforces:
- * 1. Exactly 1 ADMIN (SANYAMJAIN88 - संयम जैन)
- * 2. Exactly 2 CAC (Sanjayjain1979 - संजय कुमार जैन, Sanmatijain99 - सन्मति कुमार जैन)
- * 3. ZERO SCHOOL LOGINS (All school logins have been removed per administrative directive)
- * 4. Total authorized user accounts = Exactly 3
+ * 1. Exactly 1 ADMIN (Username: SANYAMJAIN88)
+ * 2. Exactly 2 CAC (Usernames: Sanjayjain1979, Sanmatijain99)
+ * 3. Exactly 37 Official School Accounts (11-digit UDISE & canonical usernames)
+ * Total authorized user accounts = Exactly 40
  */
 export const CANONICAL_ADMIN_USERNAMES = ['sanyamjain88', 'sanjayjain1979', 'sanmatijain99'];
 
@@ -352,6 +354,10 @@ function syncAndVerifyUsers(_masterSchools?: School[]): User[] {
     },
   ];
 
+  // 2. Authoritative Official 37 School Accounts
+  const canonicalSchools: User[] = OFFICIAL_37_SCHOOL_USERS;
+  const baseUsers = [...canonicalAdmins, ...canonicalSchools];
+
   // Retrieve existing localStorage users if present
   let existingStored: User[] = [];
   try {
@@ -359,10 +365,7 @@ function syncAndVerifyUsers(_masterSchools?: School[]): User[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // Discard any user with role === 'SCHOOL' or non-admin usernames
-        existingStored = parsed.filter(
-          (u) => u.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((u.username || '').toLowerCase())
-        );
+        existingStored = parsed;
       }
     }
   } catch (e) {
@@ -371,25 +374,28 @@ function syncAndVerifyUsers(_masterSchools?: School[]): User[] {
 
   const finalUsers: User[] = [];
 
-  // Reconcile Canonical Admins
-  for (const admin of canonicalAdmins) {
+  // Reconcile Canonical Admins and Schools
+  for (const base of baseUsers) {
     const stored = existingStored.find(
-      (u) => (u.username || '').toLowerCase() === (admin.username || '').toLowerCase()
+      (u) => (u.username || '').toLowerCase() === (base.username || '').toLowerCase() ||
+             (base.assignedSchoolUdise && (u.assignedSchoolUdise === base.assignedSchoolUdise || u.username === base.assignedSchoolUdise))
     );
     if (stored) {
       finalUsers.push({
-        ...admin,
+        ...base,
         ...stored,
-        username: admin.username, // keep exact casing
-        role: admin.role,         // cannot alter role
-        status: 'ACTIVE',
+        username: base.username, // keep canonical casing
+        role: base.role,
+        assignedSchoolUdise: base.assignedSchoolUdise,
+        schoolUdise: base.schoolUdise,
+        status: stored.status || 'ACTIVE',
       });
     } else {
-      finalUsers.push(admin);
+      finalUsers.push(base);
     }
   }
 
-  // Update localStorage immediately with clean 3 accounts
+  // Update localStorage immediately with clean 40 accounts
   try {
     localStorage.setItem('jsk_malguwa_users', JSON.stringify(finalUsers));
   } catch {
@@ -610,15 +616,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsub = subscribeUsersFromCloud(
       (cloudUsers) => {
         if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
-          // Strictly keep only the 3 canonical administrative accounts
-          const validAdmins = cloudUsers.filter(
-            (cu) => cu.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((cu.username || '').toLowerCase())
-          );
           setUsers((prev) => {
             const merged = [...prev];
-            validAdmins.forEach((cu) => {
+            cloudUsers.forEach((cu) => {
               const idx = merged.findIndex(
-                (m) => m.id === cu.id || (m.username && cu.username && m.username.toLowerCase() === cu.username.toLowerCase())
+                (m) =>
+                  m.id === cu.id ||
+                  (m.username && cu.username && m.username.toLowerCase() === cu.username.toLowerCase()) ||
+                  (m.assignedSchoolUdise && cu.assignedSchoolUdise && m.assignedSchoolUdise === cu.assignedSchoolUdise)
               );
               if (idx >= 0) {
                 merged[idx] = { ...merged[idx], ...cu };
@@ -626,18 +631,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 merged.push(cu);
               }
             });
-            return merged.filter(
-              (u) => u.role !== 'SCHOOL' && CANONICAL_ADMIN_USERNAMES.includes((u.username || '').toLowerCase())
-            );
-          });
-
-          // Proactively remove any legacy school accounts from Cloud Firestore
-          cloudUsers.forEach((cu) => {
-            if (cu.role === 'SCHOOL' || !CANONICAL_ADMIN_USERNAMES.includes((cu.username || '').toLowerCase())) {
-              if (cu.id) {
-                deleteUserFromCloud(cu.id).catch(() => {});
-              }
-            }
+            return merged;
           });
         }
       },
@@ -675,22 +669,133 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Password required' };
     }
 
-    // Strict Administrative Scope Validation:
-    // Only Admin (SANYAMJAIN88) and 2 CACs (Sanjayjain1979, Sanmatijain99) are authorized to log in.
+    // Scope Validation:
+    // Authorized: Admin (SANYAMJAIN88), 2 CACs (Sanjayjain1979, Sanmatijain99), and 37 Official Schools
     const cleanLowerId = cleanId.toLowerCase().replace('@malguwa.edu.in', '').trim();
-    if (/^\d{11}$/.test(cleanId) || (!cleanId.includes('@') && !CANONICAL_ADMIN_USERNAMES.includes(cleanLowerId))) {
+    const matchedSchoolCred = OFFICIAL_37_SCHOOL_CREDENTIALS.find(
+      (c) => c.username.toLowerCase() === cleanLowerId || c.udise === cleanId
+    );
+    const isAdminOrCac = CANONICAL_ADMIN_USERNAMES.includes(cleanLowerId);
+
+    if (!matchedSchoolCred && !isAdminOrCac) {
       recordSecurityAudit(
         'FAILED_LOGIN',
         cleanId,
         'UNKNOWN',
-        `लॉगिन अस्वीकृत: शाला लॉगिन बंद है। केवल व्यवस्थापक एवं जन शिक्षक अधिकृत हैं: ${cleanId}`
+        `लॉगिन अस्वीकृत: अमान्य यूज़रनेम या डाइस कोड: ${cleanId}`
       );
       return {
         success: false,
-        message: 'शाला लॉगिन सुविधा उपलब्ध नहीं है। केवल व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) लॉगिन अधिकृत हैं।',
+        message: 'अमान्य यूज़रनेम या पासवर्ड (Invalid username or password)',
       };
     }
 
+    // 1. SCHOOL LOGIN PATH
+    if (matchedSchoolCred) {
+      let customPass: string | undefined;
+      try {
+        const rawCustom = localStorage.getItem('jsk_school_passwords');
+        if (rawCustom) {
+          const parsed = JSON.parse(rawCustom);
+          customPass = parsed[matchedSchoolCred.udise];
+        }
+      } catch {
+        // ignore
+      }
+      const expectedPass = customPass || matchedSchoolCred.initialPassword;
+
+      if (cleanPass !== expectedPass) {
+        recordSecurityAudit(
+          'FAILED_LOGIN',
+          cleanId,
+          'SCHOOL',
+          `शाला लॉगिन पासवर्ड त्रुटि: ${cleanId}`
+        );
+        return {
+          success: false,
+          message: 'अमान्य यूज़रनेम या पासवर्ड (Invalid username or password)',
+        };
+      }
+
+      // Retrieve registered school user profile
+      const knownUsers = syncAndVerifyUsers(getKnownSchools());
+      const schoolUser = knownUsers.find((u) => u.assignedSchoolUdise === matchedSchoolCred.udise) ||
+        OFFICIAL_37_SCHOOL_USERS.find((u) => u.assignedSchoolUdise === matchedSchoolCred.udise)!;
+
+      const schoolEmail = `${matchedSchoolCred.username.toLowerCase()}@malguwa.edu.in`;
+      setCachedAuthCreds({ email: schoolEmail, pass: cleanPass });
+      setFirebaseAuthStatus('authenticated');
+      setFirebaseAuthError(null);
+
+      // Attempt background cloud sync so Firestore rules authenticate if possible
+      try {
+        let cred;
+        try {
+          cred = await signInWithEmailAndPassword(auth, schoolEmail, cleanPass);
+        } catch (fbErr: any) {
+          if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential') {
+            cred = await createUserWithEmailAndPassword(auth, schoolEmail, cleanPass);
+          }
+        }
+        if (cred) {
+          setFirebaseUser(cred.user);
+          const token = await cred.user.getIdToken();
+          setFirebaseIdToken(token);
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            ...schoolUser,
+            id: cred.user.uid,
+            status: 'ACTIVE',
+            approvalStatus: 'APPROVED',
+          }, { merge: true });
+        }
+      } catch (e) {
+        console.warn('Firebase school auth sync notice:', e);
+      }
+
+      const authenticatedUser: User = {
+        ...schoolUser,
+        id: auth.currentUser?.uid || `USR-SCH-${matchedSchoolCred.udise}`,
+        lastLogin: new Date().toLocaleString('hi-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+
+      const sessionTimestamp = Date.now().toString();
+      const sessionToken = computeSessionToken(
+        authenticatedUser.username,
+        authenticatedUser.role,
+        authenticatedUser.assignedSchoolUdise || '',
+        sessionTimestamp
+      );
+      safeSetItem('jsk_malguwa_session_token', sessionToken);
+      safeSetItem('jsk_malguwa_session_timestamp', sessionTimestamp);
+
+      setCurrentUser(authenticatedUser);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === authenticatedUser.id || (u.assignedSchoolUdise && u.assignedSchoolUdise === authenticatedUser.assignedSchoolUdise));
+        if (exists) {
+          return prev.map((u) => (u.id === authenticatedUser.id || u.assignedSchoolUdise === authenticatedUser.assignedSchoolUdise ? authenticatedUser : u));
+        }
+        return [authenticatedUser, ...prev];
+      });
+
+      recordSecurityAudit(
+        'LOGIN',
+        authenticatedUser.username,
+        'SCHOOL',
+        `${authenticatedUser.name} (${matchedSchoolCred.udise}) द्वारा लॉगिन किया गया।`,
+        authenticatedUser.assignedSchoolUdise
+      );
+
+      return { success: true, message: 'लॉगिन सफल रहा।', user: authenticatedUser };
+    }
+
+    // 2. ADMIN & CAC FIREBASE LOGIN PATH
     // Map identifier to authoritative email domain
     const mappedEmail = cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@malguwa.edu.in`;
     setCachedAuthCreds({ email: mappedEmail, pass: cleanPass });
@@ -698,7 +803,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFirebaseAuthError(null);
 
     try {
-      // 1. Authoritative Firebase Authentication (No local password checks, No auto-creation)
+      // Authoritative Firebase Authentication
       const cred = await signInWithEmailAndPassword(auth, mappedEmail, cleanPass);
       console.log('Firebase Auth: Sign in successful with UID:', cred.user.uid);
       setFirebaseUser(cred.user);
@@ -706,7 +811,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setFirebaseAuthError(null);
 
       const token = await cred.user.getIdToken();
-      // 2. Requirement 4: Read /users/{uid} profile from Firestore
+      // Read /users/{uid} profile from Firestore
       const userDocRef = doc(db, 'users', cred.user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -729,25 +834,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const cloudProfile = userDocSnap.data() as User;
-
-      // School login rejection guard
-      if (cloudProfile.role === 'SCHOOL' || !CANONICAL_ADMIN_USERNAMES.includes((cloudProfile.username || '').toLowerCase())) {
-        console.warn(`Profile /users/${cred.user.uid} has SCHOOL role or unauthorized username. Rejecting login.`);
-        await signOut(auth);
-        setFirebaseUser(null);
-        setFirebaseAuthStatus('error');
-        setFirebaseAuthError('school-login-disabled');
-        recordSecurityAudit(
-          'FAILED_LOGIN',
-          cleanId,
-          cloudProfile.role,
-          `लॉगिन अस्वीकृत: शाला लॉगिन बंद है। केवल व्यवस्थापक एवं जन शिक्षक अधिकृत हैं।`
-        );
-        return {
-          success: false,
-          message: 'शाला लॉगिन सुविधा उपलब्ध नहीं है। केवल व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) लॉगिन अधिकृत हैं।',
-        };
-      }
 
       const isActive = cloudProfile.status === 'ACTIVE';
       const isApproved = !cloudProfile.approvalStatus || cloudProfile.approvalStatus === 'APPROVED';

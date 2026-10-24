@@ -104,6 +104,7 @@ import {
   isLegacyFakeSHG,
   isLegacyFakeGovernmentWork,
   isLegacyFakeComplaint,
+  isLegacyFakeDocument,
 } from '../utils/legacyPurgeHelpers';
 import { enforceRuntimeFeatureAccess } from '../config/featureControlRegistry';
 import {
@@ -502,15 +503,16 @@ interface DataContextType {
  * Cleared of all default schools per user directive; only preserves user-added authorized schools.
  */
 export const sanitizeCanonicalSchools = (rawSchools: School[]): School[] => {
-  if (!Array.isArray(rawSchools) || rawSchools.length === 0) {
+  const source = Array.isArray(rawSchools) && rawSchools.length > 0 ? rawSchools : initialSchools;
+  if (!Array.isArray(source) || source.length === 0) {
     return [];
   }
 
-  // Preserve all valid dynamically added authorized schools
+  // Preserve all valid authorized schools
   const result: School[] = [];
   const seenUdises = new Set<string>();
 
-  rawSchools.forEach((s) => {
+  source.forEach((s) => {
     if (!s || !s.udise || seenUdises.has(s.udise)) return;
     seenUdises.add(s.udise);
 
@@ -533,21 +535,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { currentUser, firebaseUser, firebaseAuthStatus, firebaseAuthError, retryFirebaseAuth } = useAuth();
 
   const DB_VERSION_KEY = 'jsk_db_version';
-  const CURRENT_DB_VERSION = 'v2026_tikamgarh_baldeogarh_malguwa_v25_all_schools_purged_completely';
+  const CURRENT_DB_VERSION = 'v2026_tikamgarh_baldeogarh_malguwa_v29_purge_5_demo_documents';
 
   // Primary state collections with persistent localStorage storage
   const [schools, setSchools] = useState<School[]>(() => {
     const dbVer = localStorage.getItem(DB_VERSION_KEY);
     const saved = localStorage.getItem('jsk_schools');
 
-    // Fresh initialization or upgrade to clean database version:
-    // Purges all confirmed fake/demo data and all default schools per user directive
+    // Fresh initialization or upgrade to official 37 schools version:
+    // Preserves all 37 official cluster schools and keeps operational collections clean
     if (!saved || dbVer !== CURRENT_DB_VERSION) {
       clearAllDocumentBinaries().catch(() => {});
       purgeAllOperationalCloudCollections().catch(() => {});
-      purgeAllCloudSchools().catch(() => {});
       safeSetItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
-      safeSetJSON('jsk_schools', []);
+      safeSetJSON('jsk_schools', initialSchools);
+      initialSchools.forEach((s) => syncSchoolToCloud(s).catch(() => {}));
       safeSetJSON('jsk_students', []);
       safeSetJSON('jsk_staff', []);
       safeSetJSON('jsk_facilities', []);
@@ -576,16 +578,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       safeSetJSON('jsk_literacy_institutions', []);
       safeSetJSON('jsk_rasoiya', []);
       safeSetJSON('jsk_shgs', []);
-      return [];
+      return initialSchools;
     }
 
     try {
       const parsed = JSON.parse(saved);
-      const sanitized = sanitizeCanonicalSchools(Array.isArray(parsed) ? parsed : []);
-      return sanitized;
+      const sanitized = sanitizeCanonicalSchools(Array.isArray(parsed) && parsed.length > 0 ? parsed : initialSchools);
+      return sanitized.length > 0 ? sanitized : initialSchools;
     } catch {
-      safeSetJSON('jsk_schools', []);
-      return [];
+      safeSetJSON('jsk_schools', initialSchools);
+      return initialSchools;
     }
   });
 
@@ -937,7 +939,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return parsed.filter((d) => !isLegacyFakeDocument(d));
       } catch (e) {
         console.error('Failed to parse documents', e);
       }
@@ -1413,15 +1415,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const unsubSchools = subscribeSchoolsFromCloud(
         (cloudSchools) => {
           if (Array.isArray(cloudSchools)) {
-            // Check for legacy default schools in cloud and purge them if present
-            const legacyUdises = new Set(CLUSTER_37_SCHOOLS.map((s) => s.udise));
-            const legacyInCloud = cloudSchools.filter((s) => legacyUdises.has(s.udise));
-            if (legacyInCloud.length > 0) {
-              purgeAllCloudSchools().catch(() => {});
+            if (cloudSchools.length === 0) {
+              // Populate and sync initial 37 official schools to cloud
+              initialSchools.forEach((s) => syncSchoolToCloud(s).catch(() => {}));
+              setSchools(initialSchools);
+              safeSetJSON('jsk_schools', initialSchools);
+            } else {
+              const sanitized = sanitizeCanonicalSchools(cloudSchools);
+              setSchools(sanitized);
+              safeSetJSON('jsk_schools', sanitized);
             }
-            const cleanSchools = cloudSchools.filter((s) => !legacyUdises.has(s.udise));
-            setSchools(sanitizeCanonicalSchools(cleanSchools));
-            safeSetJSON('jsk_schools', cleanSchools);
             handleListenerSuccess();
           }
         },
@@ -1721,11 +1724,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 8j. Documents Metadata Listener (Scoped by [schoolUdise, 'ALL'] for SCHOOL role)
       const unsubDocuments = subscribeDocumentsFromCloud(
         (cloudDocs) => {
-          if (Array.isArray(cloudDocs) && cloudDocs.length > 0) {
+          if (Array.isArray(cloudDocs)) {
+            const fakeDocs = cloudDocs.filter(isLegacyFakeDocument);
+            if (fakeDocs.length > 0) {
+              fakeDocs.forEach((d) => {
+                deleteDocumentFromCloud(d.id).catch(() => {});
+              });
+            }
+            const cleanDocs = cloudDocs.filter((d) => !isLegacyFakeDocument(d));
             setDocuments((prev) => {
-              if (!listenerScopeUdise) return cloudDocs;
-              const others = prev.filter((d) => d.schoolUdise !== listenerScopeUdise && d.schoolUdise !== 'ALL');
-              return [...others, ...cloudDocs];
+              if (!listenerScopeUdise) return cleanDocs;
+              const others = prev.filter((d) => d.schoolUdise !== listenerScopeUdise && d.schoolUdise !== 'ALL' && !isLegacyFakeDocument(d));
+              return [...others, ...cleanDocs];
             });
             handleListenerSuccess();
           }
@@ -1974,7 +1984,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Avoid localStorage quota crash by stripping huge base64 strings if present;
       // the actual binary is safely stored in IndexedDB (documentStorage)
-      const sanitized = documents.map((doc) => {
+      const cleanDocs = documents.filter((d) => !isLegacyFakeDocument(d));
+      const sanitized = cleanDocs.map((doc) => {
         if (doc.fileData && doc.fileData.length > 50000) {
           const { fileData, ...rest } = doc;
           return { ...rest, hasStoredBinary: true };
@@ -2108,6 +2119,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const scopedDocuments = useMemo(() => {
     return documents.filter((d) => {
+      if (isLegacyFakeDocument(d)) return false;
       const matchSchool = !effectiveUdise
         ? !d.schoolUdise || d.schoolUdise === 'ALL' || activeSchoolUdisesSet.has(d.schoolUdise)
         : d.schoolUdise === effectiveUdise || d.schoolUdise === 'ALL';
@@ -4449,6 +4461,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetUdise = isSchoolUser ? currentSchoolUdise : (docData.schoolUdise || 'ALL');
     const newDoc: DocumentItem = {
       ...docData,
+      isUserUploaded: true,
       schoolUdise: targetUdise,
       sessionId: docData.sessionId || selectedSessionId,
       uploadedAt: docData.uploadedAt || new Date().toISOString(),

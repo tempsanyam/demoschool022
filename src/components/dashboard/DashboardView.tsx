@@ -22,7 +22,6 @@ import { SchoolBanner } from '../common/SchoolBanner';
 import { institutionConfig } from '../../config/institutionConfig';
 import { getActiveDashboardWidgets } from '../../config/dashboardWidgets';
 import { DashboardWidgetCard } from './DashboardWidgetCard';
-import { DataCompletenessCard } from './DataCompletenessCard';
 import { PendingActionsCard } from './PendingActionsCard';
 import { AuditRecentActivityCard } from './AuditRecentActivityCard';
 
@@ -177,8 +176,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </>
       )}
 
-      {/* 5. DETAILED ANALYTICAL, COMPLETENESS & ACTION PANELS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+      {/* 5. DETAILED ANALYTICAL & ACTION PANELS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* Column 1: Social Category & Demographic Distribution */}
         {isFeatureEnabled('module.dashboard.sub.analytics_charts') && (
         <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex flex-col justify-between">
@@ -251,19 +250,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
         )}
 
-        {/* Column 2: Data Completeness & Quality Card */}
-        {isFeatureEnabled('module.dashboard.sub.analytics_charts') && (
-          <DataCompletenessCard
-            percentage={scope.dataCompleteness.percentage}
-            status={scope.dataCompleteness.status}
-            passedCount={scope.dataCompleteness.passedCount}
-            totalCount={scope.dataCompleteness.totalCount}
-            pillars={scope.dataCompleteness.pillars}
-            onNavigate={onNavigate}
-          />
-        )}
-
-        {/* Column 3: Pending & Action Required Items Card */}
+        {/* Column 2: Pending & Action Required Items Card */}
         {isFeatureEnabled('module.dashboard.sub.pending_actions') && (
           <PendingActionsCard
             items={scope.pendingActionItems}

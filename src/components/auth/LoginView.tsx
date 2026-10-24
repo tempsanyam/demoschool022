@@ -190,7 +190,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     htmlFor="login-identifier-input"
                     className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    यूज़रनेम <span className="text-gray-400 font-normal">(Admin / CAC Username)</span>
+                    यूज़रनेम या डाइस कोड <span className="text-gray-400 font-normal">(Admin / CAC / School Username / UDISE)</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
@@ -201,7 +201,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="यूज़रनेम दर्ज करें (Admin / CAC 1 / CAC 2)"
+                      placeholder="यूज़रनेम या 11-अंकीय UDISE दर्ज करें (उदा. HSHIRAPUR या 23080100303)"
                       disabled={loading}
                       autoFocus
                       autoComplete="username"
@@ -279,10 +279,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-[11px] space-y-1 text-emerald-950 dark:text-emerald-200">
                 <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
                   <Shield className="w-3.5 h-3.5 text-[#0B6B4B] dark:text-emerald-400 shrink-0" />
-                  <span>अधिकृत लॉगिन दायरा (Authorized Logins Only):</span>
+                  <span>अधिकृत लॉगिन दायरा (Authorized Logins):</span>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-[10.5px]">
-                  इस शासकीय पोर्टल पर केवल <strong>मुख्य व्यवस्थापक (संयम जैन - Admin)</strong> एवं <strong>2 जन शिक्षक (संजय कुमार जैन - CAC 1, सन्मति कुमार जैन - CAC 2)</strong> का लॉगिन मान्य है। शाला स्तर का लॉगिन बंद किया गया है।
+                  इस शासकीय पोर्टल पर मुख्य व्यवस्थापक (Admin), 2 जन शिक्षक (CAC 1 व CAC 2) एवं संकुल मलगुवां की समस्त 37 शालाओं (School Username या 11-अंकीय UDISE) का लॉगिन अधिकृत है।
                 </p>
               </div>
 

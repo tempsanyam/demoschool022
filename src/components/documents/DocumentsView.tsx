@@ -267,6 +267,7 @@ export const DocumentsView: React.FC = () => {
         hasStoredBinary: true,
         description: description.trim() || undefined,
         uploadedAt: new Date().toISOString(),
+        isUserUploaded: true,
       });
 
       // 5. Success feedback

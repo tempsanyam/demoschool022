@@ -498,6 +498,7 @@ export interface DocumentItem {
   fileSizeBytes?: number;
   uploadedAt?: string;
   hasStoredBinary?: boolean;
+  isUserUploaded?: boolean;
 }
 
 export type AuditAction =

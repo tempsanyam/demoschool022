@@ -156,3 +156,73 @@ export function isLegacyFakeComplaint(c: any): boolean {
   }
   return false;
 }
+
+export function isLegacyFakeDocument(d: any): boolean {
+  if (!d || typeof d !== 'object') return false;
+
+  // Real user-uploaded documents going forward are explicitly protected
+  if (d.isUserUploaded === true) {
+    return false;
+  }
+
+  // 1. Check characteristic mock document IDs
+  if (d.id && typeof d.id === 'string') {
+    const id = d.id.trim();
+    if (
+      id.startsWith('DEMO-') ||
+      id.startsWith('TEST-') ||
+      id.startsWith('MOCK-') ||
+      /^DOC-(00[1-9]|0[1-9][0-9]|[1-9])$/.test(id) ||
+      id === 'DOC-1' ||
+      id === 'DOC-2' ||
+      id === 'DOC-3' ||
+      id === 'DOC-4' ||
+      id === 'DOC-5' ||
+      id.startsWith('DOC-600')
+    ) {
+      return true;
+    }
+  }
+
+  // 2. Any mock/demo titles used during initial seeding
+  const mockTitles = [
+    'वार्षिक परीक्षा समय सारणी',
+    'शाला प्रबंधन समिति (SMC) गठन आदेश',
+    'मध्याह्न भोजन (MDM) मीनू निर्देश',
+    'निःशुल्क पाठ्यपुस्तक वितरण पंजी',
+    'संकुल स्तरीय शैक्षणिक कैलेंडर',
+    'निरीक्षण रिपोर्ट',
+    'उपयोगिता प्रमाण पत्र',
+    'छात्रवृत्ति वितरण सूची',
+    'गणवेश वितरण रिपोर्ट',
+  ];
+  if (d.title && typeof d.title === 'string') {
+    const t = d.title.trim();
+    if (mockTitles.some((mt) => t.includes(mt))) {
+      return true;
+    }
+  }
+
+  // 3. Any document with order/document number matching mock patterns
+  if (d.documentNumber && typeof d.documentNumber === 'string') {
+    const dn = d.documentNumber.trim();
+    if (dn.startsWith('RSK/') || dn.startsWith('GOV/') || dn.startsWith('CIRCULAR/2026') || dn.startsWith('DOC-NUM-')) {
+      return true;
+    }
+  }
+
+  // 4. Any legacy document created prior to this cleanup cutoff timestamp
+  if (d.uploadedAt && typeof d.uploadedAt === 'string') {
+    const time = new Date(d.uploadedAt).getTime();
+    if (!isNaN(time) && time < 1792760400000) {
+      return true;
+    }
+  } else if (!d.uploadedAt) {
+    // Legacy mock document without upload timestamp
+    return true;
+  }
+
+  // By default, if it doesn't have isUserUploaded: true, treat existing residual docs as legacy fake
+  return true;
+}
+

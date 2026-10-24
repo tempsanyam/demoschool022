@@ -63,6 +63,18 @@ if (localStorage.getItem(IMMEDIATE_WIPE_TOKEN) !== 'PURGED') {
   }
 }
 
+// Unconditional purge of all legacy demo documents per user directive ("5 दस्तावेज, प्रपत्र एवं डिजिटल अभिलेखागार yah remove kar do")
+const DOCUMENT_PURGE_TOKEN = 'jsk_purge_demo_documents_2026_v29_oct23';
+if (localStorage.getItem(DOCUMENT_PURGE_TOKEN) !== 'PURGED') {
+  try {
+    localStorage.removeItem('jsk_documents');
+    localStorage.setItem('jsk_documents', '[]');
+    localStorage.setItem(DOCUMENT_PURGE_TOKEN, 'PURGED');
+  } catch {
+    // ignore
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
