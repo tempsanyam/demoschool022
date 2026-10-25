@@ -1,0 +1,199 @@
+{
+  "generatedAt": "2026-10-25T07:49:44.670Z",
+  "studentAcademicRecordsHeld": {
+    "total": 992,
+    "bySession": {
+      "2018-19": 232,
+      "2024-25": 252,
+      "2025-26": 252,
+      "2026-27": 253,
+      "2027-28": 2,
+      "2028-29": 1
+    },
+    "byClass": {
+      "1": 360,
+      "2": 110,
+      "3": 87,
+      "4": 72,
+      "5": 77,
+      "6": 80,
+      "7": 71,
+      "8": 52,
+      "9": 22,
+      "10": 11,
+      "Balvatika": 25,
+      "Nursery": 25
+    },
+    "schoolCountRepresented": 37,
+    "sampleSchools": [
+      [
+        "PS JANAKPUR",
+        24
+      ],
+      [
+        "PS KACHHIYAT",
+        24
+      ],
+      [
+        "PS PATTIGANESHJU",
+        24
+      ],
+      [
+        "MS DUBDEI",
+        32
+      ],
+      [
+        "PS KHAJRAR",
+        24
+      ]
+    ]
+  },
+  "staffPostingsHeld": {
+    "total": 431,
+    "bySession": {
+      "2018-19": 107,
+      "2024-25": 108,
+      "2025-26": 108,
+      "2026-27": 108
+    },
+    "byDesignation": {
+      "प्रधानाध्यापक": 140,
+      "माध्यमिक शिक्षक": 40,
+      "रसोइया": 135,
+      "प्राथमिक शिक्षक": 100,
+      "प्राचार्य": 8,
+      "उच्च माध्यमिक शिक्षक": 8
+    },
+    "schoolCountRepresented": 37,
+    "sampleSchools": [
+      [
+        "HS HIRAPUR",
+        12
+      ],
+      [
+        "SARSWATI SHISHU MANDIR BANPURA BUJURG",
+        8
+      ],
+      [
+        "PS JANAKPUR",
+        12
+      ],
+      [
+        "PS KACHHIYAT",
+        11
+      ],
+      [
+        "PS PATTIGANESHJU",
+        12
+      ]
+    ]
+  },
+  "rasoiyaHeld": {
+    "total": 148,
+    "byStatus": {
+      "ACTIVE": 148
+    },
+    "schoolCountRepresented": 37,
+    "perSchoolCountAverage": "4.0"
+  },
+  "usersMappingSummary": {
+    "total": 88,
+    "byCategory": {
+      "FIREBASE_AUTH_UID": 8,
+      "UDISE_KEYED_PROFILE": 37,
+      "SEED_SCHOOL_ID": 37,
+      "SEED_ADMIN_OR_CAC_ID": 3,
+      "USERNAME_KEYED_DOC": 3
+    },
+    "firebaseAuthUsers": [
+      {
+        "docId": "5XFY10Pm9laYloJ0FPVLry4tU513",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "CAC",
+        "username": "Sanjayjain1979",
+        "email": "cac.malguwa@mp.gov.in",
+        "assignedSchoolUdise": null,
+        "schoolName": null,
+        "status": "ACTIVE",
+        "approvalStatus": "APPROVED"
+      },
+      {
+        "docId": "6NrCVlQjYDYjlDMpfZgH4wlyST92",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "ADMIN",
+        "username": "SANYAMJAIN88",
+        "email": "admin.malguwa@mp.gov.in",
+        "assignedSchoolUdise": null,
+        "schoolName": null,
+        "status": "ACTIVE",
+        "approvalStatus": "APPROVED"
+      },
+      {
+        "docId": "8h7hympwNLNO4lq0JLGQO5KfuLy1",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "SCHOOL",
+        "username": "23080100303",
+        "email": "hshirapur@mp.gov.in",
+        "assignedSchoolUdise": "23080100303",
+        "schoolName": "HS HIRAPUR",
+        "status": "ACTIVE",
+        "approvalStatus": "APPROVED"
+      },
+      {
+        "docId": "R3wmcEqVtZOP6uKjp4nPQxtpbgc2",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "SCHOOL",
+        "username": "23080111702",
+        "email": "msbanpurabuzurg@mp.gov.in",
+        "assignedSchoolUdise": "23080111702",
+        "schoolName": "MS BANPURA BUZURG",
+        "status": "ACTIVE",
+        "approvalStatus": null
+      },
+      {
+        "docId": "br31jrVU3wZ0skvr0y42fXCTYSy1",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "SCHOOL",
+        "username": "23080110702",
+        "email": "pskachhiyat@mp.gov.in",
+        "assignedSchoolUdise": "23080110702",
+        "schoolName": "PS KACHHIYAT",
+        "status": "ACTIVE",
+        "approvalStatus": null
+      },
+      {
+        "docId": "dzNflGYnjANDLVCHSMZ9Q5XAmUg2",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "SCHOOL",
+        "username": "23080110701",
+        "email": "psjanakpur@mp.gov.in",
+        "assignedSchoolUdise": "23080110701",
+        "schoolName": "PS JANAKPUR",
+        "status": "ACTIVE",
+        "approvalStatus": "APPROVED"
+      },
+      {
+        "docId": "oufJw9KrxmSo7p4AbxaCyWzzFAt1",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "CAC",
+        "username": "Sanmatijain99",
+        "email": "cac.sanmati@mp.gov.in",
+        "assignedSchoolUdise": null,
+        "schoolName": null,
+        "status": "ACTIVE",
+        "approvalStatus": null
+      },
+      {
+        "docId": "t3yFjtNtaFUIDeO9TnLwPmQDP9G2",
+        "category": "FIREBASE_AUTH_UID",
+        "role": "ADMIN",
+        "username": "SANYAMJAIN88",
+        "email": "sanyam.admin@malguwa.edu.in",
+        "assignedSchoolUdise": null,
+        "schoolName": null,
+        "status": "ACTIVE",
+        "approvalStatus": "APPROVED"
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "executedAt": "2026-10-25T07:49:11.364Z",
+  "status": "COMPLETED_SUCCESSFULLY",
+  "deleted": {
+    "attendance": 70,
+    "studentAcademicRecords": 791,
+    "staffPostings": 396,
+    "rasoiya": 132,
+    "total": 1389
+  },
+  "liveCountsAfterDeletion": {
+    "attendance": 0,
+    "studentAcademicRecords": 992,
+    "staffPostings": 431,
+    "rasoiya": 148,
+    "schools": 37,
+    "academicSessions": 16,
+    "examCycles": 7,
+    "governmentWork": 11,
+    "notifications": 3,
+    "literacyRegisters": 6,
+    "illiteratePersons": 9,
+    "aksharSathis": 8,
+    "literacyExamResults": 6,
+    "supportingInstitutions": 3,
+    "users": 88,
+    "auditLogs": 14,
+    "preAuthSecurityEvents": 405
+  },
+  "allPreservedRecordsInCluster": true
+}

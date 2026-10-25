@@ -1,0 +1,747 @@
+{
+  "timestamp": "2026-10-25T08:42:24.540Z",
+  "firebaseProject": "celestial-byway-ft8c4",
+  "firestoreDatabaseId": "ai-studio-dc9d25e5-4549-4c58-a5ef-80cffe3f0e04",
+  "tests": {
+    "adminAndCacAuth": {
+      "status": "FAIL",
+      "results": [
+        {
+          "account": "Admin (Sanyam Jain)",
+          "email": "sanyam.admin@malguwa.edu.in",
+          "uid": "t3yFjtNtaFUIDeO9TnLwPmQDP9G2",
+          "userDocExists": true,
+          "roleInFirestore": "ADMIN",
+          "statusInFirestore": "ACTIVE",
+          "passed": true
+        },
+        {
+          "account": "Admin (Official MP Gov)",
+          "email": "admin.malguwa@mp.gov.in",
+          "error": "Firebase: Error (auth/invalid-credential).",
+          "passed": false
+        },
+        {
+          "account": "CAC-1 (Sanjay Jain)",
+          "email": "cac.malguwa@mp.gov.in",
+          "error": "Firebase: Error (auth/invalid-credential).",
+          "passed": false
+        },
+        {
+          "account": "CAC-2 (Sanmati Jain)",
+          "email": "cac.sanmati@mp.gov.in",
+          "error": "Firebase: Error (auth/invalid-credential).",
+          "passed": false
+        }
+      ]
+    },
+    "official37Schools": {
+      "status": "PASS",
+      "count": 37,
+      "schools": [
+        {
+          "udise": "23080100303",
+          "name": "HS HIRAPUR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080110701",
+          "name": "PS JANAKPUR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080110702",
+          "name": "PS KACHHIYAT",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111001",
+          "name": "PS PATTIGANESHJU",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111102",
+          "name": "MS DUBDEI",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111201",
+          "name": "PS KHAJRAR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111202",
+          "name": "MS KHAJRAR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111301",
+          "name": "PS PATTI BALWANTSINGH",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111302",
+          "name": "PS PURAINIYA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111404",
+          "name": "MS HIRAPUR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111405",
+          "name": "PS PURA KHERA HIRAPUR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111406",
+          "name": "PS TURKA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111408",
+          "name": "PS DIGORA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111603",
+          "name": "MS SARKAR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111702",
+          "name": "MS BANPURA BUZURG",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111703",
+          "name": "PS PURUWA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111801",
+          "name": "PS BAR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080111902",
+          "name": "MS VARME",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113101",
+          "name": "PS DARGUWAN JAGIR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113102",
+          "name": "PS DHIMROLA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113103",
+          "name": "PS HB DARGUWAN JAGIR",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113104",
+          "name": "GHS DARGUWAN",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113203",
+          "name": "PS BANDHIYANPURA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113301",
+          "name": "PS KACHHIYA KHERA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113302",
+          "name": "MS KACHHIYA KHERA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113401",
+          "name": "PS MAUNE KA KHERA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113402",
+          "name": "MS MAUNE KA KHERA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113403",
+          "name": "PS BASENDU",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113602",
+          "name": "MS MALGUWAN",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113603",
+          "name": "PS DHUVYA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113605",
+          "name": "PS DHIMARWAN",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113606",
+          "name": "PS MAGORIYA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113607",
+          "name": "HS MALGUWAN",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080113701",
+          "name": "PS GARROLI",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080115206",
+          "name": "PRI MAA SARASWATI GM MALGUWAN",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23080115210",
+          "name": "PRI VEERANGANA AWANTI KUDILA",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        },
+        {
+          "udise": "23084101366",
+          "name": "SARSWATI SHISHU MANDIR BANPURA BUJURG",
+          "category": "N/A",
+          "status": "ACTIVE",
+          "hasVillage": true,
+          "hasPincode": false
+        }
+      ]
+    },
+    "schoolUserMapping": {
+      "status": "PASS",
+      "totalSchools": 37,
+      "all37Mapped": true,
+      "directFirebaseAuthCount": 4,
+      "canonicalMappedCount": 33,
+      "details": [
+        {
+          "udise": "23080100303",
+          "schoolName": "HS HIRAPUR",
+          "mappedDocCount": 3,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": true,
+          "authMethod": "FIREBASE_AUTH_UID"
+        },
+        {
+          "udise": "23080110701",
+          "schoolName": "PS JANAKPUR",
+          "mappedDocCount": 3,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": true,
+          "authMethod": "FIREBASE_AUTH_UID"
+        },
+        {
+          "udise": "23080110702",
+          "schoolName": "PS KACHHIYAT",
+          "mappedDocCount": 3,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": true,
+          "authMethod": "FIREBASE_AUTH_UID"
+        },
+        {
+          "udise": "23080111001",
+          "schoolName": "PS PATTIGANESHJU",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111102",
+          "schoolName": "MS DUBDEI",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111201",
+          "schoolName": "PS KHAJRAR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111202",
+          "schoolName": "MS KHAJRAR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111301",
+          "schoolName": "PS PATTI BALWANTSINGH",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111302",
+          "schoolName": "PS PURAINIYA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111404",
+          "schoolName": "MS HIRAPUR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111405",
+          "schoolName": "PS PURA KHERA HIRAPUR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111406",
+          "schoolName": "PS TURKA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111408",
+          "schoolName": "PS DIGORA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111603",
+          "schoolName": "MS SARKAR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111702",
+          "schoolName": "MS BANPURA BUZURG",
+          "mappedDocCount": 3,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": true,
+          "authMethod": "FIREBASE_AUTH_UID"
+        },
+        {
+          "udise": "23080111703",
+          "schoolName": "PS PURUWA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111801",
+          "schoolName": "PS BAR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080111902",
+          "schoolName": "MS VARME",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113101",
+          "schoolName": "PS DARGUWAN JAGIR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113102",
+          "schoolName": "PS DHIMROLA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113103",
+          "schoolName": "PS HB DARGUWAN JAGIR",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113104",
+          "schoolName": "GHS DARGUWAN",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113203",
+          "schoolName": "PS BANDHIYANPURA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113301",
+          "schoolName": "PS KACHHIYA KHERA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113302",
+          "schoolName": "MS KACHHIYA KHERA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113401",
+          "schoolName": "PS MAUNE KA KHERA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113402",
+          "schoolName": "MS MAUNE KA KHERA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113403",
+          "schoolName": "PS BASENDU",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113602",
+          "schoolName": "MS MALGUWAN",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113603",
+          "schoolName": "PS DHUVYA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113605",
+          "schoolName": "PS DHIMARWAN",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113606",
+          "schoolName": "PS MAGORIYA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113607",
+          "schoolName": "HS MALGUWAN",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080113701",
+          "schoolName": "PS GARROLI",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080115206",
+          "schoolName": "PRI MAA SARASWATI GM MALGUWAN",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23080115210",
+          "schoolName": "PRI VEERANGANA AWANTI KUDILA",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        },
+        {
+          "udise": "23084101366",
+          "schoolName": "SARSWATI SHISHU MANDIR BANPURA BUJURG",
+          "mappedDocCount": 2,
+          "hasDirectUdiseDoc": true,
+          "hasUsrSchDoc": true,
+          "hasDirectFirebaseAuthUid": false,
+          "authMethod": "CANONICAL_CREDENTIAL_MAPPING"
+        }
+      ]
+    },
+    "schoolLoginVerification": {
+      "status": "PARTIAL_OR_FAIL",
+      "testedAccounts": [
+        {
+          "school": "HS Hirapur",
+          "udise": "23080100303",
+          "loginSuccess": false,
+          "error": "Firebase: Error (auth/invalid-credential).",
+          "passed": false
+        },
+        {
+          "school": "PS Janakpur",
+          "udise": "23080110701",
+          "loginSuccess": false,
+          "error": "Firebase: Error (auth/invalid-credential).",
+          "passed": false
+        }
+      ],
+      "untestedSchoolsCount": 35,
+      "untestedNote": "Only schools with verified passwords in test suite were directly authenticated. Remaining 35 schools authenticate via AuthContext canonical credential handler on initial login."
+    },
+    "databaseCountsAndEmptyStates": {
+      "status": "FAIL",
+      "dbCounts": {
+        "schools": 37,
+        "academicSessions": 16,
+        "examCycles": 7,
+        "users": 88,
+        "auditLogs": 14,
+        "preAuthSecurityEvents": 405,
+        "studentAcademicRecords": 0,
+        "staffPostings": 0,
+        "rasoiya": 0,
+        "governmentWork": 0,
+        "notifications": 3,
+        "literacyRegisters": 6,
+        "illiteratePersons": 9,
+        "aksharSathis": 8,
+        "literacyExamResults": 6,
+        "supportingInstitutions": 3,
+        "attendance": 0,
+        "mdmRecords": 0,
+        "shgs": 0,
+        "facilities": 0,
+        "complaints": 0,
+        "documents": 0,
+        "studentMasters": 0,
+        "staffMasters": 0
+      },
+      "allOperationalZero": false,
+      "coreProtectedValid": true
+    },
+    "securityRules": {
+      "status": "FAIL",
+      "checks": {
+        "hasIsAdmin": true,
+        "hasIsCAC": true,
+        "hasIsSchool": true,
+        "hasIsMySchool": true,
+        "blocksSchoolDelete": false,
+        "appendOnlyAuditLogs": false,
+        "appendOnlyPreAuth": false
+      }
+    }
+  }
+}

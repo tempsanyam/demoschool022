@@ -476,7 +476,10 @@ service cloud.firestore {
         (request.auth.uid == userId && (
           request.resource.data.role == 'SCHOOL' ||
           (request.resource.data.role == 'ADMIN' &&
-           request.auth.token.email == 'sanyamjain88@malguwa.edu.in' &&
+           (request.auth.token.email == 'sanyamjain88@malguwa.edu.in' ||
+            request.auth.token.email == 'tempf3605@gmail.com' ||
+            request.auth.token.email == 'admin.malguwa@mp.gov.in' ||
+            request.auth.token.email == 'sanyam.admin@malguwa.edu.in') &&
            request.resource.data.username == 'SANYAMJAIN88') ||
           (request.resource.data.role == 'CAC' &&
            ((request.auth.token.email == 'sanjayjain1979@malguwa.edu.in' && request.resource.data.username == 'Sanjayjain1979') ||

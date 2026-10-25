@@ -1,0 +1,380 @@
+{
+  "timestamp": "2026-10-25T09:03:08.630Z",
+  "totalSchools": 37,
+  "schoolsWithAuthUid": 37,
+  "adminAccountsClean": 2,
+  "cacAccountsClean": 2,
+  "status": "CLEAN_SLATE_SUCCESS",
+  "schools": [
+    {
+      "udise": "23080100303",
+      "schoolName": "HS HIRAPUR",
+      "username": "23080100303",
+      "email": "23080100303@malguwa.edu.in",
+      "authUid": "8h7hympwNLNO4lq0JLGQO5KfuLy1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080110701",
+      "schoolName": "PS JANAKPUR",
+      "username": "23080110701",
+      "email": "23080110701@malguwa.edu.in",
+      "authUid": "dzNflGYnjANDLVCHSMZ9Q5XAmUg2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080110702",
+      "schoolName": "PS KACHHIYAT",
+      "username": "23080110702",
+      "email": "23080110702@malguwa.edu.in",
+      "authUid": "br31jrVU3wZ0skvr0y42fXCTYSy1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111001",
+      "schoolName": "PS PATTIGANESHJU",
+      "username": "23080111001",
+      "email": "23080111001@malguwa.edu.in",
+      "authUid": "VTVwJQERlbf8pcb2zt64rZ6VPng1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111102",
+      "schoolName": "MS DUBDEI",
+      "username": "23080111102",
+      "email": "23080111102@malguwa.edu.in",
+      "authUid": "YHhKrT2zgaOBsgb6LxnqqyTQu043",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111201",
+      "schoolName": "PS KHAJRAR",
+      "username": "23080111201",
+      "email": "23080111201@malguwa.edu.in",
+      "authUid": "bo9vmfTkH2cC9nUGcJag33BViKk2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111202",
+      "schoolName": "MS KHAJRAR",
+      "username": "23080111202",
+      "email": "23080111202@malguwa.edu.in",
+      "authUid": "aC3ODw9Cc2Th7JfGAUwLvaU72hc2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111301",
+      "schoolName": "PS PATTI BALWANTSINGH",
+      "username": "23080111301",
+      "email": "23080111301@malguwa.edu.in",
+      "authUid": "H3L73Upmq8Qj97dMT2xltNJZ9ow2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111302",
+      "schoolName": "PS PURAINIYA",
+      "username": "23080111302",
+      "email": "23080111302@malguwa.edu.in",
+      "authUid": "TFPditog8dbW6D133ge6g0e6r5f1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111404",
+      "schoolName": "MS HIRAPUR",
+      "username": "23080111404",
+      "email": "23080111404@malguwa.edu.in",
+      "authUid": "A1cGJxYNh3aMk5gA8TzaG7jAGv03",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111405",
+      "schoolName": "PS PURA KHERA HIRAPUR",
+      "username": "23080111405",
+      "email": "23080111405@malguwa.edu.in",
+      "authUid": "fUJSNmvgNTdIpdHnlySObukYjSj2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111406",
+      "schoolName": "PS TURKA",
+      "username": "23080111406",
+      "email": "23080111406@malguwa.edu.in",
+      "authUid": "gpQZRIhJBgYf4pr3b4RIbYrmLYC3",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111408",
+      "schoolName": "PS DIGORA",
+      "username": "23080111408",
+      "email": "23080111408@malguwa.edu.in",
+      "authUid": "fa4fQNuHMNT6U7LFF1erDZGKx6E2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111603",
+      "schoolName": "MS SARKAR",
+      "username": "23080111603",
+      "email": "23080111603@malguwa.edu.in",
+      "authUid": "5zVmclsEH6WwpanpLPGwEbkjP6k2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111702",
+      "schoolName": "MS BANPURA BUZURG",
+      "username": "23080111702",
+      "email": "23080111702@malguwa.edu.in",
+      "authUid": "R3wmcEqVtZOP6uKjp4nPQxtpbgc2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111703",
+      "schoolName": "PS PURUWA",
+      "username": "23080111703",
+      "email": "23080111703@malguwa.edu.in",
+      "authUid": "wbEpicdv3LgBHX3xo7r1tTineZn2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111801",
+      "schoolName": "PS BAR",
+      "username": "23080111801",
+      "email": "23080111801@malguwa.edu.in",
+      "authUid": "0WFJBkJpArQZgx4D3UH0nziQ1lF2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080111902",
+      "schoolName": "MS VARME",
+      "username": "23080111902",
+      "email": "23080111902@malguwa.edu.in",
+      "authUid": "hZJXZh7Y6NWPxzsYzgLQxTqIt3s1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113101",
+      "schoolName": "PS DARGUWAN JAGIR",
+      "username": "23080113101",
+      "email": "23080113101@malguwa.edu.in",
+      "authUid": "0GYll2GOh1WhpqNiG4MlNtJemzO2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113102",
+      "schoolName": "PS DHIMROLA",
+      "username": "23080113102",
+      "email": "23080113102@malguwa.edu.in",
+      "authUid": "mIEZJHvHbqMjSsmM9DJWrqz3YIv2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113103",
+      "schoolName": "PS HB DARGUWAN JAGIR",
+      "username": "23080113103",
+      "email": "23080113103@malguwa.edu.in",
+      "authUid": "AjhmZJTV1Yc1bwNDB7Duva2Kyi13",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113104",
+      "schoolName": "GHS DARGUWAN",
+      "username": "23080113104",
+      "email": "23080113104@malguwa.edu.in",
+      "authUid": "9Pxz9mmsgHZDQvGCo4Y6l5Yc7dl1",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113203",
+      "schoolName": "PS BANDHIYANPURA",
+      "username": "23080113203",
+      "email": "23080113203@malguwa.edu.in",
+      "authUid": "lPbkKDF7hdg1WKrgbbm0fijcgZJ3",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113301",
+      "schoolName": "PS KACHHIYA KHERA",
+      "username": "23080113301",
+      "email": "23080113301@malguwa.edu.in",
+      "authUid": "Yu0TFhR7BHYSXRabr3hepVXza652",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113302",
+      "schoolName": "MS KACHHIYA KHERA",
+      "username": "23080113302",
+      "email": "23080113302@malguwa.edu.in",
+      "authUid": "i1dWxV4K0ydDXjpxrYK0tX6o8fj2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113401",
+      "schoolName": "PS MAUNE KA KHERA",
+      "username": "23080113401",
+      "email": "23080113401@malguwa.edu.in",
+      "authUid": "J6KD8ApVofUMTVgvkmRoDVMxOF73",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113402",
+      "schoolName": "MS MAUNE KA KHERA",
+      "username": "23080113402",
+      "email": "23080113402@malguwa.edu.in",
+      "authUid": "9monQXYN7NVpqUdCMq1sc1YiU402",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113403",
+      "schoolName": "PS BASENDU",
+      "username": "23080113403",
+      "email": "23080113403@malguwa.edu.in",
+      "authUid": "4G0ksNM5cbUNWkv1n37tyPIQ9Ki2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113602",
+      "schoolName": "MS MALGUWAN",
+      "username": "23080113602",
+      "email": "23080113602@malguwa.edu.in",
+      "authUid": "iRMd65qrjHNXXkOOJHaSBFKj2mx2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113603",
+      "schoolName": "PS DHUVYA",
+      "username": "23080113603",
+      "email": "23080113603@malguwa.edu.in",
+      "authUid": "4A0hKTcZwqeTN5k12JnmweHyqUn2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113605",
+      "schoolName": "PS DHIMARWAN",
+      "username": "23080113605",
+      "email": "23080113605@malguwa.edu.in",
+      "authUid": "oyj9hk26YsM2xInaEE5CpRbYnED3",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113606",
+      "schoolName": "PS MAGORIYA",
+      "username": "23080113606",
+      "email": "23080113606@malguwa.edu.in",
+      "authUid": "ag3Xj6EIYuUNWAIw4ptxvpLeAQF3",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113607",
+      "schoolName": "HS MALGUWAN",
+      "username": "23080113607",
+      "email": "23080113607@malguwa.edu.in",
+      "authUid": "zuZmT3uvfOcs9vghwoc9VJ5E0L63",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080113701",
+      "schoolName": "PS GARROLI",
+      "username": "23080113701",
+      "email": "23080113701@malguwa.edu.in",
+      "authUid": "GzP8rhI0FmQGGs3mS5aOQoBIMsP2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080115206",
+      "schoolName": "PRI MAA SARASWATI GM MALGUWAN",
+      "username": "23080115206",
+      "email": "23080115206@malguwa.edu.in",
+      "authUid": "ompEGBkHJpdVYkZd2YcUBMYUjG82",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23080115210",
+      "schoolName": "PRI VEERANGANA AWANTI KUDILA",
+      "username": "23080115210",
+      "email": "23080115210@malguwa.edu.in",
+      "authUid": "11HJjasJURZJQG5cCX56JCPDO5f2",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    },
+    {
+      "udise": "23084101366",
+      "schoolName": "SARSWATI SHISHU MANDIR BANPURA BUJURG",
+      "username": "23084101366",
+      "email": "23084101366@malguwa.edu.in",
+      "authUid": "mFoI4izNyGeRPexokwRsPDFXuW62",
+      "status": "ACTIVE",
+      "hasPersonalMobile": false,
+      "hasPrincipalDetails": false
+    }
+  ]
+}

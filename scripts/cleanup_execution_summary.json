@@ -1,0 +1,51 @@
+{
+  "executedAt": "2026-10-24T08:28:09.785Z",
+  "projectId": "celestial-byway-ft8c4",
+  "databaseId": "ai-studio-dc9d25e5-4549-4c58-a5ef-80cffe3f0e04",
+  "adminSessionUid": "t3yFjtNtaFUIDeO9TnLwPmQDP9G2",
+  "preCleanupLiveCounts": {
+    "studentMasters": 365,
+    "staffMasters": 60,
+    "facilities": 70,
+    "documents": 8
+  },
+  "deletionResults": {
+    "studentMasters": {
+      "attempted": 365,
+      "deleted": 365,
+      "errors": []
+    },
+    "staffMasters": {
+      "attempted": 60,
+      "deleted": 60,
+      "errors": []
+    },
+    "facilities": {
+      "attempted": 70,
+      "deleted": 70,
+      "errors": []
+    },
+    "documents": {
+      "attempted": 8,
+      "deleted": 8,
+      "errors": []
+    }
+  },
+  "postCleanupLiveCounts": {
+    "studentMasters": 0,
+    "staffMasters": 0,
+    "facilities": 0,
+    "documents": 0
+  },
+  "protectedCollectionsCheck": {
+    "schools": 37,
+    "academicSessions": 16,
+    "examCycles": 7
+  },
+  "skippedNonDummyRecords": {
+    "studentMasters": [],
+    "staffMasters": [],
+    "facilities": [],
+    "documents": []
+  }
+}

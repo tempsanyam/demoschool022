@@ -1,0 +1,241 @@
+{
+  "timestamp": "2026-10-24T08:58:57.041Z",
+  "collectionCounts": {
+    "schools": 37,
+    "academicSessions": 16,
+    "examCycles": 7,
+    "studentMasters": 0,
+    "studentAcademicRecords": 1843,
+    "staffMasters": 0,
+    "staffPostings": 827,
+    "facilities": 0,
+    "attendance": 70,
+    "mdmRecords": 0,
+    "rasoiya": 280,
+    "shgs": 0,
+    "literacyRegisters": 6,
+    "illiteratePersons": 9,
+    "aksharSathis": 8,
+    "literacyExamResults": 6,
+    "supportingInstitutions": 3,
+    "governmentWork": 11,
+    "complaints": 0,
+    "notifications": 3,
+    "documents": 0,
+    "users": 88,
+    "systemSettings": 0,
+    "auditLogs": 14,
+    "preAuthSecurityEvents": 405
+  },
+  "officialSchoolsCount": 37,
+  "studentAcademicRecords": {
+    "total": 1843,
+    "inCluster": 999,
+    "nonCluster": 844,
+    "nonClusterUdiseSample": [
+      "23080100304",
+      "23080100305",
+      "23080100306",
+      "23080100307",
+      "23080100308",
+      "23080104101",
+      "23080104102",
+      "23080104103",
+      "23080104104",
+      "23080105201"
+    ],
+    "nonClusterUdiseCount": 33
+  },
+  "staffPostings": {
+    "total": 827,
+    "inCluster": 431,
+    "nonCluster": 396,
+    "nonClusterUdiseCount": 33
+  },
+  "rasoiya": {
+    "total": 280,
+    "inCluster": 148,
+    "nonCluster": 132,
+    "nonClusterUdiseCount": 33
+  },
+  "attendance": {
+    "total": 70,
+    "inCluster": 70,
+    "nonCluster": 0,
+    "sampleDates": [
+      "2018-10-12",
+      "2024-11-15",
+      "2025-02-10",
+      "2025-11-20",
+      "2026-09-06",
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11"
+    ]
+  },
+  "governmentWork": {
+    "total": 11,
+    "sample": [
+      {
+        "id": "GW-002",
+        "name": "वार्षिक शाला अनुदान (Composite Grant) व्यय वाउचर संधारण",
+        "status": "COMPLETED",
+        "date": "2026-08-10"
+      },
+      {
+        "id": "GW-002-10702",
+        "name": "वार्षिक शाला अनुदान (Composite Grant) व्यय वाउचर संधारण",
+        "status": "COMPLETED",
+        "date": "2026-08-10"
+      },
+      {
+        "id": "GW-003",
+        "name": "निःशुल्क पाठ्यपुस्तक वितरण सत्यापन व पोर्टल प्रविष्टि",
+        "status": "COMPLETED",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "GW-004",
+        "name": "पेयजल हैंडपंप मोटर व वाटर फिल्टर मरम्मत",
+        "status": "PENDING",
+        "date": "2026-08-22"
+      },
+      {
+        "id": "GW-2018-01",
+        "name": "सत्र 2018-19 समग्र छात्रवृत्ति वितरण सत्यापन",
+        "status": "COMPLETED",
+        "date": "2018-11-10"
+      },
+      {
+        "id": "GW-2018-02",
+        "name": "सत्र 2018-19 निःशुल्क गणवेश वितरण भौतिक सत्यापन",
+        "status": "COMPLETED",
+        "date": "2018-09-15"
+      },
+      {
+        "id": "GW-2024-01",
+        "name": "सत्र 2024-25 वार्षिक परीक्षा संपादन एवं परिणाम घोषणा",
+        "status": "COMPLETED",
+        "date": "2025-03-01"
+      },
+      {
+        "id": "GW-2024-02",
+        "name": "सत्र 2024-25 छात्रवृत्ति एवं गणवेश वितरण सत्यापन",
+        "status": "COMPLETED",
+        "date": "2024-11-05"
+      },
+      {
+        "id": "GW-2025-01",
+        "name": "सत्र 2025-26 वार्षिक परीक्षा संपादन एवं मूल्यांकन प्रपत्र संकलन",
+        "status": "COMPLETED",
+        "date": "2026-03-01"
+      },
+      {
+        "id": "GW-2025-02",
+        "name": "सत्र 2025-26 समग्र छात्रवृत्ति एवं गणवेश वितरण सत्यापन",
+        "status": "COMPLETED",
+        "date": "2025-11-10"
+      },
+      {
+        "id": "GW-2025-03",
+        "name": "सत्र 2025-26 संकुल स्तरीय खेलकूद एवं सांस्कृतिक प्रतियोगिता आयोजन",
+        "status": "COMPLETED",
+        "date": "2025-12-01"
+      }
+    ]
+  },
+  "notifications": {
+    "total": 3,
+    "sample": [
+      {
+        "id": "NOTIF-001",
+        "title": "मासिक संकुल समीक्षा बैठक (CAC Monthly Review Meeting)",
+        "date": "2026-08-29"
+      },
+      {
+        "id": "NOTIF-002",
+        "title": "स्वच्छता पखवाड़ा एवं पोषण वाटिका संधारण निर्देश",
+        "date": "2026-08-28"
+      },
+      {
+        "id": "NOTIF-003",
+        "title": "कक्षा 5 व 8 बोर्ड पैटर्न वार्षिक परीक्षा प्रपत्र संकलन",
+        "date": "2026-08-25"
+      }
+    ]
+  },
+  "literacyModule": {
+    "registers": 6,
+    "illiteratePersons": 9,
+    "aksharSathis": 8,
+    "examResults": 6,
+    "supportingInstitutions": 3
+  },
+  "usersAnalysis": {
+    "total": 88,
+    "admins": [
+      {
+        "docId": "6NrCVlQjYDYjlDMpfZgH4wlyST92",
+        "username": "SANYAMJAIN88",
+        "email": "admin.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "USR-ADMIN-01",
+        "username": "SANYAMJAIN88",
+        "email": "admin.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "sanyamjain88",
+        "username": "SANYAMJAIN88",
+        "email": "admin.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "t3yFjtNtaFUIDeO9TnLwPmQDP9G2",
+        "username": "SANYAMJAIN88",
+        "email": "sanyam.admin@malguwa.edu.in"
+      }
+    ],
+    "cacs": [
+      {
+        "docId": "5XFY10Pm9laYloJ0FPVLry4tU513",
+        "username": "Sanjayjain1979",
+        "email": "cac.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "USR-CAC-01",
+        "username": "Sanjayjain1979",
+        "email": "cac.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "USR-CAC-02",
+        "username": "Sanmatijain99",
+        "email": "cac.sanmati@mp.gov.in"
+      },
+      {
+        "docId": "oufJw9KrxmSo7p4AbxaCyWzzFAt1",
+        "username": "Sanmatijain99",
+        "email": "cac.sanmati@mp.gov.in"
+      },
+      {
+        "docId": "sanjayjain1979",
+        "username": "Sanjayjain1979",
+        "email": "cac.malguwa@mp.gov.in"
+      },
+      {
+        "docId": "sanmatijain99",
+        "username": "Sanmatijain99",
+        "email": "cac.sanmati@mp.gov.in"
+      }
+    ],
+    "schools": {
+      "total": 78,
+      "udiseDocIds": 37,
+      "usrSeedDocIds": 37,
+      "authUidDocIds": 4
+    }
+  },
+  "auditLogsCount": 14,
+  "securityEventsCount": 405
+}

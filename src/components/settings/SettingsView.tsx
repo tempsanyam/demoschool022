@@ -19,6 +19,8 @@ import {
   WifiOff,
   KeyRound,
   AlertTriangle,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
@@ -54,6 +56,7 @@ export const SettingsView: React.FC = () => {
 
   const {
     schools,
+    allSchools,
     students,
     staff,
     facilities,
@@ -64,17 +67,40 @@ export const SettingsView: React.FC = () => {
     academicSessions,
     activeSessionId,
     activateSession,
+    studentMasters,
+    studentAcademicRecords,
+    studentTransfers,
+    staffMasters,
+    staffPostings,
+    rasoiya,
+    shgs,
+    literacyRegisters,
+    illiteratePersons,
+    aksharSathis,
+    examCycles,
+    literacyExamResults,
+    supportingInstitutions,
+    notifications,
+    documents,
+    auditLogs,
+    settings,
     isCloudConnected,
     cloudSyncStatus,
     lastCloudSyncAt,
     triggerManualCloudSync,
+    triggerPurgeCloudData,
     connectivityState,
     checkCloudConnectivity,
+    logActivity,
   } = useData();
 
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [isCloudPurging, setIsCloudPurging] = useState(false);
   const [isRetryingAuth, setIsRetryingAuth] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
+  const [cloudPurgeMessage, setCloudPurgeMessage] = useState<{ success: boolean; text: string } | null>(null);
+  const [restoreMessage, setRestoreMessage] = useState<{ success: boolean; text: string } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<'SESSIONS' | 'GENERAL' | 'BACKUP' | 'INFO' | 'FEATURE_CONTROL'>('SESSIONS');
   const [isResetDone, setIsResetDone] = useState(false);
@@ -83,13 +109,14 @@ export const SettingsView: React.FC = () => {
   const sessionsSubEval = getFeatureEvaluation('module.settings.sub.sessions');
   const backupSubEval = getFeatureEvaluation('module.settings.sub.backup');
 
-  // Export full JSON Backup
+  // Export full JSON Backup covering 100% of modules
   const handleBackupDownload = () => {
     if (isSchoolUser) {
       alert('अनधिकृत कार्रवाई (403 Forbidden): केवल संकुल प्रशासक (ADMIN) एवं जन शिक्षक (CAC) ही डेटा बैकअप डाउनलोड कर सकते हैं।');
       return;
     }
     const fullBackup = {
+      backupVersion: 'v2026.malguwa.handover_ready_v1',
       clusterDiseCode: institutionConfig.diseCode,
       clusterName: institutionConfig.institutionName,
       block: institutionConfig.block,
@@ -97,14 +124,31 @@ export const SettingsView: React.FC = () => {
       exportedAt: new Date().toISOString(),
       session: activeSessionId,
       academicSessions,
-      schools,
+      schools: allSchools || schools,
+      studentMasters,
+      studentAcademicRecords,
+      studentTransfers,
+      staffMasters,
+      staffPostings,
       students,
       staff,
       facilities,
       attendance,
       mdmRecords,
+      rasoiya,
+      shgs,
+      literacyRegisters,
+      illiteratePersons,
+      aksharSathis,
+      examCycles,
+      literacyExamResults,
+      supportingInstitutions,
       governmentWork,
-      complaints
+      complaints,
+      notifications,
+      documents,
+      auditLogs,
+      settings,
     };
 
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
@@ -114,6 +158,69 @@ export const SettingsView: React.FC = () => {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    logActivity('EXPORT', 'System Settings', 'समस्त संकुल डेटाबेस का पूर्ण JSON बैकअप डाउनलोड किया गया।');
+  };
+
+  // Restore JSON Backup
+  const handleBackupRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) {
+      alert('अनधिकृत कार्रवाई (403 Forbidden): केवल संकुल प्रशासक (ADMIN) ही बैकअप रीस्टोर कर सकते हैं।');
+      return;
+    }
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const data = JSON.parse(text);
+        if (!data || typeof data !== 'object') {
+          throw new Error('अमान्य JSON फाइल प्रारूप');
+        }
+
+        if (!window.confirm('क्या आप सुनिश्चित हैं कि यह बैकअप रीस्टोर करना चाहते हैं?\n\nसावधानी: मौजूदा डेटा बैकअप फ़ाइल की सामग्री से अद्यतन हो जाएगा।')) {
+          return;
+        }
+
+        if (Array.isArray(data.schools) && data.schools.length > 0) {
+          safeSetJSON('jsk_schools', data.schools);
+        }
+        if (Array.isArray(data.academicSessions)) {
+          safeSetJSON('jsk_academic_sessions', data.academicSessions);
+        }
+        if (Array.isArray(data.studentMasters)) safeSetJSON('jsk_student_masters', data.studentMasters);
+        if (Array.isArray(data.studentAcademicRecords)) safeSetJSON('jsk_student_academic_records', data.studentAcademicRecords);
+        if (Array.isArray(data.studentTransfers)) safeSetJSON('jsk_student_transfers', data.studentTransfers);
+        if (Array.isArray(data.staffMasters)) safeSetJSON('jsk_staff_masters', data.staffMasters);
+        if (Array.isArray(data.staffPostings)) safeSetJSON('jsk_staff_postings', data.staffPostings);
+        if (Array.isArray(data.facilities)) safeSetJSON('jsk_facilities', data.facilities);
+        if (Array.isArray(data.attendance)) safeSetJSON('jsk_attendance', data.attendance);
+        if (Array.isArray(data.mdmRecords)) safeSetJSON('jsk_mdm', data.mdmRecords);
+        if (Array.isArray(data.rasoiya)) safeSetJSON('jsk_rasoiya', data.rasoiya);
+        if (Array.isArray(data.shgs)) safeSetJSON('jsk_shgs', data.shgs);
+        if (Array.isArray(data.governmentWork)) safeSetJSON('jsk_work', data.governmentWork);
+        if (Array.isArray(data.complaints)) safeSetJSON('jsk_complaints', data.complaints);
+        if (Array.isArray(data.notifications)) safeSetJSON('jsk_notifications', data.notifications);
+        if (Array.isArray(data.documents)) safeSetJSON('jsk_documents', data.documents);
+        if (data.settings) safeSetJSON('jsk_settings', data.settings);
+
+        setRestoreMessage({
+          success: true,
+          text: 'बैकअप सफलतापूर्वक रीस्टोर किया गया। परिवर्तन प्रभावी करने हेतु पृष्ठ रीलोड हो रहा है...',
+        });
+        logActivity('RESTORE', 'System Settings', 'व्यवस्थापक द्वारा JSON बैकअप से डेटा रीस्टोर किया गया।');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } catch (err: any) {
+        setRestoreMessage({
+          success: false,
+          text: `रीस्टोर विफल: ${err?.message || 'फ़ाइल पढ़ने में त्रुटि'}`,
+        });
+      }
+    };
+    reader.readAsText(file);
   };
 
   // Reset to default seed data
@@ -399,6 +506,7 @@ export const SettingsView: React.FC = () => {
                     onClick={async () => {
                       setIsCloudSyncing(true);
                       setCloudSyncMessage(null);
+                      setCloudPurgeMessage(null);
                       try {
                         const res = await triggerManualCloudSync();
                         if (res.success) {
@@ -412,11 +520,50 @@ export const SettingsView: React.FC = () => {
                         setIsCloudSyncing(false);
                       }
                     }}
-                    disabled={isCloudSyncing}
-                    className="px-4 py-2 bg-[#0B6B4B] hover:bg-[#08553B] text-white rounded-xl font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50 text-xs"
+                    disabled={isCloudSyncing || isCloudPurging}
+                    className="px-3.5 py-2 bg-[#0B6B4B] hover:bg-[#08553B] text-white rounded-xl font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50 text-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
                     <span>{isCloudSyncing ? 'सिंक हो रहा है...' : 'मैन्युअल क्लाउड सिंक'}</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('क्या आप सुनिश्चित हैं कि Firebase क्लाउड डेटाबेस से सभी पुराने/डमी रिकॉर्ड्स (विद्यार्थी, शिक्षक, उपस्थिति, MDM आदि) हटाना चाहते हैं?\n\n✔ 37 शासकीय शालाओं का मास्टर डेटा पूर्णतः सुरक्षित रहेगा।\n✔ अधिकृत यूज़र्स व अकादमिक सत्र सुरक्षित रहेंगे।')) {
+                        return;
+                      }
+                      setIsCloudPurging(true);
+                      setCloudPurgeMessage(null);
+                      setCloudSyncMessage(null);
+                      try {
+                        const res = await triggerPurgeCloudData();
+                        if (res.success) {
+                          setCloudPurgeMessage({
+                            success: true,
+                            text: `क्लाउड से कुल ${res.deletedCount} पुराने/डमी रिकॉर्ड्स सफलतापूर्वक हटा दिए गए हैं। Firestore अब पूर्णतः स्वच्छ है।`,
+                          });
+                        } else {
+                          const errDetail = res.errors.length > 0 ? ` (${res.errors[0]})` : '';
+                          setCloudPurgeMessage({
+                            success: false,
+                            text: `क्लाउड क्लीनअप में त्रुटि आई${errDetail}। कृपया सुनिश्चित करें कि आप ADMIN के रूप में लॉगिन हैं।`,
+                          });
+                        }
+                      } catch (e: any) {
+                        setCloudPurgeMessage({
+                          success: false,
+                          text: `क्लाउड क्लीनअप विफल हुआ: ${e?.message || 'अज्ञात त्रुटि'}`,
+                        });
+                      } finally {
+                        setIsCloudPurging(false);
+                      }
+                    }}
+                    disabled={isCloudPurging || isCloudSyncing}
+                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50 text-xs shadow-xs"
+                    title="क्लाउड डेटाबेस से डमी/पुराना डेटा साफ करें"
+                  >
+                    <Trash2 className={`w-3.5 h-3.5 ${isCloudPurging ? 'animate-spin' : ''}`} />
+                    <span>{isCloudPurging ? 'क्लाउड साफ हो रहा है...' : 'क्लाउड डमी डेटा हटाएं'}</span>
                   </button>
                 </div>
               </div>
@@ -480,28 +627,88 @@ export const SettingsView: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {cloudPurgeMessage && (
+                <div
+                  className={`p-2.5 rounded-xl font-semibold text-xs flex items-center justify-between border ${
+                    cloudPurgeMessage.success
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                  }`}
+                >
+                  <span>{cloudPurgeMessage.text}</span>
+                  <button
+                    onClick={() => setCloudPurgeMessage(null)}
+                    className="underline cursor-pointer ml-2 shrink-0"
+                  >
+                    बंद करें
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* 3. Database Backup */}
-          <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
-                <Database className="w-4 h-4 text-blue-600" />
-                <span>डेटाबेस पूर्ण बैकअप (JSON Export)</span>
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                समस्त संकुल शालाओं, छात्रों, शिक्षकों, सुविधाओं एवं ऑडिट का संपूर्ण डेटाबेस डाउनलोड करें
-              </p>
+          {/* 3. Database Backup & Restore */}
+          <div className="bg-white dark:bg-[#17211C] p-5 rounded-2xl border border-[#DDE7E2] dark:border-[#2B3933] shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                  <Database className="w-4 h-4 text-blue-600" />
+                  <span>डेटाबेस पूर्ण बैकअप एवं रीस्टोर (JSON Export / Restore)</span>
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  समस्त 37 संकुल शालाओं, सत्रों, छात्रों, शिक्षकों, सुविधाओं, मध्याह्न भोजन, उल्लास साक्षरता एवं ऑडिट का संपूर्ण डेटाबेस डाउनलोड या रीस्टोर करें
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleBackupDownload}
+                  className="px-4 py-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-xl font-bold hover:bg-blue-100 flex items-center gap-1.5 cursor-pointer text-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>बैकअप डाउनलोड करें</span>
+                </button>
+
+                {isAdmin && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={handleBackupRestore}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-xl font-bold hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer text-xs"
+                      title="पूर्व बैकअप JSON फ़ाइल से डेटा रीस्टोर करें"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>बैकअप रीस्टोर करें</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <button
-              onClick={handleBackupDownload}
-              className="px-4 py-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-xl font-bold hover:bg-blue-100 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>बैकअप डाउनलोड करें</span>
-            </button>
+            {restoreMessage && (
+              <div
+                className={`p-2.5 rounded-xl font-semibold text-xs flex items-center justify-between border ${
+                  restoreMessage.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                }`}
+              >
+                <span>{restoreMessage.text}</span>
+                <button
+                  onClick={() => setRestoreMessage(null)}
+                  className="underline cursor-pointer ml-2 shrink-0"
+                >
+                  हटाएं
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 4. Factory Reset to Seed Data */}

@@ -175,6 +175,8 @@ import {
   uploadInitialDatasetToFirestore,
   purgeAllOperationalCloudCollections,
   purgeAllCloudSchools,
+  purgeLegacyAndOperationalCloudData,
+  CloudPurgeResult,
   executePhase2LocalToFirestoreMigration,
   preparePhase2LocalToFirestoreMigration,
   Phase2LocalToFirestoreMigrationReport,
@@ -188,6 +190,7 @@ interface DataContextType {
   cloudSyncStatus: 'synced' | 'syncing' | 'offline' | 'error';
   lastCloudSyncAt: Date | null;
   triggerManualCloudSync: () => Promise<{ success: boolean; count: number }>;
+  triggerPurgeCloudData: () => Promise<CloudPurgeResult>;
   connectivityState: CloudConnectivityResult;
   checkCloudConnectivity: () => Promise<CloudConnectivityResult>;
 
@@ -1952,6 +1955,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Manual cloud sync failed:', err);
       setCloudSyncStatus('error');
       return { success: false, count: 0 };
+    }
+  };
+
+  // Manual Trigger to safely purge all residual/dummy operational collections from Cloud Firestore
+  const triggerPurgeCloudData = async (): Promise<CloudPurgeResult> => {
+    setCloudSyncStatus('syncing');
+    try {
+      const res = await purgeLegacyAndOperationalCloudData();
+      if (res.success) {
+        setCloudSyncStatus('synced');
+        setLastCloudSyncAt(new Date());
+      } else {
+        setCloudSyncStatus('error');
+      }
+      return res;
+    } catch (err: any) {
+      console.error('Purge cloud data failed:', err);
+      setCloudSyncStatus('error');
+      return {
+        success: false,
+        deletedCount: 0,
+        collectionBreakdown: {},
+        errors: [err?.message || String(err)],
+      };
     }
   };
 
@@ -6862,6 +6889,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cloudSyncStatus,
         lastCloudSyncAt,
         triggerManualCloudSync,
+        triggerPurgeCloudData,
         connectivityState,
         checkCloudConnectivity,
 

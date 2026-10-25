@@ -1,0 +1,132 @@
+{
+  "schools": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "studentMasters": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "studentAcademicRecords": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "staffMasters": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "staffPostings": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "attendance": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "mdmRecords": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "rasoiya": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "shgs": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "facilities": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "literacyRegisters": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "illiteratePersons": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "aksharSathis": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "examCycles": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "literacyExamResults": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "supportingInstitutions": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "governmentWork": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "complaints": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "notifications": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "documents": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "academicSessions": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "users": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "systemSettings": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "auditLogs": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "preAuthSecurityEvents": {
+    "status": "ERROR",
+    "code": "permission-denied",
+    "message": "Missing or insufficient permissions."
+  },
+  "_connection_test": {
+    "status": "SUCCESS",
+    "count": 0,
+    "docs": []
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "timestamp": "2026-10-25T08:28:29.994Z",
+  "status": "SUCCESS",
+  "adminUid": "t3yFjtNtaFUIDeO9TnLwPmQDP9G2",
+  "adminEmail": "sanyam.admin@malguwa.edu.in",
+  "purgedSummary": {
+    "studentAcademicRecords": 982,
+    "staffPostings": 431,
+    "rasoiya": 148,
+    "governmentWork": 11,
+    "notifications": 3,
+    "literacyRegisters": 6,
+    "illiteratePersons": 9,
+    "aksharSathis": 8,
+    "literacyExamResults": 6,
+    "supportingInstitutions": 3
+  },
+  "totalPurged": 1607,
+  "finalAuditResults": {
+    "studentAcademicRecords": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "staffPostings": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "rasoiya": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "governmentWork": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "notifications": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "literacyRegisters": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "illiteratePersons": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "aksharSathis": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "literacyExamResults": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "supportingInstitutions": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "attendance": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "mdmRecords": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "shgs": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "facilities": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "complaints": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "documents": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "studentMasters": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "staffMasters": {
+      "count": 0,
+      "expected": 0,
+      "status": "CLEAN_ZERO (PASSED)"
+    },
+    "schools": {
+      "count": 37,
+      "expected": 37,
+      "status": "PROTECTED_INTACT (PASSED)"
+    },
+    "academicSessions": {
+      "count": 16,
+      "expected": 16,
+      "status": "PROTECTED_INTACT (PASSED)"
+    },
+    "examCycles": {
+      "count": 7,
+      "expected": 7,
+      "status": "PROTECTED_INTACT (PASSED)"
+    },
+    "users": {
+      "count": 88,
+      "expected": 88,
+      "status": "PROTECTED_INTACT (PASSED)"
+    },
+    "auditLogs": {
+      "count": 14,
+      "expected": 14,
+      "status": "PROTECTED_INTACT (PASSED)"
+    },
+    "preAuthSecurityEvents": {
+      "count": 405,
+      "expected": 405,
+      "status": "PROTECTED_INTACT (PASSED)"
+    }
+  }
+}

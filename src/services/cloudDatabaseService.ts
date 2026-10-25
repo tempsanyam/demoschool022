@@ -1582,16 +1582,33 @@ export async function purgeAllCloudSchools(): Promise<{ success: boolean; delete
   return { success: true, deletedCount };
 }
 
-export async function purgeAllOperationalCloudCollections(): Promise<{ success: boolean; deletedCount: number }> {
+export interface CloudPurgeResult {
+  success: boolean;
+  deletedCount: number;
+  collectionBreakdown: Record<string, number>;
+  errors: string[];
+}
+
+/**
+ * Safely purges all residual/dummy operational cloud collections from Cloud Firestore.
+ * Strictly PROTECTS:
+ * - 37 Official Schools (`schools`)
+ * - User Directory (`users`)
+ * - System Settings (`systemSettings`)
+ * - Academic Sessions (`academicSessions`)
+ * - Audit Trail (`auditLogs`)
+ */
+export async function purgeLegacyAndOperationalCloudData(): Promise<CloudPurgeResult> {
   const collectionsToPurge = [
-    'schools',
     'studentMasters',
     'studentAcademicRecords',
+    'students',
     'staffMasters',
     'staffPostings',
+    'staff',
     'attendance',
+    'mdmRecords',
     'mdm_records',
-    'facilities',
     'rasoiya',
     'shgs',
     'literacyRegisters',
@@ -1606,26 +1623,46 @@ export async function purgeAllOperationalCloudCollections(): Promise<{ success: 
   ];
 
   let totalDeleted = 0;
+  const collectionBreakdown: Record<string, number> = {};
+  const errors: string[] = [];
+
   for (const colName of collectionsToPurge) {
     try {
       const snap = await getDocs(collection(db, colName));
       if (!snap.empty) {
         const chunkSize = 400;
         const docs = snap.docs;
+        let colDeleted = 0;
         for (let i = 0; i < docs.length; i += chunkSize) {
           const batch = writeBatch(db);
           const chunk = docs.slice(i, i + chunkSize);
           chunk.forEach((d) => batch.delete(d.ref));
           await batch.commit();
-          totalDeleted += chunk.length;
+          colDeleted += chunk.length;
         }
+        collectionBreakdown[colName] = colDeleted;
+        totalDeleted += colDeleted;
+      } else {
+        collectionBreakdown[colName] = 0;
       }
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || String(err);
       console.warn(`Purge operational cloud collection notice (${colName}):`, err);
+      errors.push(`${colName}: ${msg}`);
     }
   }
 
-  return { success: true, deletedCount: totalDeleted };
+  return {
+    success: errors.length === 0,
+    deletedCount: totalDeleted,
+    collectionBreakdown,
+    errors,
+  };
+}
+
+export async function purgeAllOperationalCloudCollections(): Promise<{ success: boolean; deletedCount: number }> {
+  const res = await purgeLegacyAndOperationalCloudData();
+  return { success: res.success, deletedCount: res.deletedCount };
 }
 
 // ----------------------
