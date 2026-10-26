@@ -1,0 +1,168 @@
+{
+  "timestamp": "2026-10-26T17:18:43.782Z",
+  "isolationPass": true,
+  "results": [
+    {
+      "module": "विद्यार्थी मास्टर (Student Masters)",
+      "collection": "studentMasters",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "विद्यार्थी अकादमिक रिकॉर्ड (Student Academic Records)",
+      "collection": "studentAcademicRecords",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "शिक्षक मास्टर (Staff Masters)",
+      "collection": "staffMasters",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "शिक्षक पदस्थापना (Staff Postings)",
+      "collection": "staffPostings",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "उपस्थिति (Attendance)",
+      "collection": "attendance",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "मध्याह्न भोजन (MDM Records)",
+      "collection": "mdmRecords",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "रसोइया (Rasoiya)",
+      "collection": "rasoiya",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "स्व-सहायता समूह (SHGs)",
+      "collection": "shgs",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "शाला भौतिक सुविधाएं (Facilities)",
+      "collection": "facilities",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "निर्माण एवं शासकीय कार्य (Government Work)",
+      "collection": "governmentWork",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "शिकायत निवारण (Complaints)",
+      "collection": "complaints",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "परिपत्र एवं सूचनाएँ (Notifications)",
+      "collection": "notifications",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "दस्तावेज़ (Documents)",
+      "collection": "documents",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "उल्लास साक्षरता रजिस्टर (Literacy Registers)",
+      "collection": "literacyRegisters",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "असाक्षर शिक्षार्थी (Illiterate Persons)",
+      "collection": "illiteratePersons",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "अक्षर साथी स्वयंसेवी (Akshar Sathis)",
+      "collection": "aksharSathis",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "उल्लास परीक्षा परिणाम (Literacy Exam Results)",
+      "collection": "literacyExamResults",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    },
+    {
+      "module": "सहयोगी संस्थाएँ (Supporting Institutions)",
+      "collection": "supportingInstitutions",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS",
+      "notes": "100% Round-trip persistence verified"
+    }
+  ]
+}

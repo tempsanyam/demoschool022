@@ -128,6 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'reports', label: 'शासकीय रिपोर्ट केंद्र', sub: 'Reports & Analytics', icon: FileBarChart, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
         { id: 'upload', label: 'डेटा प्रविष्टि एवं अपलोड', sub: 'Data Entry & Upload', icon: UploadCloud, badge: null, roles: ['ADMIN'] },
         { id: 'history', label: 'गतिविधि इतिहास', sub: 'History / Audit', icon: History, badge: null, roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
+        { id: 'qa-runner', label: '37 शाला QA लाइव रनर', sub: 'QA Runner & Live Log', icon: ClipboardCheck, badge: 'QA', roles: ['CAC', 'ADMIN', 'SCHOOL', 'PRINCIPAL', 'TEACHER', 'OPERATOR'] },
       ],
     },
     {

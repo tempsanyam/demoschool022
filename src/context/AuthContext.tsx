@@ -722,7 +722,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const schoolUser = knownUsers.find((u) => u.assignedSchoolUdise === matchedSchoolCred.udise) ||
         OFFICIAL_37_SCHOOL_USERS.find((u) => u.assignedSchoolUdise === matchedSchoolCred.udise)!;
 
-      const schoolEmail = `${matchedSchoolCred.username.toLowerCase()}@malguwa.edu.in`;
+      const schoolEmail = `${matchedSchoolCred.udise}@malguwa.edu.in`;
       setCachedAuthCreds({ email: schoolEmail, pass: cleanPass });
       setFirebaseAuthStatus('authenticated');
       setFirebaseAuthError(null);
@@ -733,8 +733,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           cred = await signInWithEmailAndPassword(auth, schoolEmail, cleanPass);
         } catch (fbErr: any) {
-          if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential') {
-            cred = await createUserWithEmailAndPassword(auth, schoolEmail, cleanPass);
+          try {
+            cred = await signInWithEmailAndPassword(auth, `${matchedSchoolCred.username.toLowerCase()}@malguwa.edu.in`, cleanPass);
+          } catch {
+            if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential') {
+              cred = await createUserWithEmailAndPassword(auth, schoolEmail, cleanPass);
+            }
           }
         }
         if (cred) {
@@ -797,7 +801,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. ADMIN & CAC FIREBASE LOGIN PATH
     // Map identifier to authoritative email domain
-    const mappedEmail = cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@malguwa.edu.in`;
+    let mappedEmail = cleanId.toLowerCase();
+    if (cleanLowerId === 'sanyamjain88' || cleanLowerId === 'admin') {
+      mappedEmail = 'sanyam.admin@malguwa.edu.in';
+    } else if (cleanLowerId === 'sanjayjain1979' || cleanLowerId === 'cac1') {
+      mappedEmail = 'cac.malguwa@mp.gov.in';
+    } else if (cleanLowerId === 'sanmatijain99' || cleanLowerId === 'cac2') {
+      mappedEmail = 'cac.sanmati@mp.gov.in';
+    } else if (!cleanId.includes('@')) {
+      mappedEmail = `${cleanLowerId}@malguwa.edu.in`;
+    }
     setCachedAuthCreds({ email: mappedEmail, pass: cleanPass });
     setFirebaseAuthStatus('initializing');
     setFirebaseAuthError(null);

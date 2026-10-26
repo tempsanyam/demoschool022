@@ -38,6 +38,7 @@ import { DocumentsView } from './components/documents/DocumentsView';
 import { ExportCenterView } from './components/export/ExportCenterView';
 import { DataUploadView } from './components/upload/DataUploadView';
 import { AuditLogView } from './components/audit/AuditLogView';
+import { LiveQATestDashboard } from './components/audit/LiveQATestDashboard';
 import { ReportsView } from './components/reports/ReportsView';
 import { GlobalSearchView } from './components/search/GlobalSearchView';
 import { ProfileView } from './components/profile/ProfileView';
@@ -626,6 +627,8 @@ const MainAppContent: React.FC = () => {
           )}
 
           {(currentView === 'history' || currentView === 'audit-log') && <AuditLogView />}
+
+          {(currentView === 'qa-runner' || currentView === 'qa-dashboard') && <LiveQATestDashboard />}
 
           {currentView === 'reports' && <ReportsView />}
 

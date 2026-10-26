@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
 import { institutionConfig } from '../../config/institutionConfig';
+import { auth } from '../../services/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import {
   Shield,
   Lock,
@@ -15,7 +17,9 @@ import {
   HelpCircle,
   X,
   ArrowRight,
-  Loader2
+  Loader2,
+  Mail,
+  CheckCircle2
 } from 'lucide-react';
 
 interface LoginViewProps {
@@ -37,6 +41,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   // Modals & Panels
   const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotTab, setForgotTab] = useState<'reset' | 'contact'>('reset');
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = resetIdentifier.trim().toLowerCase();
+    if (!clean) {
+      setResetStatus({ type: 'error', message: 'कृपया यूज़रनेम, UDISE या ईमेल दर्ज करें।' });
+      return;
+    }
+    setResetLoading(true);
+    setResetStatus(null);
+    try {
+      let email = clean;
+      if (!clean.includes('@')) {
+        email = `${clean}@malguwa.edu.in`;
+      }
+      await sendPasswordResetEmail(auth, email);
+      setResetStatus({
+        type: 'success',
+        message: `पासवर्ड रीसेट लिंक आधिकारिक ईमेल (${email}) पर सफलतापूर्वक भेज दिया गया है।`
+      });
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        setResetStatus({ type: 'error', message: 'इस यूज़रनेम/ईमेल के साथ कोई खाता नहीं मिला।' });
+      } else if (err.code === 'auth/quota-exceeded') {
+        setResetStatus({ type: 'error', message: 'Firebase अनुरोध सीमा (Quota Limit) पार हो गई है। कृपया कुछ समय बाद पुनः प्रयास करें या संकुल व्यवस्थापक से संपर्क करें।' });
+      } else {
+        setResetStatus({ type: 'error', message: err.message || 'पासवर्ड रीसेट अनुरोध विफल रहा।' });
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   // Client-side quick validation and login dispatch
   const handleLogin = (e?: React.FormEvent) => {
@@ -52,11 +92,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       return;
     }
     if (!cleanId) {
-      setErrorMessage('कृपया यूज़रनेम दर्ज करें (Username required)');
-      return;
-    }
-    if (/^\d{11}$/.test(cleanId)) {
-      setErrorMessage('शाला (UDISE) लॉगिन सुविधा उपलब्ध नहीं है। केवल मुख्य व्यवस्थापक (Admin) एवं 2 जन शिक्षक (CAC 1 व CAC 2) अधिकृत हैं।');
+      setErrorMessage('कृपया यूज़रनेम / UDISE दर्ज करें (Username or UDISE required)');
       return;
     }
     if (!cleanPass) {
@@ -339,37 +375,122 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </button>
             </div>
 
-            <div className="text-xs text-gray-600 dark:text-gray-300 space-y-3 leading-relaxed">
-              <p className="font-semibold text-[#0B6B4B] dark:text-emerald-300">
-                पासवर्ड रीसेट अथवा सहायता हेतु व्यवस्थापक से संपर्क करें:
-              </p>
-              <p>
-                सुरक्षा कारणों से ऑनलाइन स्वतः रीसेट प्रतिबंधित है। सहायता हेतु संकुल कार्यालय अथवा व्यवस्थापक से संपर्क करें:
-              </p>
-
-              <div className="space-y-2 bg-gray-50 dark:bg-gray-900/60 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11.5px]">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-gray-800 dark:text-gray-200">संयम जैन (System Admin):</span>
-                  <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">9826088159</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-gray-800 dark:text-gray-200">{institutionConfig.cac1.name} (CAC 1):</span>
-                  <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">{institutionConfig.cac1.mobile}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-gray-800 dark:text-gray-200">{institutionConfig.cac2.name} (CAC 2):</span>
-                  <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">{institutionConfig.cac2.mobile}</span>
-                </div>
-              </div>
+            {/* Modal Tabs */}
+            <div className="flex border-b border-gray-200 dark:border-gray-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setForgotTab('reset')}
+                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                  forgotTab === 'reset'
+                    ? 'border-[#0B6B4B] text-[#0B6B4B] dark:text-emerald-400 font-extrabold'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                ईमेल रीसेट लिंक
+              </button>
+              <button
+                type="button"
+                onClick={() => setForgotTab('contact')}
+                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                  forgotTab === 'contact'
+                    ? 'border-[#0B6B4B] text-[#0B6B4B] dark:text-emerald-400 font-extrabold'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                संकुल सहायता संपर्क
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowForgotModal(false)}
-              className="w-full bg-[#0B6B4B] text-white font-bold py-2 rounded-xl text-xs hover:bg-[#08543A] transition-colors cursor-pointer"
-            >
-              समझ गया / बंद करें (Close)
-            </button>
+            {forgotTab === 'reset' ? (
+              <form onSubmit={handleSendResetEmail} className="space-y-3.5">
+                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                  अपना 11-अंकीय शाला UDISE, यूज़रनेम या अधिकृत ईमेल दर्ज करें। हम उस पर सुरक्षित Firebase पासवर्ड रीसेट लिंक भेजेंगे:
+                </p>
+
+                {resetStatus && (
+                  <div
+                    className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
+                      resetStatus.type === 'success'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                        : 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    {resetStatus.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    )}
+                    <span className="flex-1 font-medium leading-relaxed">{resetStatus.message}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    UDISE / यूज़रनेम / ईमेल
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={resetIdentifier}
+                      onChange={(e) => setResetIdentifier(e.target.value)}
+                      placeholder="उदा. 23080100303 या HSHIRAPUR"
+                      disabled={resetLoading}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 dark:bg-[#0F1714] border border-gray-300 dark:border-[#263930] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B6B4B]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotModal(false);
+                      setResetStatus(null);
+                    }}
+                    className="flex-1 py-2 text-xs border border-gray-300 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    रद्द करें
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="flex-1 py-2 text-xs bg-[#0B6B4B] hover:bg-[#08543A] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                  >
+                    {resetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'रीसेट लिंक भेजें'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="text-xs text-gray-600 dark:text-gray-300 space-y-3 leading-relaxed">
+                <p className="font-semibold text-[#0B6B4B] dark:text-emerald-300">
+                  प्रशासनिक पासवर्ड रीसेट एवं तकनीकी सहायता:
+                </p>
+                <div className="space-y-2 bg-gray-50 dark:bg-gray-900/60 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11.5px]">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-800 dark:text-gray-200">संयम जैन (System Admin):</span>
+                    <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">9826088159</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-800 dark:text-gray-200">{institutionConfig.cac1.name} (CAC 1):</span>
+                    <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">{institutionConfig.cac1.mobile}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-800 dark:text-gray-200">{institutionConfig.cac2.name} (CAC 2):</span>
+                    <span className="font-mono text-[#0B6B4B] dark:text-emerald-400 font-bold">{institutionConfig.cac2.mobile}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="w-full bg-[#0B6B4B] text-white font-bold py-2 rounded-xl text-xs hover:bg-[#08543A] transition-colors cursor-pointer mt-2"
+                >
+                  समझ गया / बंद करें (Close)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

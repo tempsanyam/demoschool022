@@ -1,0 +1,264 @@
+{
+  "timestamp": "2026-10-26T17:35:19.154Z",
+  "results": [
+    {
+      "udise": "23080100303",
+      "name": "HS HIRAPUR",
+      "email": "23080100303@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080110701",
+      "name": "PS JANAKPUR",
+      "email": "23080110701@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080110702",
+      "name": "PS KACHHIYAT",
+      "email": "23080110702@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111001",
+      "name": "PS PATTIGANESHJU",
+      "email": "23080111001@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111102",
+      "name": "MS DUBDEI",
+      "email": "23080111102@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111201",
+      "name": "PS KHAJRAR",
+      "email": "23080111201@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111202",
+      "name": "MS KHAJRAR",
+      "email": "23080111202@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111301",
+      "name": "PS PATTI BALWANTSINGH",
+      "email": "23080111301@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111302",
+      "name": "PS PURAINIYA",
+      "email": "23080111302@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111404",
+      "name": "MS HIRAPUR",
+      "email": "23080111404@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111405",
+      "name": "PS PURA KHERA HIRAPUR",
+      "email": "23080111405@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111406",
+      "name": "PS TURKA",
+      "email": "23080111406@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111408",
+      "name": "PS DIGORA",
+      "email": "23080111408@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111603",
+      "name": "MS SARKAR",
+      "email": "23080111603@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111702",
+      "name": "MS BANPURA BUZURG",
+      "email": "23080111702@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111703",
+      "name": "PS PURUWA",
+      "email": "23080111703@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111801",
+      "name": "PS BAR",
+      "email": "23080111801@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080111902",
+      "name": "MS VARME",
+      "email": "23080111902@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113101",
+      "name": "PS DARGUWAN JAGIR",
+      "email": "23080113101@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113102",
+      "name": "PS DHIMROLA",
+      "email": "23080113102@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113103",
+      "name": "PS HB DARGUWAN JAGIR",
+      "email": "23080113103@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113104",
+      "name": "GHS DARGUWAN",
+      "email": "23080113104@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113203",
+      "name": "PS BANDHIYANPURA",
+      "email": "23080113203@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113301",
+      "name": "PS KACHHIYA KHERA",
+      "email": "23080113301@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113302",
+      "name": "MS KACHHIYA KHERA",
+      "email": "23080113302@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113401",
+      "name": "PS MAUNE KA KHERA",
+      "email": "23080113401@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113402",
+      "name": "MS MAUNE KA KHERA",
+      "email": "23080113402@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113403",
+      "name": "PS BASENDU",
+      "email": "23080113403@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113602",
+      "name": "MS MALGUWAN",
+      "email": "23080113602@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113603",
+      "name": "PS DHUVYA",
+      "email": "23080113603@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113605",
+      "name": "PS DHIMARWAN",
+      "email": "23080113605@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113606",
+      "name": "PS MAGORIYA",
+      "email": "23080113606@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113607",
+      "name": "HS MALGUWAN",
+      "email": "23080113607@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080113701",
+      "name": "PS GARROLI",
+      "email": "23080113701@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080115206",
+      "name": "PRI MAA SARASWATI GM MALGUWAN",
+      "email": "23080115206@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23080115210",
+      "name": "PRI VEERANGANA AWANTI KUDILA",
+      "email": "23080115210@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    },
+    {
+      "udise": "23084101366",
+      "name": "SARSWATI SHISHU MANDIR BANPURA BUZURG",
+      "email": "23084101366@malguwa.edu.in",
+      "status": "ACCOUNT_EXISTS",
+      "note": "Confirmed in Firebase Auth"
+    }
+  ]
+}
