@@ -1734,7 +1734,7 @@ export function preparePhase2LocalToFirestoreMigration(
     documents?: DocumentItem[];
   },
   defaultSessionId: string = '2026-27',
-  fallbackUdise: string = '23080110702'
+  fallbackUdise: string = '23080113607'
 ): Phase2LocalToFirestoreMigrationReport {
   const nowIso = new Date().toISOString();
   const collectionsReport: Record<string, Phase2MigrationCollectionStat> = {};

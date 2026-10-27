@@ -298,7 +298,7 @@ export const TeacherPrintModal: React.FC<TeacherPrintModalProps> = ({
                 <div className="font-bold text-gray-900 border-t border-gray-400 pt-1">
                   संकुल प्राचार्य / जन शिक्षा केंद्र प्रभारी
                 </div>
-                <div className="text-[10px] text-gray-500">शा.उ.मा.वि. मलगुवां (23080110702)</div>
+                <div className="text-[10px] text-gray-500">{institutionConfig.institutionName} ({institutionConfig.diseCode})</div>
               </div>
             </div>
 

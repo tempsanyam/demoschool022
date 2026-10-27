@@ -6677,6 +6677,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (destSchoolUdise && !/^\d{11}$/.test(destSchoolUdise)) {
       return { success: false, message: 'DISE/UDISE Code 11 अंकों का होना चाहिए।' };
     }
+    if (!transferData.tcNumber || !transferData.tcNumber.trim()) {
+      return { success: false, message: 'कृपया टीसी क्रमांक अनिवार्यतः दर्ज करें।' };
+    }
+
+    // Idempotency guard: prevent duplicate active transfers in the same session
+    const alreadyTransferred = studentTransfers.some(
+      (t) =>
+        t.studentId === transferData.studentId &&
+        (t.oldSessionId || selectedSessionId) === oldSession &&
+        t.oldSchoolUdise === transferData.oldSchoolUdise
+    );
+    if (alreadyTransferred) {
+      return {
+        success: false,
+        message: 'इस विद्यार्थी का स्थानांतरण (TC) इस सत्र में पहले ही दर्ज किया जा चुका है। संशोधन के लिए TC पंजी में संपादन करें।'
+      };
+    }
 
     const newTransfer: StudentTransferRecord = {
       ...transferData,
@@ -6685,6 +6702,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       destinationSchoolUdise: destSchoolUdise || undefined,
       newSchoolName: destSchoolName || (destSchoolUdise ? `UDISE: ${destSchoolUdise}` : ''),
       newSchoolUdise: destSchoolUdise || '',
+      tcNumber: transferData.tcNumber.trim(),
       transferDate: transferData.tcDate || new Date().toISOString().split('T')[0],
       createdBy: currentUser?.id || 'admin',
       createdByName: currentUser?.name || 'Administrator',
@@ -6704,9 +6722,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...e,
               enrollmentStatus: 'TRANSFERRED' as StudentEnrollmentStatus,
               transferStatus: 'TRANSFERRED_OUT',
-              tcNumber: transferData.tcNumber,
+              tcNumber: transferData.tcNumber.trim(),
               tcDate: transferData.tcDate,
-              remarks: `शाला स्थानांतरण (TC क्र. ${transferData.tcNumber || 'एन/ए'}): ${transferData.oldSchoolName} से ${
+              remarks: `शाला स्थानांतरण (TC क्र. ${transferData.tcNumber.trim()}): ${transferData.oldSchoolName} से ${
                 destSchoolName && destSchoolUdise
                   ? `${destSchoolName} (UDISE: ${destSchoolUdise})`
                   : destSchoolName || `UDISE ${destSchoolUdise}`
@@ -6716,6 +6734,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : e
       );
     });
+
+    // Cloud Database Persistence for academic enrollment status update
+    const targetEnrollment = studentAcademicRecords.find(
+      (e) =>
+        e.studentId === transferData.studentId &&
+        e.sessionId === oldSession &&
+        (e.schoolUdise === transferData.oldSchoolUdise || !transferData.oldSchoolUdise)
+    );
+    if (targetEnrollment) {
+      syncStudentEnrollmentToCloud({
+        ...targetEnrollment,
+        enrollmentStatus: 'TRANSFERRED',
+        transferStatus: 'TRANSFERRED_OUT',
+        tcNumber: transferData.tcNumber.trim(),
+        tcDate: transferData.tcDate,
+        remarks: `शाला स्थानांतरण (TC क्र. ${transferData.tcNumber.trim()}): ${transferData.oldSchoolName} से ${
+          destSchoolName && destSchoolUdise
+            ? `${destSchoolName} (UDISE: ${destSchoolUdise})`
+            : destSchoolName || `UDISE ${destSchoolUdise}`
+        } में स्थानांतरण`,
+        updatedAt: new Date().toISOString(),
+      }).catch((err) => console.warn('Cloud sync transfer student enrollment error:', err));
+    }
 
     logActivity(
       'STUDENT_TRANSFERRED',
@@ -6731,7 +6772,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return {
       success: true,
-      message: `विद्यार्थी ${student.name} का स्थानांतरण सफलतापूर्वक दर्ज किया गया (TC सं.: ${transferData.tcNumber || 'एन/ए'})`,
+      message: `विद्यार्थी ${student.name} का स्थानांतरण सफलतापूर्वक दर्ज किया गया (TC सं.: ${transferData.tcNumber.trim()})`,
     };
   };
 
@@ -6748,6 +6789,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     assertSessionModifiable(existing.oldSessionId || selectedSessionId, 'updateStudentTransfer');
     if (isSchoolUser) {
       assertSchoolAccess(existing.oldSchoolUdise, 'updateStudentTransfer');
+    }
+
+    if (updatedData.tcNumber !== undefined && !updatedData.tcNumber.trim()) {
+      return { success: false, message: 'कृपया टीसी क्रमांक अनिवार्यतः दर्ज करें।' };
     }
 
     const destSchoolName = (
@@ -6780,6 +6825,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       destinationSchoolUdise: destSchoolUdise || undefined,
       newSchoolName: destSchoolName || (destSchoolUdise ? `UDISE: ${destSchoolUdise}` : ''),
       newSchoolUdise: destSchoolUdise || '',
+      tcNumber: updatedData.tcNumber !== undefined ? updatedData.tcNumber.trim() : existing.tcNumber,
     };
 
     setStudentTransfers((prev) =>
@@ -6809,6 +6855,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return e;
       })
     );
+
+    // Cloud Database Persistence for academic enrollment updates
+    const targetEnrollment = studentAcademicRecords.find(
+      (e) =>
+        e.studentId === existing.studentId &&
+        e.sessionId === (existing.oldSessionId || selectedSessionId) &&
+        (e.schoolUdise === existing.oldSchoolUdise || !existing.oldSchoolUdise)
+    );
+    if (targetEnrollment) {
+      syncStudentEnrollmentToCloud({
+        ...targetEnrollment,
+        tcNumber: mergedTransfer.tcNumber,
+        tcDate: mergedTransfer.tcDate,
+        remarks: `शाला स्थानांतरण (TC क्र. ${mergedTransfer.tcNumber || 'एन/ए'}): ${existing.oldSchoolName || existing.oldSchoolUdise} से ${
+          destSchoolName && destSchoolUdise
+            ? `${destSchoolName} (UDISE: ${destSchoolUdise})`
+            : destSchoolName || `UDISE ${destSchoolUdise}`
+        } में स्थानांतरण`,
+        updatedAt: new Date().toISOString(),
+      }).catch((err) => console.warn('Cloud sync update transfer student enrollment error:', err));
+    }
 
     logActivity('UPDATE', 'Students', `स्थानांतरण अभिलेख (TC सं.: ${mergedTransfer.tcNumber || existing.tcNumber}) अद्यतन किया गया।`);
     return {

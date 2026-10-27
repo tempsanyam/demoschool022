@@ -56,7 +56,7 @@ export const ROLE_PERMISSIONS: Record<string, PermissionConfig> = {
       'work', 'government-work', 'notifications', 'complaints',
       'documents', 'export', 'export-center', 'upload', 'data-upload', 'history',
       'audit-log', 'reports', 'search', 'global-search', 'profile', 'settings',
-      'users', 'user-directory',
+      'users', 'user-directory', 'qa-runner', 'qa-dashboard',
       'literacy', 'literacy-dashboard', 'literacy-register', 'literacy-learners',
       'literacy-volunteers', 'literacy-exams', 'literacy-partners', 'literacy-reports', 'literacy-export'
     ],
@@ -78,7 +78,7 @@ export const ROLE_PERMISSIONS: Record<string, PermissionConfig> = {
       'work', 'government-work', 'notifications', 'complaints',
       'documents', 'export', 'export-center', 'history',
       'audit-log', 'reports', 'search', 'global-search', 'profile', 'settings',
-      'users', 'user-directory',
+      'users', 'user-directory', 'qa-runner', 'qa-dashboard',
       'literacy', 'literacy-dashboard', 'literacy-register', 'literacy-learners',
       'literacy-volunteers', 'literacy-exams', 'literacy-partners', 'literacy-reports', 'literacy-export'
     ],
@@ -98,7 +98,7 @@ export const ROLE_PERMISSIONS: Record<string, PermissionConfig> = {
       'facilities', 'mdm', 'rasoiya', 'cook', 'rasoiya-management', 'shg', 'shgs', 'shg-management', 'self-help-group',
       'work', 'government-work', 'notifications', 'complaints',
       'documents', 'export', 'export-center', 'reports',
-      'history', 'audit-log', 'search', 'global-search', 'profile',
+      'history', 'audit-log', 'search', 'global-search', 'profile', 'qa-runner', 'qa-dashboard',
       'literacy', 'literacy-dashboard', 'literacy-register', 'literacy-learners',
       'literacy-volunteers', 'literacy-exams', 'literacy-partners', 'literacy-reports', 'literacy-export'
     ],

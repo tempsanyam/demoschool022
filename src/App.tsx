@@ -536,6 +536,8 @@ const MainAppContent: React.FC = () => {
               'data-upload',
               'history',
               'audit-log',
+              'qa-runner',
+              'qa-dashboard',
               'reports',
               'search',
               'global-search',

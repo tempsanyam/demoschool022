@@ -36,10 +36,22 @@ export const FacilitiesView: React.FC = () => {
   } = useSchoolScope();
 
   const [selectedSchoolUdise, setSelectedSchoolUdise] = useState<string>(
-    currentSchoolUdise || (schools[0]?.udise || '')
+    isSchoolRestricted ? (currentSchoolUdise || '') : (currentSchoolUdise || schools[0]?.udise || '')
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Guarded sync: For SCHOOL role, strictly bind to assigned school UDISE;
+  // For CAC/ADMIN, preserve user selection across all 37 schools.
+  React.useEffect(() => {
+    if (isSchoolRestricted && currentSchoolUdise) {
+      if (selectedSchoolUdise !== currentSchoolUdise) {
+        setSelectedSchoolUdise(currentSchoolUdise);
+      }
+    } else if (!isSchoolRestricted && !selectedSchoolUdise && schools.length > 0) {
+      setSelectedSchoolUdise(schools[0].udise);
+    }
+  }, [isSchoolRestricted, currentSchoolUdise, selectedSchoolUdise, schools]);
 
   // Edit Modal State
   const [editingFacility, setEditingFacility] = useState<PhysicalFacility | null>(null);
@@ -49,8 +61,9 @@ export const FacilitiesView: React.FC = () => {
 
   const canEdit = currentUser?.role === 'CAC' || currentUser?.role === 'ADMIN' || currentUser?.role === 'SCHOOL';
 
-  const activeSchool = schools.find((s) => s.udise === selectedSchoolUdise);
-  const activeSchoolFacilities = scopedFacilities.filter((f) => f.schoolUdise === selectedSchoolUdise);
+  const effectiveActiveUdise = isSchoolRestricted ? (currentSchoolUdise || selectedSchoolUdise) : selectedSchoolUdise;
+  const activeSchool = schools.find((s) => s.udise === effectiveActiveUdise);
+  const activeSchoolFacilities = scopedFacilities.filter((f) => f.schoolUdise === effectiveActiveUdise);
 
   // Filtered facility list
   const filteredFacilities = useMemo(() => {

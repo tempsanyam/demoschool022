@@ -172,6 +172,20 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.students.action.delete', 'module.students'));
     }
 
+    // Student Transfers Collection (TC Register)
+    match /studentTransfers/{transferId} {
+      allow read: if isSignedIn() && (isAdmin() || isCAC() || isMySchool(resource.data.oldSchoolUdise));
+      allow create: if isSignedIn() && isValidId(transferId) && (
+        isAdmin() ||
+        ((isCAC() || isMySchool(request.resource.data.oldSchoolUdise)) && isFeatureAllowed('module.students.action.edit', 'module.students'))
+      );
+      allow update: if isSignedIn() && isValidId(transferId) && (
+        isAdmin() ||
+        ((isCAC() || (isMySchool(resource.data.oldSchoolUdise) && isMySchool(request.resource.data.oldSchoolUdise))) && isFeatureAllowed('module.students.action.edit', 'module.students'))
+      );
+      allow delete: if isAdmin() || (isCAC() && isFeatureAllowed('module.students.action.delete', 'module.students'));
+    }
+
     // Staff Masters Collection
     match /staffMasters/{staffId} {
       allow read: if isSignedIn();
